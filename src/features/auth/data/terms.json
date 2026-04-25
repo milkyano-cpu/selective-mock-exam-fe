@@ -1,0 +1,55 @@
+{
+  "title": "Aspire Academics",
+  "subtitle": "Terms & Conditions, Payment Policy & Privacy Policy",
+  "lastUpdated": "1 January 2026",
+  "sections": [
+    {
+      "heading": "1. About Aspire Academics",
+      "content": "Aspire Academics provides academic tutoring services for students from Year 3 to Year 12, including English, Mathematics, Selective Entry & Scholarship preparation, and VCE subjects."
+    },
+    {
+      "heading": "2. LMS Access & Onboarding",
+      "content": "Access to the Aspire Academics Learning Management System (LMS) is granted only after successful enrolment and payment. LMS access may be restricted or suspended if payment obligations are not met."
+    },
+    {
+      "heading": "3. Packages & Services",
+      "content": "Aspire Academics offers Standard and Premium packages. Premium packages include additional resources and eligibility to book one one-on-one consultation per week. Package benefits are non-transferable."
+    },
+    {
+      "heading": "4. Payment Policy",
+      "content": "All fees are payable termly and in advance. Payment must be made in full before the commencement of each term to confirm enrolment and maintain LMS access."
+    },
+    {
+      "heading": "5. Payment Methods",
+      "content": "Payments may be made online through the LMS via Stripe, by credit or debit card, or via EFTPOS at the Aspire Academics centre."
+    },
+    {
+      "heading": "6. Attendance, Missed Classes & Credit Policy",
+      "content": "Aspire Academics does not offer refunds. If a student misses up to two classes in a term, those classes will be credited to the following term. If three or more classes are missed, only two will be credited."
+    },
+    {
+      "heading": "7. One-on-One Consultations (Premium Package)",
+      "content": "Premium students are entitled to one one-on-one consultation per week. Unused consultations expire weekly and do not carry over."
+    },
+    {
+      "heading": "8. Notice Period",
+      "content": "A minimum of one week's notice prior to the end of term is required if a student will not continue into the following term."
+    },
+    {
+      "heading": "9. Behaviour & Communication",
+      "content": "All LMS communication must remain respectful and appropriate. Aspire Academics reserves the right to restrict access if misuse occurs."
+    },
+    {
+      "heading": "10. Privacy Policy",
+      "content": "Personal information is collected solely to deliver services and operate the LMS. Aspire Academics does not sell or distribute personal data."
+    },
+    {
+      "heading": "11. Technology Disclaimer",
+      "content": "Aspire Academics is not liable for temporary LMS outages, maintenance, or third-party system issues."
+    },
+    {
+      "heading": "12. Acceptance",
+      "content": "By enrolling, accessing the LMS, or selecting 'I Agree', you confirm acceptance of these Terms & Conditions."
+    }
+  ]
+}

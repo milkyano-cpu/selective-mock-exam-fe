@@ -1,4 +1,13 @@
-const NEXT_PUBLIC_API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE } from './authCookies';
+import { env } from './env';
+
+function getCookieValue(cookieHeader: string | null, cookieName: string): string | null {
+  if (!cookieHeader) return null;
+  const parts = cookieHeader.split(';').map((part) => part.trim());
+  const found = parts.find((part) => part.startsWith(`${cookieName}=`));
+  if (!found) return null;
+  return decodeURIComponent(found.slice(cookieName.length + 1));
+}
 
 /**
  * Helper to fetch data from Backend via Next.js API Route (Server-Side).
@@ -7,11 +16,28 @@ export async function fetchFromBackend(req: Request, path: string, options: Requ
   // Trace ID propagation
   const traceId = req.headers.get("x-trace-id") || "";
 
+  const authHeader = req.headers.get("authorization");
+  const cookieHeader = req.headers.get('cookie');
+  const accessTokenFromCookie = getCookieValue(cookieHeader, ACCESS_TOKEN_COOKIE);
+  const refreshTokenFromCookie = getCookieValue(cookieHeader, REFRESH_TOKEN_COOKIE);
+
   // Build headers
   const defaultHeaders: Record<string, string> = {
     "X-Trace-Id": traceId,
     "Content-Type": "application/json",
   };
+
+  if (authHeader) {
+    defaultHeaders["Authorization"] = authHeader;
+  } else if (accessTokenFromCookie) {
+    defaultHeaders["Authorization"] = `Bearer ${accessTokenFromCookie}`;
+  }
+
+  // Forward the refresh token as a Cookie header matching the backend's expected
+  // cookie name. The backend reads request.cookies.refresh_token on /auth/refresh.
+  if (refreshTokenFromCookie) {
+    defaultHeaders['Cookie'] = `refresh_token=${refreshTokenFromCookie}`;
+  }
 
   // Merge headers
   const headers = {
@@ -20,7 +46,7 @@ export async function fetchFromBackend(req: Request, path: string, options: Requ
   } as Record<string, string>;
 
   // Send request to backend
-  const url = `${NEXT_PUBLIC_API_URL}${path}`;
+  const url = `${env.apiUrl}${path}`;
 
   console.log(`[ServerBackend] ${options.method || "GET"} ${url} | TraceID: ${traceId}`);
 

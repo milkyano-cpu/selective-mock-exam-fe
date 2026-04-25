@@ -1,7 +1,8 @@
 export interface User {
   id: string;
   email: string;
-  name: string;
+  fullName?: string;
+  name?: string;
   role: 'STUDENT' | 'PARENT' | 'TUTOR' | 'ADMIN';
 }
 
@@ -11,7 +12,7 @@ export interface AuthResponse {
   data: {
     user: User;
     accessToken: string;
-    refreshToken: string;
+    refreshToken?: string;
   };
 }
 
@@ -21,7 +22,22 @@ export interface LoginCredentials {
 }
 
 export interface RegisterCredentials {
-  email: string;
-  password?: string;
-  name: string;
+  parent: {
+    fullName: string;
+    email: string;
+    phoneNumber: string;
+    address: string;
+  };
+  students: Array<{
+    fullName: string;
+    email: string;
+    gender: 'MALE' | 'FEMALE';
+    yearLevel: string;
+    schoolName: string;
+  }>;
+}
+
+export interface ChangePasswordPayload {
+  oldPassword: string;
+  newPassword: string;
 }

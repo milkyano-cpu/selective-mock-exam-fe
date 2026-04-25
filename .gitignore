@@ -43,3 +43,6 @@ next-env.d.ts
 # design guidelines
 public/aspire_color_guidelines.svg
 public/brand-color-guidelines.png
+
+# docs
+*.md
