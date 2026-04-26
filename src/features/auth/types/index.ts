@@ -4,6 +4,9 @@ export interface User {
   fullName?: string;
   name?: string;
   role: 'STUDENT' | 'PARENT' | 'TUTOR' | 'ADMIN';
+  status?: 'ACTIVE' | 'SUSPENDED' | 'BANNED';
+  hasProfilePhoto?: boolean;
+  profilePhotoUpdatedAt?: string | null;
 }
 
 export interface AuthResponse {

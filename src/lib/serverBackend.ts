@@ -20,12 +20,16 @@ export async function fetchFromBackend(req: Request, path: string, options: Requ
   const cookieHeader = req.headers.get('cookie');
   const accessTokenFromCookie = getCookieValue(cookieHeader, ACCESS_TOKEN_COOKIE);
   const refreshTokenFromCookie = getCookieValue(cookieHeader, REFRESH_TOKEN_COOKIE);
+  const isFormDataBody = typeof FormData !== 'undefined' && options.body instanceof FormData;
 
   // Build headers
   const defaultHeaders: Record<string, string> = {
     "X-Trace-Id": traceId,
-    "Content-Type": "application/json",
   };
+
+  if (!isFormDataBody) {
+    defaultHeaders["Content-Type"] = "application/json";
+  }
 
   if (authHeader) {
     defaultHeaders["Authorization"] = authHeader;

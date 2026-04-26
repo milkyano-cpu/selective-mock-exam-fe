@@ -13,12 +13,13 @@ import {
   Users,
   TrendingUp,
   CreditCard,
-  DollarSign,
-  User
+  DollarSign
 } from 'lucide-react';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { motion } from 'framer-motion';
+import { ProfileAvatar } from './ProfileAvatar';
+import { useProfilePhoto } from '@/features/users/hooks/useProfilePhoto';
 
 const studentMenuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
@@ -45,10 +46,12 @@ const adminMenuItems = [
 ];
 
 const tutorMenuItems = [
-  { icon: LayoutDashboard, label: 'Tutor Dashboard', href: '/dashboard' },
-  { icon: BookOpen, label: 'Grade Exams', href: '#' },
-  { icon: Users, label: 'My Classes', href: '#' },
-  { icon: FileText, label: 'Feedback', href: '#' },
+  { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
+  { icon: Users, label: 'Students & Classes', href: '#' },
+  { icon: FileText, label: 'Assignments', href: '#' },
+  { icon: BookOpen, label: 'Grading & Reviews', href: '#' },
+  { icon: Trophy, label: 'Question Bank', href: '#' },
+  { icon: TrendingUp, label: 'Study Resources', href: '#' },
   { icon: Settings, label: 'Settings', href: '/dashboard/settings' },
 ];
 
@@ -60,6 +63,7 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
   const pathname = usePathname();
   const { logout } = useAuth();
   const user = useAuthStore((state) => state.user);
+  const { photoUrl, isLoading } = useProfilePhoto();
   
   let menuItems = studentMenuItems;
   if (user?.role === 'PARENT') menuItems = parentMenuItems;
@@ -118,8 +122,8 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
 
       <div className="mt-auto border-t border-slate-200 p-4 dark:border-slate-800">
         <div className="group flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-2.5 transition-all hover:border-slate-300 hover:shadow-sm dark:border-slate-800 dark:bg-slate-900/50 dark:hover:border-slate-700">
-          <div className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[#0A9AE2] to-[#0659AA] text-white shadow-sm">
-            <User size={20} />
+          <div className="relative shrink-0">
+            <ProfileAvatar name={user?.fullName || user?.name} photoUrl={photoUrl} isLoading={isLoading} />
             <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-emerald-500 dark:border-slate-900"></div>
           </div>
           

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Sidebar } from '@/components/dashboard/Sidebar';
 import { Navbar } from '@/components/dashboard/Navbar';
 import { useAuthStore } from '@/features/auth/store/auth.store';
+import { userService } from '@/features/users/services/user.service';
 import { AnimatePresence, motion } from 'framer-motion';
 
 export default function DashboardLayout({
@@ -13,7 +14,9 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const { user } = useAuthStore();
+  const user = useAuthStore((state) => state.user);
+  const userId = user?.id;
+  const updateUser = useAuthStore((state) => state.updateUser);
   const router = useRouter();
   const isReady = useSyncExternalStore(
     (onStoreChange) => useAuthStore.persist.onFinishHydration(onStoreChange),
@@ -26,6 +29,32 @@ export default function DashboardLayout({
       router.push('/login');
     }
   }, [isReady, user, router]);
+
+  useEffect(() => {
+    if (!isReady || !userId) {
+      return;
+    }
+
+    let isCancelled = false;
+
+    const syncUser = async () => {
+      try {
+        const response = await userService.getMe();
+
+        if (!isCancelled && response.success) {
+          updateUser(response.data);
+        }
+      } catch {
+        return;
+      }
+    };
+
+    void syncUser();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [isReady, updateUser, userId]);
 
   if (!isReady || !user) {
     return (
@@ -69,7 +98,7 @@ export default function DashboardLayout({
       {/* Main Content Area */}
       <div className="flex-1 lg:ml-64 flex flex-col min-h-screen">
         <Navbar onMenuClick={() => setIsSidebarOpen(true)} />
-        <main className="mx-auto w-full max-w-7xl flex-1 p-4 lg:p-8">
+        <main className="w-full max-w-[1600px] flex-1 p-4 lg:p-8">
           {children}
         </main>
       </div>
