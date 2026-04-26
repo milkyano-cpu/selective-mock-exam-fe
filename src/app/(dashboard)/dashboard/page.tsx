@@ -25,7 +25,7 @@ export default function DashboardPage() {
         <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-slate-100">
-              Welcome back, <span className="text-[#0A9AE2]">Admin</span>! 👋
+              Welcome back, <span className="text-[#0A9AE2]">{firstName}</span>! 👋
             </h1>
             <p className="mt-1 font-medium text-slate-500 dark:text-slate-400">
               Here is what's happening with Aspire Academics today.
