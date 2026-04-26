@@ -18,6 +18,7 @@ import {
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { motion } from 'framer-motion';
+import { useTheme } from 'next-themes';
 import { ProfileAvatar } from './ProfileAvatar';
 import { useProfilePhoto } from '@/features/users/hooks/useProfilePhoto';
 
@@ -40,7 +41,7 @@ const parentMenuItems = [
 const adminMenuItems = [
   { icon: LayoutDashboard, label: 'Admin Panel', href: '/dashboard' },
   { icon: Users, label: 'Manage Users', href: '/dashboard/users' },
-  { icon: BookOpen, label: 'Manage Exams', href: '#' },
+  { icon: BookOpen, label: 'Manage Subjects', href: '/dashboard/subjects' },
   { icon: DollarSign, label: 'Revenue', href: '#' },
   { icon: Settings, label: 'Settings', href: '#' },
 ];
@@ -64,6 +65,7 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
   const { logout } = useAuth();
   const user = useAuthStore((state) => state.user);
   const { photoUrl, isLoading } = useProfilePhoto();
+  const { resolvedTheme } = useTheme();
   
   let menuItems = studentMenuItems;
   if (user?.role === 'PARENT') menuItems = parentMenuItems;
@@ -78,7 +80,7 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
           className="transition-transform hover:scale-105 active:scale-95 -ml-4 h-14 flex items-center overflow-hidden"
         >
           <img 
-            src="/logo.png" 
+            src={resolvedTheme === 'dark' ? '/logo-darkmode.png' : '/logo.png'} 
             alt="Aspire Academics" 
             className="w-52 h-auto object-contain"
           />

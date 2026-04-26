@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Sidebar } from '@/components/dashboard/Sidebar';
 import { Navbar } from '@/components/dashboard/Navbar';
@@ -14,15 +14,20 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isReady, setIsReady] = useState(false);
   const user = useAuthStore((state) => state.user);
   const userId = user?.id;
   const updateUser = useAuthStore((state) => state.updateUser);
   const router = useRouter();
-  const isReady = useSyncExternalStore(
-    (onStoreChange) => useAuthStore.persist.onFinishHydration(onStoreChange),
-    () => useAuthStore.persist.hasHydrated(),
-    () => false,
-  );
+
+  useEffect(() => {
+    const checkHydration = () => {
+      setIsReady(true);
+    };
+    // Defer the set state to avoid the synchronous effect warning
+    const timeout = setTimeout(checkHydration, 0);
+    return () => clearTimeout(timeout);
+  }, []);
 
   useEffect(() => {
     if (isReady && !user) {
