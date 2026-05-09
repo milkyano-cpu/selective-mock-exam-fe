@@ -117,9 +117,11 @@ export type ImportedQuestionItem = {
 export type BulkImportResult = {
   total:          number;
   created:        number;
+  skipped:        number;
   failed:         number;
   unresolved:     number;
   errors:         Array<{ row: number; reason: string }>;
+  skippedErrors:  Array<{ row: number; reason: string }>;
   unresolvedRows: UnresolvedRowItem[];
   createdQuestions: ImportedQuestionItem[];
 };

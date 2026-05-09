@@ -145,6 +145,11 @@ export default function CountdownsPage() {
   };
 
   const handleActivate = async (id: string) => {
+    if (activeCountdownId && activeCountdownId !== id) {
+      setErrorMsg('Only one countdown can be active at a time. Delete or edit the current active countdown first.');
+      return;
+    }
+
     setErrorMsg(null);
     setSuccessMsg(null);
 
@@ -159,6 +164,24 @@ export default function CountdownsPage() {
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       setErrorMsg(msg || 'Failed to activate countdown');
+    }
+  };
+
+  const handleDeactivate = async (id: string) => {
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    try {
+      const res = await countdownService.deactivate(id);
+      if (res.success) {
+        setSuccessMsg(res.message);
+        void fetchCountdowns(page);
+      } else {
+        setErrorMsg(res.message || 'Failed to deactivate countdown');
+      }
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setErrorMsg(msg || 'Failed to deactivate countdown');
     }
   };
 
@@ -254,6 +277,8 @@ export default function CountdownsPage() {
                 </tr>
               ) : (
                 items.map((item) => {
+                  const hasAnotherActiveCountdown = Boolean(activeCountdownId && activeCountdownId !== item.id);
+                  const isActivateDisabled = item.isExpired || hasAnotherActiveCountdown;
                   const statusText = item.isExpired
                     ? 'Expired'
                     : item.isActive
@@ -291,11 +316,25 @@ export default function CountdownsPage() {
                             <Edit2 size={13} /> Edit
                           </button>
                           <button
-                            onClick={() => void handleActivate(item.id)}
-                            disabled={item.isExpired || activeCountdownId === item.id}
-                            className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-bold text-emerald-600 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-emerald-400 dark:hover:bg-emerald-500/10"
+                            onClick={() => item.isActive ? void handleDeactivate(item.id) : void handleActivate(item.id)}
+                            disabled={isActivateDisabled}
+                            title={
+                              hasAnotherActiveCountdown
+                                ? 'Only one countdown can be active at a time'
+                                : item.isExpired
+                                  ? 'Expired countdowns cannot be activated'
+                                  : item.isActive
+                                    ? 'Deactivate this countdown'
+                                    : 'Activate countdown'
+                            }
+                            className={[
+                              'inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-50',
+                              item.isActive
+                                ? 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'
+                                : 'text-emerald-600 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:bg-emerald-500/10',
+                            ].join(' ')}
                           >
-                            <CheckCircle2 size={13} /> Activate
+                            <CheckCircle2 size={13} /> {item.isActive ? 'Inactive' : 'Activate'}
                           </button>
                           <button
                             onClick={() => void handleDelete(item.id)}

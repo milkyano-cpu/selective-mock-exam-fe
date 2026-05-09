@@ -181,7 +181,7 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
           </button>
         )}
         {/* Profile (Mobile Only) */}
-        <div className={`${isStudent ? 'hidden' : 'relative lg:hidden'}`} ref={profileRef}>
+        <div className={`${isStudent ? 'hidden' : 'relative lg:hidden'}`} ref={mobileProfileRef}>
           <button
             type="button"
             onClick={() => setIsProfileOpen((prev) => !prev)}

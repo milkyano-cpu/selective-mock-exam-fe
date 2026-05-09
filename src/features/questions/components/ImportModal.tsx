@@ -78,6 +78,8 @@ const buildQuestionCode = (name: string) => {
 
 const normalizeTopicName = (name: string) => name.trim().toLocaleLowerCase();
 
+const isAlreadyImportedReason = (reason: string) => reason.toLowerCase().includes('already exists');
+
 const getRequestErrorMessage = (err: unknown, fallback: string) => {
   if (isAxiosError(err)) {
     const message = (err.response?.data as { message?: string } | undefined)?.message;
@@ -539,6 +541,11 @@ export function ImportModal({
   const displayedReviewItems = reviewTableView === 'attention'
     ? attentionReviewItems
     : orderedReviewItems;
+  const skippedErrors = importResult?.skippedErrors ?? [];
+  const skippedCount = Math.max(importResult?.skipped ?? 0, skippedErrors.length);
+  const duplicateSkippedCount = skippedErrors.filter((err) => isAlreadyImportedReason(err.reason)).length;
+  const allSkippedRowsAlreadyExist = skippedErrors.length > 0 && duplicateSkippedCount === skippedErrors.length;
+  const hasNoRowsToReview = Boolean(importResult && reviewQuestions.length === 0 && unresolvedRows.length === 0);
   const missingTopicGroups = [...unresolvedRows
     .filter((row) => row.reason === 'TOPIC_NOT_FOUND')
     .reduce((map, row) => {
@@ -570,8 +577,14 @@ export function ImportModal({
                   {importResult.created > 0 && (
                     <span className="text-emerald-600 dark:text-emerald-400 font-bold">{importResult.created} created</span>
                   )}
+                  {importResult.created === 0 && skippedCount > 0 && (
+                    <span className="font-bold text-slate-500 dark:text-slate-400">0 created</span>
+                  )}
+                  {skippedCount > 0 && (
+                    <span className="text-amber-500 font-bold"> - {skippedCount} already existed</span>
+                  )}
                   {importResult.failed > 0 && (
-                    <span className="text-red-500 font-bold"> · {importResult.failed} skipped</span>
+                    <span className="text-red-500 font-bold"> - {importResult.failed} could not be imported</span>
                   )}
                   {unresolvedRows.length > 0 && (
                     <span className="text-amber-500 font-bold"> · {unresolvedRows.length} need attention</span>
@@ -758,12 +771,48 @@ export function ImportModal({
                 </div>
               )}
 
+              {/* Rows skipped because they already exist */}
+              {skippedErrors.length > 0 && !allSkippedRowsAlreadyExist && (
+                <div className="mx-6 mt-4 space-y-2 shrink-0 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 dark:border-amber-500/30 dark:bg-amber-500/10">
+                  <div className="flex items-start gap-2.5">
+                    <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-500" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-amber-800 dark:text-amber-300">
+                        {allSkippedRowsAlreadyExist
+                          ? 'All questions already exist in the question bank'
+                          : `${skippedCount} row${skippedCount !== 1 ? 's' : ''} were skipped`}
+                      </p>
+                      <p className="mt-0.5 text-xs font-medium text-amber-700 dark:text-amber-400">
+                        {allSkippedRowsAlreadyExist
+                          ? `All ${skippedCount} row${skippedCount !== 1 ? 's' : ''} match questions that already exist, so no new questions were added.`
+                          : 'Some rows match questions that already exist, so they were not added again.'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="max-h-20 overflow-y-auto space-y-1">
+                    {skippedErrors.slice(0, 10).map((err, i) => (
+                      <div key={i} className="flex items-start gap-2 rounded-lg bg-white/70 px-3 py-1.5 dark:bg-slate-900/40">
+                        <CheckCircle2 className="mt-0.5 shrink-0 text-amber-500" size={12} />
+                        <p className="text-xs font-medium text-amber-800 dark:text-amber-300">
+                          <span className="font-bold">Row {err.row}:</span> {err.reason}
+                        </p>
+                      </div>
+                    ))}
+                    {skippedErrors.length > 10 && (
+                      <p className="px-3 text-xs font-bold text-amber-700 dark:text-amber-400">
+                        +{skippedErrors.length - 10} more row{skippedErrors.length - 10 !== 1 ? 's' : ''} already exist
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* Import errors (hard validation failures) */}
               {importResult && importResult.errors.length > 0 && (
                 <div className="mx-6 mt-4 space-y-1 shrink-0">
                   <p className="text-xs font-bold text-slate-500 uppercase tracking-wide flex items-center gap-1.5">
                     <AlertTriangle size={12} className="text-amber-500" />
-                    {importResult.failed} row{importResult.failed !== 1 ? 's' : ''} were skipped
+                    {importResult.failed} row{importResult.failed !== 1 ? 's' : ''} could not be imported
                   </p>
                   <div className="max-h-20 overflow-y-auto space-y-1">
                     {importResult.errors.map((err, i) => (
@@ -846,14 +895,20 @@ export function ImportModal({
               )}
 
               {/* All-failed empty state */}
-              {importResult && reviewQuestions.length === 0 && unresolvedRows.length === 0 && (
+              {importResult && hasNoRowsToReview && (
                 <div className="flex flex-col items-center justify-center py-12 gap-3 px-6">
-                  <XCircle className="text-red-400" size={48} />
+                  {allSkippedRowsAlreadyExist ? (
+                    <CheckCircle2 className="text-amber-500" size={48} />
+                  ) : (
+                    <XCircle className="text-red-400" size={48} />
+                  )}
                   <p className="font-bold text-slate-700 dark:text-slate-300 text-center">
-                    No questions were imported
+                    {allSkippedRowsAlreadyExist ? 'No new questions were imported' : 'No questions were imported'}
                   </p>
                   <p className="text-sm text-slate-500 dark:text-slate-400 text-center max-w-xs">
-                    All {importResult.total} row{importResult.total !== 1 ? 's' : ''} failed validation. Check the errors above, fix your file, and try again.
+                    {allSkippedRowsAlreadyExist
+                      ? `All ${skippedCount} question${skippedCount !== 1 ? 's' : ''} from this CSV are already in the question bank, so the system did not add duplicates.`
+                      : `All ${importResult.total} row${importResult.total !== 1 ? 's' : ''} could not be imported. Check the messages above, fix your file, and try again.`}
                   </p>
                 </div>
               )}

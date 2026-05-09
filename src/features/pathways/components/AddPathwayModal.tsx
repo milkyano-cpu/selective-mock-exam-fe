@@ -24,23 +24,36 @@ export function AddPathwayModal({
 }: AddPathwayModalProps) {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [selectedSubjectId, setSelectedSubjectId] = useState('');
-  const [threshold, setThreshold] = useState(3);
+  const [threshold, setThreshold] = useState('3');
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
-    setIsFetching(true);
-    subjectsService
-      .listSubjects({ limit: 100 })
-      .then((res) => {
-        if (res.success) setSubjects(res.data);
-      })
-      .finally(() => setIsFetching(false));
+    let isCancelled = false;
+
+    const timeoutId = window.setTimeout(() => {
+      setIsFetching(true);
+      subjectsService
+        .listSubjects({ limit: 100 })
+        .then((res) => {
+          if (!isCancelled && res.success) setSubjects(res.data);
+        })
+        .finally(() => {
+          if (!isCancelled) setIsFetching(false);
+        });
+    }, 0);
+
+    return () => {
+      isCancelled = true;
+      window.clearTimeout(timeoutId);
+    };
   }, [isOpen]);
 
   const handleSubmit = async () => {
+    const thresholdCorrect = Math.min(20, Math.max(1, Number(threshold) || 1));
+
     if (!selectedSubjectId) {
       setError('Please select a subject');
       return;
@@ -51,7 +64,7 @@ export function AddPathwayModal({
       const res = await pathwaysService.create({
         studentId,
         subjectId: selectedSubjectId,
-        thresholdCorrect: threshold,
+        thresholdCorrect,
       });
       if (res.success) {
         onCreated(res.data);
@@ -72,9 +85,15 @@ export function AddPathwayModal({
 
   const handleClose = () => {
     setSelectedSubjectId('');
-    setThreshold(3);
+    setThreshold('3');
     setError(null);
     onClose();
+  };
+
+  const handleThresholdChange = (value: string) => {
+    const digits = value.replace(/\D/g, '');
+    const normalized = digits.replace(/^0+(?=\d)/, '').slice(0, 2);
+    setThreshold(normalized);
   };
 
   if (!isOpen) return null;
@@ -142,7 +161,11 @@ export function AddPathwayModal({
               min={1}
               max={20}
               value={threshold}
-              onChange={(e) => setThreshold(Number(e.target.value))}
+              onChange={(e) => handleThresholdChange(e.target.value)}
+              onBlur={() => {
+                const next = Math.min(20, Math.max(1, Number(threshold) || 1));
+                setThreshold(String(next));
+              }}
               className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2.5 text-sm text-slate-800 dark:text-slate-200 focus:border-[#0A9AE2] focus:outline-none focus:ring-2 focus:ring-[#0A9AE2]/20 transition-all"
             />
           </div>

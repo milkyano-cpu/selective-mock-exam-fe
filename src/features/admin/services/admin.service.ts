@@ -25,6 +25,7 @@ export interface ListUsersParams {
   page?: number;
   limit?: number;
   search?: string;
+  tiers?: string;
 }
 
 export interface PaginatedUsersResponse {

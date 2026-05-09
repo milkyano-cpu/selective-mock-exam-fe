@@ -35,6 +35,10 @@ const DIFFICULTY_COLORS: Record<QuestionDifficulty, string> = {
   HARD: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
 };
 
+const ASSIGNMENT_ELIGIBLE_TIERS = new Set(['STANDARD', 'PREMIUM']);
+
+const canReceiveAssignment = (student: UserItem) => ASSIGNMENT_ELIGIBLE_TIERS.has(student.tier);
+
 export default function NewAssignmentPage() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
@@ -104,8 +108,9 @@ export default function NewAssignmentPage() {
           role: 'STUDENT',
           search: studentSearch.trim(),
           limit: 10,
+          tiers: 'STANDARD,PREMIUM',
         });
-        if (res.success) setStudents(res.data);
+        if (res.success) setStudents(res.data.filter(canReceiveAssignment));
       } catch {
         setStudents([]);
       } finally {
@@ -238,6 +243,15 @@ export default function NewAssignmentPage() {
             className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 p-6 space-y-4"
           >
             <h2 className="font-black text-slate-800 dark:text-slate-100">Select Student</h2>
+            <div className="flex items-start gap-2.5 rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-500/20 dark:bg-sky-500/10 dark:text-sky-100">
+              <AlertCircle size={16} className="mt-0.5 shrink-0 text-[#0A9AE2]" />
+              <div className="min-w-0">
+                <p className="font-bold">Assignments are for Standard and Premium students only.</p>
+                <p className="mt-0.5 text-xs text-sky-700 dark:text-sky-300">
+                  Basic students will not appear in this search.
+                </p>
+              </div>
+            </div>
 
             {selectedStudent ? (
               <div className="flex items-center gap-3 p-4 rounded-2xl bg-[#0A9AE2]/5 border border-[#0A9AE2]/20">
@@ -249,6 +263,9 @@ export default function NewAssignmentPage() {
                     {selectedStudent.fullName}
                   </p>
                   <p className="text-xs text-slate-400 truncate">{selectedStudent.email}</p>
+                  <span className="mt-1 inline-flex w-fit rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-black text-emerald-700 ring-1 ring-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/20">
+                    {selectedStudent.tier}
+                  </span>
                 </div>
                 <button
                   type="button"
@@ -297,14 +314,21 @@ export default function NewAssignmentPage() {
                           <p className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">
                             {s.fullName}
                           </p>
-                          <p className="text-xs text-slate-400 truncate">{s.email}</p>
+                          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+                            <p className="text-xs text-slate-400 truncate">{s.email}</p>
+                            <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-black text-emerald-700 ring-1 ring-emerald-100 dark:bg-emerald-500/10 dark:text-emerald-300 dark:ring-emerald-500/20">
+                              {s.tier}
+                            </span>
+                          </div>
                         </div>
                       </button>
                     ))}
                   </div>
                 )}
                 {studentSearch.trim() && !isLoadingStudents && students.length === 0 && (
-                  <p className="text-center text-sm text-slate-400 py-3">No students found</p>
+                  <p className="text-center text-sm text-slate-400 py-3">
+                    No Standard or Premium students found
+                  </p>
                 )}
               </div>
             )}

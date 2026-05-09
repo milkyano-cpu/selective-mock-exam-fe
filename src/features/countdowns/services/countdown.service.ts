@@ -39,6 +39,11 @@ export const countdownService = {
     return response.data;
   },
 
+  deactivate: async (id: string): Promise<CountdownResponse> => {
+    const response = await mdwClient.patch(`/countdowns/${id}/deactivate`);
+    return response.data;
+  },
+
   remove: async (id: string): Promise<ActionResponse> => {
     const response = await mdwClient.delete(`/countdowns/${id}`);
     return response.data;
