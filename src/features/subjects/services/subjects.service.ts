@@ -6,6 +6,8 @@ import {
   UpdateSubjectPayload,
   CreateTopicPayload,
   UpdateTopicPayload,
+  EnsureSubjectTopicsPayload,
+  EnsureSubjectTopicsResult,
   PaginatedResponse,
   SingleResponse,
   ActionResponse,
@@ -26,6 +28,11 @@ export const subjectsService = {
 
   createSubject: async (payload: CreateSubjectPayload): Promise<SingleResponse<Subject>> => {
     const response = await mdwClient.post('/subjects', payload);
+    return response.data;
+  },
+
+  ensureSubjectWithTopics: async (payload: EnsureSubjectTopicsPayload): Promise<SingleResponse<EnsureSubjectTopicsResult>> => {
+    const response = await mdwClient.post('/subjects/import/ensure', payload);
     return response.data;
   },
 

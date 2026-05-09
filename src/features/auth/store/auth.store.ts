@@ -18,7 +18,10 @@ export const useAuthStore = create<AuthState>()(
         set((state) => ({
           user: state.user ? { ...state.user, ...updates } : state.user,
         })),
-      clearAuth: () => set({ user: null }),
+      clearAuth: () => {
+        try { sessionStorage.removeItem('aspire.pwa.installDismissed'); } catch (_) { /* ignore */ }
+        set({ user: null });
+      },
     }),
     {
       name: 'auth-storage',

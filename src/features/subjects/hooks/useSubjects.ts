@@ -99,6 +99,8 @@ export const useSubjects = () => {
     }
   };
 
+  const clearError = useCallback(() => setError(null), []);
+
   return {
     subjects,
     meta,
@@ -108,5 +110,6 @@ export const useSubjects = () => {
     createSubject,
     updateSubject,
     deleteSubject,
+    clearError,
   };
 };

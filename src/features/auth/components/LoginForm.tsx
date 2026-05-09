@@ -47,8 +47,8 @@ export const LoginForm = () => {
           transition={{ delay: 0.2, duration: 0.5, type: 'spring' }}
           className="w-full flex justify-center lg:justify-start -mb-2 lg:mb-2"
         >
-          {/* Logo container for mobile */}
-          <div className="lg:hidden flex justify-center scale-90 sm:scale-100 -mb-4 lg:mb-2">
+          {/* Logo container - Hidden on mobile and desktop, as it's handled in LoginHeroCopy */}
+          <div className="hidden justify-center scale-90 sm:scale-100 -mb-4 lg:mb-2">
             <Image 
               src="/logo.png" 
               alt="Aspire Academics Logo" 
@@ -64,7 +64,7 @@ export const LoginForm = () => {
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.5 }}
-          className="mt-1 text-[24px] lg:text-3xl font-bold tracking-tight text-[#0A9AE2] lg:text-slate-900 text-center lg:text-left"
+          className="mt-1 text-[24px] lg:text-3xl font-bold tracking-tight text-[#0A9AE2] text-center lg:text-left"
         >
           Sign in to your account.
         </motion.h1>

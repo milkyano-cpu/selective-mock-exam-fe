@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+@keyframes shine {
+  100% { left: 200%; }
+}
+
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {

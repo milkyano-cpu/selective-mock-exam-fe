@@ -6,7 +6,15 @@ export const ServiceWorkerRegister = () => {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (!('serviceWorker' in navigator)) return;
-    if (process.env.NODE_ENV !== 'production') return;
+
+    if (process.env.NODE_ENV === 'development') {
+      navigator.serviceWorker.getRegistrations().then((registrations) => {
+        for (let registration of registrations) {
+          registration.unregister();
+        }
+      });
+      return;
+    }
 
     const onLoad = () => {
       navigator.serviceWorker

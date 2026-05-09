@@ -5,6 +5,7 @@ export interface User {
   name?: string;
   role: 'STUDENT' | 'PARENT' | 'TUTOR' | 'ADMIN';
   status?: 'ACTIVE' | 'SUSPENDED' | 'BANNED';
+  tier?: 'BASIC' | 'STANDARD' | 'PREMIUM';
   hasProfilePhoto?: boolean;
   profilePhotoUpdatedAt?: string | null;
 }

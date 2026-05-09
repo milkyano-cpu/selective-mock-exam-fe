@@ -46,6 +46,9 @@ export const useAuth = () => {
       const response = await authService.login(credentials);
       if (response.success) {
         setAuth(response.data.user);
+        try {
+          localStorage.removeItem('aspire.pwa.installDismissed');
+        } catch (_) {}
         return response.data;
       } else {
         setError(response.message || 'Login failed');
@@ -89,10 +92,12 @@ export const useAuth = () => {
     try {
       await authService.logout();
       clearAuth();
+      try { localStorage.removeItem('aspire.pwa.installDismissed'); } catch (_) {}
     } catch (err) {
       console.error('Logout error:', err);
       // Still clear auth locally
       clearAuth();
+      try { localStorage.removeItem('aspire.pwa.installDismissed'); } catch (_) {}
     } finally {
       setIsLoading(false);
     }

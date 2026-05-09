@@ -35,6 +35,11 @@ export const userService = {
     return response.data;
   },
 
+  deleteMyAccount: async (): Promise<{ success: boolean; message: string }> => {
+    const response = await mdwClient.delete('/users/me');
+    return response.data;
+  },
+
   uploadMyProfilePhoto: async (
     file: File,
     options?: UploadProfilePhotoOptions

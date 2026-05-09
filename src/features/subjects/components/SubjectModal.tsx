@@ -7,6 +7,10 @@ import { Subject } from '../types/subjects.types';
 
 const subjectSchema = z.object({
   name: z.string().min(1, 'Name is required').max(150, 'Maximum 150 characters'),
+  questionCode: z.string()
+    .min(1, 'Question Code is required')
+    .max(10, 'Maximum 10 characters')
+    .regex(/^[A-Z0-9]+$/, 'Only uppercase letters and numbers allowed'),
   description: z.string().max(500, 'Maximum 500 characters').nullable().optional(),
 });
 
@@ -18,9 +22,10 @@ interface SubjectModalProps {
   onSubmit: (data: SubjectFormValues) => Promise<void>;
   initialData?: Subject | null;
   isLoading?: boolean;
+  apiError?: string | null;
 }
 
-export function SubjectModal({ isOpen, onClose, onSubmit, initialData, isLoading }: SubjectModalProps) {
+export function SubjectModal({ isOpen, onClose, onSubmit, initialData, isLoading, apiError }: SubjectModalProps) {
   const {
     register,
     handleSubmit,
@@ -30,6 +35,7 @@ export function SubjectModal({ isOpen, onClose, onSubmit, initialData, isLoading
     resolver: zodResolver(subjectSchema),
     defaultValues: {
       name: '',
+      questionCode: '',
       description: '',
     },
   });
@@ -39,10 +45,11 @@ export function SubjectModal({ isOpen, onClose, onSubmit, initialData, isLoading
       if (initialData) {
         reset({
           name: initialData.name,
+          questionCode: initialData.questionCode || '',
           description: initialData.description || '',
         });
       } else {
-        reset({ name: '', description: '' });
+        reset({ name: '', questionCode: '', description: '' });
       }
     }
   }, [isOpen, initialData, reset]);
@@ -50,7 +57,7 @@ export function SubjectModal({ isOpen, onClose, onSubmit, initialData, isLoading
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
       <div className="w-full max-w-md bg-white rounded-3xl shadow-xl overflow-hidden dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
         <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-slate-800">
           <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
@@ -67,7 +74,7 @@ export function SubjectModal({ isOpen, onClose, onSubmit, initialData, isLoading
         <form onSubmit={handleSubmit(onSubmit)} className="p-6 space-y-5">
           <div className="space-y-1.5">
             <label htmlFor="name" className="text-sm font-bold text-slate-700 dark:text-slate-300">
-              Subject Name
+              Subject Name <span className="text-red-500">*</span>
             </label>
             <input
               id="name"
@@ -76,6 +83,30 @@ export function SubjectModal({ isOpen, onClose, onSubmit, initialData, isLoading
               className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 font-medium text-slate-900 transition-all focus:border-[#0A9AE2] focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
             />
             {errors.name && <p className="text-xs text-red-500 font-bold mt-1">{errors.name.message}</p>}
+            {apiError && !apiError.toLowerCase().includes('question code') && (
+              <p className="text-red-500 text-xs font-medium bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2 mt-1">
+                {apiError}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-1.5">
+            <label htmlFor="questionCode" className="text-sm font-bold text-slate-700 dark:text-slate-300">
+              Question Code <span className="text-red-500">*</span>
+            </label>
+            <input
+              id="questionCode"
+              {...register('questionCode')}
+              placeholder="e.g. MT"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 font-medium text-slate-900 transition-all focus:border-[#0A9AE2] focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 uppercase"
+            />
+            <p className="text-[10px] text-slate-400 font-medium">Used for Question ID format: Q-{"{CODE}"}-NNN</p>
+            {errors.questionCode && <p className="text-xs text-red-500 font-bold mt-1">{errors.questionCode.message}</p>}
+            {apiError && apiError.toLowerCase().includes('question code') && (
+              <p className="text-red-500 text-xs font-medium bg-red-50 dark:bg-red-900/20 rounded-lg px-3 py-2 mt-1">
+                {apiError}
+              </p>
+            )}
           </div>
 
           <div className="space-y-1.5">
@@ -92,7 +123,7 @@ export function SubjectModal({ isOpen, onClose, onSubmit, initialData, isLoading
             {errors.description && <p className="text-xs text-red-500 font-bold mt-1">{errors.description.message}</p>}
           </div>
 
-          <div className="flex gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+          <div className="flex gap-3 pt-4 pb-8 sm:pb-0 border-t border-slate-100 dark:border-slate-800">
             <button
               type="button"
               onClick={onClose}

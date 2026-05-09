@@ -8,8 +8,7 @@ interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
-const DISMISS_KEY = 'aspire.pwa.installDismissedAt';
-const DISMISS_COOLDOWN_MS = 1000 * 60 * 60 * 24 * 7; // 7 days
+const DISMISS_KEY = 'aspire.pwa.installDismissed';
 
 const isStandalone = () => {
   if (typeof window === 'undefined') return false;
@@ -30,13 +29,9 @@ const detectIOS = () => {
   return isIOSDevice || isIPadOS;
 };
 
-const wasRecentlyDismissed = () => {
+const wasDismissed = () => {
   try {
-    const raw = localStorage.getItem(DISMISS_KEY);
-    if (!raw) return false;
-    const ts = Number(raw);
-    if (Number.isNaN(ts)) return false;
-    return Date.now() - ts < DISMISS_COOLDOWN_MS;
+    return sessionStorage.getItem(DISMISS_KEY) === '1';
   } catch (_) {
     return false;
   }
@@ -44,7 +39,7 @@ const wasRecentlyDismissed = () => {
 
 const rememberDismiss = () => {
   try {
-    localStorage.setItem(DISMISS_KEY, String(Date.now()));
+    sessionStorage.setItem(DISMISS_KEY, '1');
   } catch (_) {
     /* storage might be unavailable */
   }
@@ -59,10 +54,11 @@ export const InstallPrompt = () => {
   useEffect(() => {
     if (typeof window === 'undefined') return;
     if (isStandalone()) return;
-    if (wasRecentlyDismissed()) return;
+    if (wasDismissed()) return;
 
     const onBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
+      if (wasDismissed()) return;
       setDeferredPrompt(e as BeforeInstallPromptEvent);
       setVisible(true);
     };

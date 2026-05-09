@@ -1,47 +1,59 @@
 import { LoginForm } from '@/features/auth/components/LoginForm';
-
+import Image from 'next/image';
+import { LoginHeroCopy } from '@/features/auth/components/LoginHeroCopy';
+import { LoginHeroImage } from '@/features/auth/components/LoginHeroImage';
+import { LoginHeroStats } from '@/features/auth/components/LoginHeroStats';
 
 export default function LoginPage() {
   return (
-    <main className="min-h-[100dvh] flex items-center justify-center bg-[#FFFFFF] relative overflow-hidden font-sans">
-      {/* Very subtle, strictly compliant background depth (light gray only, no brand colors to violate rules) */}
+    <main className="min-h-[100dvh] bg-[#FFFFFF] relative overflow-hidden font-sans">
+      {/* Background depth effects */}
       <div className="absolute inset-0 z-0 pointer-events-none">
         <div className="absolute top-0 right-0 w-[50vw] h-[50vw] bg-slate-50 rounded-full blur-3xl opacity-60 transform translate-x-1/3 -translate-y-1/3" />
         <div className="absolute bottom-0 left-0 w-[40vw] h-[40vw] bg-slate-50 rounded-full blur-3xl opacity-60 transform -translate-x-1/3 translate-y-1/3" />
       </div>
 
-      <div className="w-full max-w-6xl mx-auto px-6 py-6 lg:py-0 grid lg:grid-cols-2 gap-8 lg:gap-24 items-center relative z-10">
-        
-        {/* Left Visual Area - Clean & Typographic */}
-        <div className="hidden lg:flex flex-col justify-center max-w-xl animate-in slide-in-from-left-8 duration-700 fade-in">
-          <div className="mb-12">
-            {/* Primary Color on White BG Only */}
-            <h1 className="text-5xl lg:text-[3.5rem] font-black text-slate-900 tracking-tight leading-[1.1] mb-6">
-              Unlock Your <br/>
-              <span className="text-[#0A9AE2]">Academic Potential.</span>
-            </h1>
-            <p className="text-xl text-slate-500 leading-relaxed font-medium">
-              Join 10,000+ educators and students on the most comprehensive learning platform.
-            </p>
-          </div>
+      <LoginHeroImage />
 
-          <div className="grid grid-cols-2 gap-8 border-t border-slate-100 pt-10">
-            <div>
-              <h3 className="text-4xl font-black text-slate-900 mb-2">98%</h3>
-              <p className="text-slate-500 font-medium">Exam Pass Rate</p>
-            </div>
-            <div>
-              <h3 className="text-4xl font-black text-slate-900 mb-2">24/7</h3>
-              <p className="text-slate-500 font-medium">AI Diagnostics</p>
-            </div>
-          </div>
+      <div className="relative z-20 mx-auto grid min-h-[100dvh] w-full max-w-[1440px] gap-8 px-6 lg:grid-cols-2 lg:gap-16 lg:px-12">
+        
+        {/* Left Visual Area (Desktop Only) */}
+        <div className="hidden min-h-[100dvh] flex-col justify-between pt-56 pb-32 lg:flex animate-in slide-in-from-left-8 duration-700 fade-in lg:-ml-20 xl:-ml-36">
+          <LoginHeroCopy />
+          <LoginHeroStats />
         </div>
 
-        {/* Right Form Area */}
-        <div className="w-full max-w-md mx-auto lg:mx-0 lg:ml-auto">
-          <LoginForm />
+        {/* Right Form Area (Mobile & Desktop) */}
+        <div className="relative flex min-h-[100dvh] items-center justify-center py-10 lg:py-0">
+          {/* Mobile Header - Absolute top-0 centered, full width */}
+          <div className="lg:hidden absolute top-0 left-0 right-0 -mx-6 flex flex-col items-center animate-in fade-in slide-in-from-top-4 duration-1000">
+            <div className="relative w-full">
+              <div className="absolute -top-2 left-1/2 -translate-x-1/2 z-10">
+                <Image 
+                  src="/logo.png" 
+                  alt="Aspire Logo" 
+                  width={140} 
+                  height={52} 
+                  priority
+                  className="object-contain drop-shadow-md"
+                />
+              </div>
+              <Image
+                src="/image-login-mobile.png"
+                alt="Students learning"
+                width={800}
+                height={400}
+                className="w-full h-auto"
+                priority
+              />
+            </div>
+          </div>
+
+          {/* Login Form */}
+          <div className="w-full max-w-md lg:ml-auto relative z-20 px-4 mt-32 lg:mt-0">
+            <LoginForm />
+          </div>
         </div>
-        
       </div>
     </main>
   );
