@@ -257,7 +257,7 @@ function BannerImage({ banner, priority }: { banner: Banner; priority: boolean }
   }
 
   return (
-    <div className="relative h-full w-full bg-slate-100 dark:bg-slate-900">
+    <div className="relative h-full w-full bg-white dark:bg-slate-950">
       {!hasLoaded && (
         <div className="absolute inset-0 animate-pulse bg-[linear-gradient(90deg,#e2e8f0_0%,#f8fafc_50%,#e2e8f0_100%)] dark:bg-[linear-gradient(90deg,#0f172a_0%,#1e293b_50%,#0f172a_100%)]" />
       )}
@@ -270,7 +270,7 @@ function BannerImage({ banner, priority }: { banner: Banner; priority: boolean }
         onLoad={() => setHasLoaded(true)}
         onError={() => setHasFailed(true)}
         className={[
-          'h-full w-full object-cover transition-opacity duration-300',
+          'h-full w-full object-contain transition-opacity duration-300',
           hasLoaded ? 'opacity-100' : 'opacity-0',
         ].join(' ')}
       />

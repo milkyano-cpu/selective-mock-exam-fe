@@ -3,6 +3,7 @@ import type {
   MyAnalyticsResponse,
   LeaderboardResponse,
   StudentAnalyticsResponse,
+  ChildrenAnalyticsResponse,
   LeaderboardPeriod,
 } from '../types/analytics.types';
 
@@ -19,6 +20,11 @@ export const analyticsService = {
 
   getStudentAnalytics: async (studentId: string): Promise<StudentAnalyticsResponse> => {
     const response = await mdwClient.get(`/analytics/students/${studentId}`);
+    return response.data;
+  },
+
+  getChildrenAnalytics: async (): Promise<ChildrenAnalyticsResponse> => {
+    const response = await mdwClient.get('/analytics/children');
     return response.data;
   },
 };

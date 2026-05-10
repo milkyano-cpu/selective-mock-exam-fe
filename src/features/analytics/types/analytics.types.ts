@@ -77,3 +77,9 @@ export interface StudentAnalyticsResponse {
   message: string;
   data: StudentAnalytics;
 }
+
+export interface ChildrenAnalyticsResponse {
+  success: boolean;
+  message: string;
+  data: StudentAnalytics[];
+}

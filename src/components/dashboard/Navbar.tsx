@@ -1,6 +1,6 @@
 'use client';
 
-import { Bell, ChevronDown, LogOut, Menu, Moon, Search, Settings, Sun, CheckCheck, FileQuestion, ExternalLink, MessageSquare, Map, ClipboardList } from 'lucide-react';
+import { Bell, ChevronDown, LogOut, Menu, Moon, Settings, Sun, CheckCheck, FileQuestion, ExternalLink, MessageSquare, Map, ClipboardList } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useSyncExternalStore, useState, useRef, useEffect, useCallback } from 'react';
@@ -9,6 +9,7 @@ import { motion } from 'framer-motion';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { ProfileAvatar } from './ProfileAvatar';
+import { GlobalSearch } from './GlobalSearch';
 import { useProfilePhoto } from '@/features/users/hooks/useProfilePhoto';
 import { useNotificationStore } from '@/features/notifications/store/notification.store';
 import { notificationService } from '@/features/notifications/services/notification.service';
@@ -99,9 +100,9 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
 
   return (
     <header className={[
-      'sticky top-0 z-30 flex items-center justify-between border-b px-3 backdrop-blur-2xl sm:px-4 lg:px-8 transform-gpu will-change-transform',
+      'sticky top-0 z-30 flex items-center justify-between border-b px-3 sm:px-4 lg:px-8 lg:backdrop-blur-2xl',
       isStudent
-        ? 'h-[4.75rem] border-white/45 bg-white/38 shadow-[0_18px_44px_rgba(14,116,144,0.12)] supports-[backdrop-filter]:bg-white/28 dark:border-white/10 dark:bg-slate-950/42 dark:supports-[backdrop-filter]:bg-slate-950/30 lg:h-20'
+        ? 'h-[4.75rem] border-white/70 bg-[#eefbff] shadow-[0_10px_28px_rgba(14,116,144,0.10)] dark:border-white/10 dark:bg-slate-950 lg:h-20 lg:border-white/45 lg:bg-white/38 lg:shadow-[0_18px_44px_rgba(14,116,144,0.12)] lg:supports-[backdrop-filter]:bg-white/28 lg:dark:bg-slate-950/42 lg:dark:supports-[backdrop-filter]:bg-slate-950/30'
         : 'border-slate-200 bg-white/80 dark:border-slate-800 dark:bg-slate-950/80',
     ].join(' ')}>
       <div className="flex min-w-0 items-center gap-3 lg:gap-4">
@@ -240,23 +241,7 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
           )}
         </div>
 
-        {!isStudent && (
-          <div className={[
-            'hidden w-64 items-center gap-2 rounded-2xl border px-3 py-2 transition-colors md:flex lg:w-96',
-          isStudent
-            ? 'border-white/80 bg-white/72 shadow-sm focus-within:border-[#0A9AE2]/50 focus-within:bg-white dark:border-white/10 dark:bg-slate-900/70'
-            : 'border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900',
-          ].join(' ')}>
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#0A9AE2]/10 text-[#0A9AE2]">
-              <Search size={16} />
-            </div>
-            <input
-              type="text"
-              placeholder="Search topics, practice, exams..."
-              className="w-full border-none bg-transparent text-sm text-slate-600 outline-none placeholder:text-slate-400 dark:text-slate-200 dark:placeholder:text-slate-500"
-            />
-          </div>
-        )}
+        {!isStudent && <GlobalSearch role={user?.role} />}
 
         {isStudent && (
           <nav className="hidden items-center gap-1 rounded-3xl border border-white/55 bg-white/34 p-1.5 shadow-sm backdrop-blur-2xl dark:border-white/10 dark:bg-slate-900/36 lg:flex">

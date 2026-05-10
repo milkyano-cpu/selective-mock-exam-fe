@@ -16,11 +16,15 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 type RoleTab = 'STUDENT' | 'PARENT' | 'TUTOR' | 'ADMIN';
 
-const TABS: { role: RoleTab; label: string }[] = [
+const ADMIN_TABS: { role: RoleTab; label: string }[] = [
   { role: 'STUDENT', label: 'Student' },
   { role: 'PARENT',  label: 'Parent'  },
   { role: 'TUTOR',   label: 'Tutor'   },
   { role: 'ADMIN',   label: 'Admin'   },
+];
+
+const TUTOR_TABS: { role: RoleTab; label: string }[] = [
+  { role: 'STUDENT', label: 'Student' },
 ];
 
 const STATUS_STYLES: Record<string, string> = {
@@ -39,6 +43,9 @@ const PAGE_SIZE_OPTIONS = [10, 20, 50];
 
 export default function ManageUsersPage() {
   const user = useAuthStore((state) => state.user);
+  const isTutor = user?.role === 'TUTOR';
+  const isAdmin = user?.role === 'ADMIN';
+  const TABS = isTutor ? TUTOR_TABS : ADMIN_TABS;
 
   const [activeTab, setActiveTab]   = useState<RoleTab>('STUDENT');
   const [users, setUsers]           = useState<UserItem[]>([]);
@@ -177,7 +184,7 @@ export default function ManageUsersPage() {
     }
   };
 
-  if (user?.role !== 'ADMIN') {
+  if (user?.role !== 'ADMIN' && user?.role !== 'TUTOR') {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
         <div className="text-center">
@@ -193,10 +200,12 @@ export default function ManageUsersPage() {
     <div className="space-y-4 sm:space-y-8">
       <header className="flex flex-col gap-1 sm:gap-2">
         <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-slate-100">
-          Users <span className="text-[#0A9AE2]">.</span>
+          {isTutor ? 'Students' : 'Users'} <span className="text-[#0A9AE2]">.</span>
         </h1>
         <p className="text-sm sm:text-base font-medium text-slate-500 dark:text-slate-400">
-          View and manage all user accounts by role.
+          {isTutor
+            ? 'View all registered student accounts.'
+            : 'View and manage all user accounts by role.'}
         </p>
       </header>
 
@@ -220,7 +229,7 @@ export default function ManageUsersPage() {
               ))}
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              {activeTab === 'STUDENT' && (
+              {isAdmin && activeTab === 'STUDENT' && (
                 <button
                   onClick={handleSyncTiers}
                   disabled={isSyncing}
@@ -231,7 +240,7 @@ export default function ManageUsersPage() {
                   <span className="hidden sm:inline">{isSyncing ? 'Syncing...' : 'Sync Tiers'}</span>
                 </button>
               )}
-              {(activeTab === 'TUTOR' || activeTab === 'ADMIN') && (
+              {isAdmin && (activeTab === 'TUTOR' || activeTab === 'ADMIN') && (
                 <button
                   onClick={openModal}
                   className="flex items-center gap-1.5 px-2.5 sm:px-4 py-2.5 bg-[#0A9AE2] text-white text-sm font-bold rounded-xl shadow-sm shadow-blue-100 hover:bg-[#0864B6] transition-all dark:shadow-none"
@@ -379,7 +388,7 @@ export default function ManageUsersPage() {
                       {new Date(u.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                     </td>
                     <td className="px-6 py-4 text-right">
-                      {u.id !== user?.id && (
+                      {isAdmin && u.id !== user?.id && (
                         <button
                           onClick={() => { setUserToDelete(u); setIsDeleteUserOpen(true); }}
                           className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
@@ -563,7 +572,7 @@ export default function ManageUsersPage() {
                   </div>
                 </div>
 
-                {selectedUser.id !== user?.id && (
+                {isAdmin && selectedUser.id !== user?.id && (
                   <button
                     onClick={() => { setUserToDelete(selectedUser); setIsDeleteUserOpen(true); }}
                     className="mt-2 w-full flex items-center justify-center gap-2 rounded-xl border border-red-200 py-2.5 text-sm font-bold text-red-600 hover:bg-red-50 dark:border-red-500/30 dark:text-red-400 dark:hover:bg-red-500/10"

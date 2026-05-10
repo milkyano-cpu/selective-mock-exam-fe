@@ -9,7 +9,7 @@ import {
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { motion } from 'framer-motion';
 import { useTheme } from 'next-themes';
-import { studentMenuItems, parentMenuItems, adminMenuItems, adminMenuGroups, tutorMenuItems } from '@/constants/navigation';
+import { studentMenuItems, parentMenuItems, adminMenuItems, adminMenuGroups, tutorMenuItems, tutorMenuGroups } from '@/constants/navigation';
 
 interface SidebarProps {
   onClose?: () => void;
@@ -67,8 +67,8 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
       </div>
 
       <nav className="flex-1 px-4 py-2 space-y-1 overflow-y-auto">
-        {user?.role === 'ADMIN' ? (
-          adminMenuGroups.map((section, idx) => (
+        {(user?.role === 'ADMIN' || user?.role === 'TUTOR') ? (
+          (user?.role === 'ADMIN' ? adminMenuGroups : tutorMenuGroups).map((section, idx) => (
             <div key={section.group ?? 'top'} className={idx > 0 ? 'pt-4' : ''}>
               {section.group && (
                 <p className="px-4 pb-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">

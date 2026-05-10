@@ -1,4 +1,5 @@
 export type ResourceType = 'FILE' | 'VIDEO';
+export type Tier = 'BASIC' | 'STANDARD' | 'PREMIUM';
 
 export interface Resource {
   id: string;
@@ -10,6 +11,7 @@ export interface Resource {
   fileName: string | null;
   fileSize: number | null;
   mimeType: string | null;
+  allowedTiers: Tier[];
   uploadedBy: string;
   uploaderName?: string;
   createdAt: string;
@@ -21,11 +23,13 @@ export interface CreateResourcePayload {
   description?: string;
   type: ResourceType;
   videoUrl?: string | null;
+  allowedTiers: Tier[];
 }
 
 export interface UpdateResourcePayload {
   title?: string;
   description?: string;
+  allowedTiers?: Tier[];
 }
 
 export interface PaginationMeta {

@@ -14,6 +14,7 @@ import {
   Loader2,
   AlertCircle,
   BookOpen,
+  Clock,
 } from 'lucide-react';
 import { practiceService } from '@/features/practice/services/practice.service';
 import { QuestionLatexRenderer } from '@/components/ui/QuestionLatexRenderer';
@@ -49,6 +50,16 @@ function ScoreRing({ percent }: { percent: number }) {
       </div>
     </div>
   );
+}
+
+function formatDuration(seconds: number) {
+  if (seconds <= 0) return '0s';
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const remainingSeconds = seconds % 60;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (minutes > 0) return `${minutes}m ${remainingSeconds}s`;
+  return `${remainingSeconds}s`;
 }
 
 function AnswerCard({ answer, index }: { answer: PracticeResultAnswer; index: number }) {
@@ -197,6 +208,13 @@ export default function PracticeResultPage() {
   const correctCount = answers.filter((a) => a.isCorrect).length;
   const totalQuestions = answers.length;
   const scorePercent = totalQuestions > 0 ? (correctCount / totalQuestions) * 100 : 0;
+  const summedQuestionTime = answers.reduce((sum, answer) => sum + answer.timeSpentSeconds, 0);
+  const startedAtMs = new Date(session.startedAt).getTime();
+  const endedAtMs = session.endedAt ? new Date(session.endedAt).getTime() : Number.NaN;
+  const elapsedSeconds = Number.isFinite(startedAtMs) && Number.isFinite(endedAtMs)
+    ? Math.max(0, Math.round((endedAtMs - startedAtMs) / 1000))
+    : 0;
+  const totalSessionSeconds = elapsedSeconds || summedQuestionTime;
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-4 md:p-8">
@@ -240,6 +258,23 @@ export default function PracticeResultPage() {
             <span className="font-black">{totalQuestions}</span>{' '}
             questions correct
           </p>
+
+          <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950/50">
+              <div className="mb-2 flex items-center justify-center gap-2 text-slate-400">
+                <Clock size={15} />
+                <span className="text-xs font-black uppercase tracking-wide">Total session time</span>
+              </div>
+              <p className="text-xl font-black text-slate-900 dark:text-slate-100">{formatDuration(totalSessionSeconds)}</p>
+            </div>
+            <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950/50">
+              <div className="mb-2 flex items-center justify-center gap-2 text-slate-400">
+                <Clock size={15} />
+                <span className="text-xs font-black uppercase tracking-wide">Tracked question time</span>
+              </div>
+              <p className="text-xl font-black text-slate-900 dark:text-slate-100">{formatDuration(summedQuestionTime)}</p>
+            </div>
+          </div>
 
           {/* Action buttons */}
           <div className="flex gap-3 mt-6">

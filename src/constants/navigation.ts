@@ -34,7 +34,6 @@ export const studentMenuItems = [
 
 export const parentMenuItems = [
   { icon: LayoutDashboard, label: 'Parent Home', href: '/dashboard' },
-  { icon: Users, label: 'My Students', href: '/dashboard/students' },
   { icon: TrendingUp, label: 'Exam Results', href: '/dashboard/results' },
   { icon: MessageSquare, label: 'Forum', href: '/dashboard/forum' },
   { icon: CreditCard, label: 'Billing', href: '/dashboard/billing' },
@@ -91,23 +90,45 @@ export const adminMenuGroups = [
   {
     group: 'Finance',
     items: [
-      { icon: DollarSign, label: 'Revenue', href: '#' },
+      { icon: DollarSign, label: 'Revenue', href: '/dashboard/billing' },
     ],
   },
 ];
 
 export const adminMenuItems = adminMenuGroups.flatMap((g) => g.items);
 
-export const tutorMenuItems = [
-  { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
-  { icon: Users, label: 'Students & Classes', href: '#' },
-  { icon: FileText, label: 'Exams', href: '/dashboard/exams' },
-  { icon: BookOpen, label: 'Grading & Reviews', href: '#' },
-  { icon: ClipboardList, label: 'Practice', href: '/dashboard/practice/assignments' },
-  { icon: Trophy, label: 'Question Bank', href: '/dashboard/questions' },
-  { icon: ClipboardCheck, label: 'Rubrics', href: '/dashboard/rubrics' },
-  { icon: LibraryBig, label: 'Passages', href: '/dashboard/passages' },
-  { icon: Megaphone, label: 'Broadcasts', href: '/dashboard/broadcasts' },
-  { icon: Map, label: 'Pathways', href: '/dashboard/pathways' },
-  { icon: FolderOpen, label: 'Resources', href: '/dashboard/resources' },
+export const tutorMenuGroups = [
+  {
+    group: null,
+    items: [
+      { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
+    ],
+  },
+  {
+    group: 'User Management',
+    items: [
+      { icon: Users, label: 'Students', href: '/dashboard/users' },
+    ],
+  },
+  {
+    group: 'Content',
+    items: [
+      { icon: ClipboardCheck, label: 'Rubrics', href: '/dashboard/rubrics' },
+      { icon: LibraryBig, label: 'Passages', href: '/dashboard/passages' },
+      { icon: BookOpen, label: 'Subjects', href: '/dashboard/subjects' },
+      { icon: Trophy, label: 'Question Bank', href: '/dashboard/questions' },
+      { icon: FolderOpen, label: 'Resources', href: '/dashboard/resources' },
+    ],
+  },
+  {
+    group: 'Exam & Assessment',
+    items: [
+      { icon: FileText, label: 'Exams', href: '/dashboard/exams' },
+      { icon: Map, label: 'Pathways', href: '/dashboard/pathways' },
+      { icon: ClipboardList, label: 'Practice', href: '/dashboard/practice/assignments' },
+      { icon: TrendingUp, label: 'Analytics', href: '/dashboard/performance' },
+    ],
+  },
 ];
+
+export const tutorMenuItems = tutorMenuGroups.flatMap((g) => g.items);

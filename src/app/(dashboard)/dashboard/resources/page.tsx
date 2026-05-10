@@ -4,17 +4,23 @@ import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { PdfPreview } from '@/features/resources/components/pdf-preview';
 import { resourceService } from '@/features/resources/services/resources.service';
-import type { Resource, ResourceType } from '@/features/resources/types/resources.types';
-import { AlertTriangle, ExternalLink, FileText, FolderOpen, Loader2, Plus, Search, Trash2, Upload, Video, X } from 'lucide-react';
+import type { Resource, ResourceType, Tier } from '@/features/resources/types/resources.types';
+import { AlertTriangle, ExternalLink, FileText, FolderOpen, Loader2, Pencil, Plus, Search, Trash2, Upload, Video, X } from 'lucide-react';
 
 type FilterType = 'ALL' | ResourceType;
 type VideoInputMode = 'UPLOAD' | 'URL';
+const TIER_OPTIONS: { value: Tier; label: string }[] = [
+  { value: 'BASIC', label: 'Basic' },
+  { value: 'STANDARD', label: 'Standard' },
+  { value: 'PREMIUM', label: 'Premium' },
+];
 
 const initialForm = {
   title: '',
   description: '',
   type: 'FILE' as ResourceType,
   videoUrl: '',
+  allowedTiers: ['BASIC', 'STANDARD', 'PREMIUM'] as Tier[],
 };
 
 function getResourceUrl(resource: Resource) {
@@ -78,6 +84,11 @@ export default function ResourcesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingResource, setEditingResource] = useState<Resource | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editForm, setEditForm] = useState({ title: '', description: '', allowedTiers: initialForm.allowedTiers });
+  const [isEditSubmitting, setIsEditSubmitting] = useState(false);
+  const [editError, setEditError] = useState('');
   const [viewingResource, setViewingResource] = useState<Resource | null>(null);
   const [previewObjectUrl, setPreviewObjectUrl] = useState<string | null>(null);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
@@ -87,8 +98,8 @@ export default function ResourcesPage() {
   const [file, setFile] = useState<File | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
 
-  const isAuthorized = user?.role === 'ADMIN' || user?.role === 'TUTOR';
-  const canManage = isAuthorized;
+  const isAuthorized = user?.role === 'ADMIN' || user?.role === 'TUTOR' || user?.role === 'STUDENT';
+  const canManage = user?.role === 'ADMIN' || user?.role === 'TUTOR';
 
   const loadResources = async () => {
     setIsLoading(true);
@@ -192,6 +203,11 @@ export default function ResourcesPage() {
       return;
     }
 
+    if (form.allowedTiers.length === 0) {
+      setErrorMessage('Please select at least one tier.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const created = await resourceService.create({
@@ -199,6 +215,7 @@ export default function ResourcesPage() {
         description: form.description,
         type: form.type,
         videoUrl: form.type === 'VIDEO' && videoInputMode === 'URL' ? form.videoUrl : null,
+        allowedTiers: form.allowedTiers,
       });
 
       if ((form.type === 'FILE' || (form.type === 'VIDEO' && videoInputMode === 'UPLOAD')) && file) {
@@ -219,6 +236,42 @@ export default function ResourcesPage() {
     if (!confirmed) return;
     await resourceService.remove(id);
     await loadResources();
+  };
+
+  const openEditModal = (resource: Resource) => {
+    setEditingResource(resource);
+    setEditForm({
+      title: resource.title,
+      description: resource.description || '',
+      allowedTiers: resource.allowedTiers.length > 0 ? resource.allowedTiers : initialForm.allowedTiers,
+    });
+    setEditError('');
+    setIsEditModalOpen(true);
+  };
+
+  const handleEditSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!editingResource) return;
+    setEditError('');
+    if (editForm.allowedTiers.length === 0) {
+      setEditError('Please select at least one tier.');
+      return;
+    }
+    setIsEditSubmitting(true);
+    try {
+      await resourceService.update(editingResource.id, {
+        title: editForm.title,
+        description: editForm.description,
+        allowedTiers: editForm.allowedTiers,
+      });
+      setIsEditModalOpen(false);
+      setEditingResource(null);
+      await loadResources();
+    } catch (error) {
+      setEditError(error instanceof Error ? error.message : 'Failed to update resource.');
+    } finally {
+      setIsEditSubmitting(false);
+    }
   };
 
   if (!isAuthorized) {
@@ -295,45 +348,135 @@ export default function ResourcesPage() {
           </p>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {filteredResources.map((resource) => {
-            const resourceUrl = getResourceUrl(resource);
-            return (
-              <div
-                key={resource.id}
-                className="group flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
-              >
-                <div className="mb-3 flex items-start justify-between">
-                  <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${resource.type === 'VIDEO' ? 'bg-violet-100 text-violet-600 dark:bg-violet-500/10 dark:text-violet-300' : 'bg-sky-100 text-[#0A9AE2] dark:bg-sky-500/10 dark:text-sky-300'}`}>
-                    {resource.type === 'VIDEO' ? <Video size={20} /> : <FileText size={20} />}
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+          {/* Mobile list */}
+          <ul className="divide-y divide-slate-100 dark:divide-slate-800 sm:hidden">
+            {filteredResources.map((resource) => {
+              return (
+                <li key={resource.id} className="flex items-start gap-3 px-4 py-3">
+                  <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${resource.type === 'VIDEO' ? 'bg-violet-100 text-violet-600 dark:bg-violet-500/10 dark:text-violet-300' : 'bg-sky-100 text-[#0A9AE2] dark:bg-sky-500/10 dark:text-sky-300'}`}>
+                    {resource.type === 'VIDEO' ? <Video size={18} /> : <FileText size={18} />}
                   </div>
-                  <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                    {resourceUrl && (
+                  <div className="min-w-0 flex-1">
+                    <button
+                      type="button"
+                      onClick={() => setViewingResource(resource)}
+                      className="truncate text-sm font-bold text-slate-900 hover:text-[#0A9AE2] dark:text-slate-100 dark:hover:text-[#0A9AE2]"
+                    >
+                      {resource.title}
+                    </button>
+                    <p className="truncate text-xs text-slate-500 dark:text-slate-400">{resource.description || 'No description'}</p>
+                    <p className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                      {resource.type}{resource.fileSize ? ` · ${formatFileSize(resource.fileSize)}` : ''} · {new Date(resource.createdAt).toLocaleDateString()}
+                    </p>
+                    <p className="mt-1 text-[10px] font-bold text-[#0A9AE2]">
+                      {resource.allowedTiers.map((tier) => TIER_OPTIONS.find((option) => option.value === tier)?.label ?? tier).join(', ')}
+                    </p>
+                  </div>
+                  {canManage && (
+                    <div className="flex shrink-0 gap-1">
                       <button
-                        onClick={() => setViewingResource(resource)}
+                        onClick={() => openEditModal(resource)}
                         className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
+                        title="Edit"
                       >
-                        <ExternalLink size={16} />
+                        <Pencil size={16} />
                       </button>
-                    )}
-                    {canManage && (
                       <button
                         onClick={() => void handleDelete(resource.id)}
                         className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10"
+                        title="Delete"
                       >
                         <Trash2 size={16} />
                       </button>
-                    )}
-                  </div>
-                </div>
-                <h3 className="line-clamp-1 text-sm font-bold text-slate-900 dark:text-slate-100">{resource.title}</h3>
-                <p className="mt-1 line-clamp-2 text-xs text-slate-500 dark:text-slate-400">{resource.description || 'No description'}</p>
-                <p className="mt-auto pt-3 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                  {resource.type} {resource.fileSize ? `· ${formatFileSize(resource.fileSize)}` : ''} · {new Date(resource.createdAt).toLocaleDateString()}
-                </p>
-              </div>
-            );
-          })}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+
+          {/* Desktop table */}
+          <div className="hidden overflow-x-auto sm:block">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-100 bg-slate-50/60 dark:border-slate-800 dark:bg-slate-900/60">
+                  <th className="px-6 py-3.5 text-left text-xs font-black uppercase tracking-wider text-slate-500">Resource</th>
+                  <th className="px-6 py-3.5 text-left text-xs font-black uppercase tracking-wider text-slate-500">Description</th>
+                  <th className="px-6 py-3.5 text-left text-xs font-black uppercase tracking-wider text-slate-500">Type</th>
+                  <th className="px-6 py-3.5 text-left text-xs font-black uppercase tracking-wider text-slate-500">Tier Access</th>
+                  <th className="px-6 py-3.5 text-left text-xs font-black uppercase tracking-wider text-slate-500">Size</th>
+                  <th className="px-6 py-3.5 text-left text-xs font-black uppercase tracking-wider text-slate-500">Created</th>
+                  <th className="px-6 py-3.5 text-right text-xs font-black uppercase tracking-wider text-slate-500">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {filteredResources.map((resource) => {
+                  return (
+                    <tr key={resource.id} className="transition-colors hover:bg-slate-50/60 dark:hover:bg-slate-800/40">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${resource.type === 'VIDEO' ? 'bg-violet-100 text-violet-600 dark:bg-violet-500/10 dark:text-violet-300' : 'bg-sky-100 text-[#0A9AE2] dark:bg-sky-500/10 dark:text-sky-300'}`}>
+                            {resource.type === 'VIDEO' ? <Video size={16} /> : <FileText size={16} />}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setViewingResource(resource)}
+                            className="font-bold text-slate-900 hover:text-[#0A9AE2] hover:underline dark:text-slate-100 dark:hover:text-[#0A9AE2]"
+                          >
+                            {resource.title}
+                          </button>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-slate-600 dark:text-slate-400">
+                        <p className="line-clamp-1 max-w-md">{resource.description || <span className="italic text-slate-400">No description</span>}</p>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${resource.type === 'VIDEO' ? 'bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-300' : 'bg-sky-50 text-[#0A9AE2] dark:bg-sky-500/10 dark:text-sky-300'}`}>
+                          {resource.type}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex flex-wrap gap-1.5">
+                          {resource.allowedTiers.map((tier) => (
+                            <span key={tier} className="rounded-full bg-[#0A9AE2]/10 px-2 py-0.5 text-[10px] font-black text-[#0A9AE2]">
+                              {TIER_OPTIONS.find((option) => option.value === tier)?.label ?? tier}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-xs text-slate-500 dark:text-slate-400">
+                        {resource.fileSize ? formatFileSize(resource.fileSize) : '—'}
+                      </td>
+                      <td className="px-6 py-4 text-xs text-slate-500 dark:text-slate-400">
+                        {new Date(resource.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        {canManage && (
+                          <div className="inline-flex items-center gap-1">
+                            <button
+                              onClick={() => openEditModal(resource)}
+                              className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
+                              title="Edit"
+                            >
+                              <Pencil size={15} />
+                            </button>
+                            <button
+                              onClick={() => void handleDelete(resource.id)}
+                              className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
+                              title="Delete"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -393,6 +536,38 @@ export default function ResourcesPage() {
                   onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
                   className="mt-2 h-24 w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-[#0A9AE2] dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                 />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Tier Access</label>
+                <div className="mt-2 grid grid-cols-3 gap-2">
+                  {TIER_OPTIONS.map((tier) => {
+                    const isSelected = form.allowedTiers.includes(tier.value);
+                    return (
+                      <button
+                        key={tier.value}
+                        type="button"
+                        onClick={() => {
+                          setForm((prev) => ({
+                            ...prev,
+                            allowedTiers: isSelected
+                              ? prev.allowedTiers.filter((value) => value !== tier.value)
+                              : [...prev.allowedTiers, tier.value],
+                          }));
+                          setErrorMessage('');
+                        }}
+                        className={[
+                          'rounded-2xl border px-3 py-2.5 text-xs font-black transition-colors',
+                          isSelected
+                            ? 'border-[#0A9AE2] bg-[#0A9AE2]/10 text-[#0A9AE2]'
+                            : 'border-slate-200 text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800',
+                        ].join(' ')}
+                      >
+                        {tier.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
 
               {form.type === 'FILE' ? (
@@ -577,6 +752,96 @@ export default function ResourcesPage() {
               })()}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Edit Resource Modal */}
+      {isEditModalOpen && editingResource && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm">
+          <form onSubmit={handleEditSubmit} className="w-full max-w-lg rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
+            <div className="mb-5 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-black text-slate-900 dark:text-slate-100">Edit Resource</h2>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Update title or description.</p>
+              </div>
+              <button type="button" onClick={() => setIsEditModalOpen(false)} className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800">
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Title</label>
+                <input
+                  required
+                  value={editForm.title}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, title: e.target.value }))}
+                  className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-[#0A9AE2] dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Description</label>
+                <textarea
+                  value={editForm.description}
+                  onChange={(e) => setEditForm((prev) => ({ ...prev, description: e.target.value }))}
+                  className="mt-2 h-24 w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm outline-none focus:border-[#0A9AE2] dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Tier Access</label>
+                <div className="mt-2 grid grid-cols-3 gap-2">
+                  {TIER_OPTIONS.map((tier) => {
+                    const isSelected = editForm.allowedTiers.includes(tier.value);
+                    return (
+                      <button
+                        key={tier.value}
+                        type="button"
+                        onClick={() => {
+                          setEditForm((prev) => ({
+                            ...prev,
+                            allowedTiers: isSelected
+                              ? prev.allowedTiers.filter((value) => value !== tier.value)
+                              : [...prev.allowedTiers, tier.value],
+                          }));
+                          setEditError('');
+                        }}
+                        className={[
+                          'rounded-2xl border px-3 py-2.5 text-xs font-black transition-colors',
+                          isSelected
+                            ? 'border-[#0A9AE2] bg-[#0A9AE2]/10 text-[#0A9AE2]'
+                            : 'border-slate-200 text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800',
+                        ].join(' ')}
+                      >
+                        {tier.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {editError && (
+                <div className="rounded-xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-600 dark:bg-red-500/10 dark:text-red-300">
+                  {editError}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button type="button" onClick={() => setIsEditModalOpen(false)} className="rounded-xl px-4 py-2 text-sm font-bold text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800">
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={isEditSubmitting}
+                className="inline-flex items-center gap-2 rounded-xl bg-[#0A9AE2] px-5 py-2 text-sm font-bold text-white transition-colors hover:bg-[#0889c9] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isEditSubmitting && <Loader2 size={16} className="animate-spin" />}
+                Save Changes
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>

@@ -35,6 +35,7 @@ export default function DashboardLayout({
     '/dashboard/flashcards',
     '/dashboard/billing',
     '/dashboard/exams',
+    '/dashboard/resources',
   ];
   const isStudentRailRoute = studentRailRoutes.some((route) => (
     pathname === route || pathname.startsWith(`${route}/`)

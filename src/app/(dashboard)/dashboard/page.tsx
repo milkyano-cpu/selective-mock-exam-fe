@@ -3,13 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '@/features/auth/store/auth.store';
-import { BannerCarousel } from '@/components/dashboard/BannerCarousel';
-import { examService } from '@/features/exams/services/exams.service';
-import type { SessionSummary } from '@/features/exams/types/exams.types';
 import { analyticsService } from '@/features/analytics/services/analytics.service';
-import type { MyAnalytics, Leaderboard } from '@/features/analytics/types/analytics.types';
+import type { MyAnalytics, Leaderboard, StudentAnalytics } from '@/features/analytics/types/analytics.types';
 import {
-  Zap,
   TrendingUp,
   Users,
   Trophy,
@@ -18,7 +14,14 @@ import {
   AlertTriangle,
   Award,
   ChevronDown,
+  FileText,
+  BookOpen,
+  ClipboardList,
+  LibraryBig,
+  CreditCard,
+  ChevronRight,
 } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 const RANKING_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   SUPERIOR: { label: 'Superior', color: 'text-yellow-700 dark:text-yellow-400', bg: 'bg-yellow-100 dark:bg-yellow-900/30' },
@@ -115,7 +118,7 @@ function StudentPerformanceAnalytics() {
   };
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_1fr] xl:grid-cols-[minmax(350px,400px)_minmax(0,1fr)]">
+    <div className="grid w-full min-w-0 grid-cols-1 gap-6 lg:grid-cols-[1fr_1fr] xl:grid-cols-[minmax(350px,400px)_minmax(0,1fr)]">
       
       {/* Analytics Card */}
       <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-8 flex flex-col gap-6">
@@ -326,103 +329,234 @@ function StudentPerformanceAnalytics() {
   );
 }
 
+function formatRoleTime(seconds: number) {
+  if (seconds <= 0) return '0m';
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  if (minutes > 0) return `${minutes}m`;
+  return `${seconds}s`;
+}
+
+function RoleMetricCard({
+  icon: Icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string | number;
+  tone: string;
+}) {
+  return (
+    <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div className={`mb-5 flex h-12 w-12 items-center justify-center rounded-2xl ${tone}`}>
+        <Icon size={22} />
+      </div>
+      <p className="text-3xl font-black text-slate-900 dark:text-slate-100">{value}</p>
+      <p className="mt-1 text-xs font-black uppercase tracking-wide text-slate-400">{label}</p>
+    </div>
+  );
+}
+
+function QuickActionCard({
+  icon: Icon,
+  title,
+  description,
+  href,
+  tone,
+}: {
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  href: string;
+  tone: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:border-[#0A9AE2]/50 hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
+    >
+      <div className={`mb-5 flex h-12 w-12 items-center justify-center rounded-2xl ${tone}`}>
+        <Icon size={22} />
+      </div>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h3 className="font-black text-slate-900 dark:text-slate-100">{title}</h3>
+          <p className="mt-1 text-sm font-medium leading-relaxed text-slate-500 dark:text-slate-400">{description}</p>
+        </div>
+        <ChevronRight size={18} className="mt-1 shrink-0 text-slate-300 transition-transform group-hover:translate-x-1 group-hover:text-[#0A9AE2]" />
+      </div>
+    </Link>
+  );
+}
+
+function AdminDashboard({ firstName }: { firstName: string }) {
+  return (
+    <div className="space-y-8">
+      <header className="flex flex-col gap-2">
+        <p className="text-xs font-black uppercase tracking-[0.24em] text-[#0A9AE2]">Admin control center</p>
+        <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100 sm:text-3xl">
+          Welcome back, <span className="text-[#0A9AE2]">{firstName}</span>! 👋
+        </h1>
+        <p className="max-w-2xl text-sm font-medium text-slate-500 dark:text-slate-400">
+          Manage users, exam content, question approvals, practice assignments, and platform communication from one dashboard.
+        </p>
+      </header>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <RoleMetricCard icon={Users} label="User management" value="Active" tone="bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-300" />
+        <RoleMetricCard icon={FileText} label="Exam workflow" value="Ready" tone="bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-300" />
+        <RoleMetricCard icon={Trophy} label="Question bank" value="Live" tone="bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-300" />
+        <RoleMetricCard icon={TrendingUp} label="Analytics" value="Student" tone="bg-violet-50 text-violet-600 dark:bg-violet-900/20 dark:text-violet-300" />
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <QuickActionCard icon={Users} title="Manage users" description="Create staff accounts and review registered students or parents." href="/dashboard/users" tone="bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-300" />
+        <QuickActionCard icon={FileText} title="Build exams" description="Create mock exams, attach published questions, and manage submissions." href="/dashboard/exams" tone="bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-300" />
+        <QuickActionCard icon={Trophy} title="Review question bank" description="Import CSV questions, approve submitted items, and publish reusable content." href="/dashboard/questions" tone="bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-300" />
+        <QuickActionCard icon={ClipboardList} title="Assign practice" description="Create targeted practice sessions for students from published MCQ questions." href="/dashboard/practice/assignments" tone="bg-cyan-50 text-cyan-600 dark:bg-cyan-900/20 dark:text-cyan-300" />
+        <QuickActionCard icon={BookOpen} title="Manage subjects" description="Keep subjects and topics ready for practice, analytics, and imports." href="/dashboard/subjects" tone="bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-300" />
+        <QuickActionCard icon={CreditCard} title="Billing overview" description="Open billing tools for subscription and payment related follow-up." href="/dashboard/billing" tone="bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300" />
+      </div>
+    </div>
+  );
+}
+
+function TutorDashboard({ firstName }: { firstName: string }) {
+  return (
+    <div className="space-y-8">
+      <header className="flex flex-col gap-2">
+        <p className="text-xs font-black uppercase tracking-[0.24em] text-[#0A9AE2]">Tutor workspace</p>
+        <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100 sm:text-3xl">
+          Welcome back, <span className="text-[#0A9AE2]">{firstName}</span>! 👋
+        </h1>
+        <p className="max-w-2xl text-sm font-medium text-slate-500 dark:text-slate-400">
+          Jump into grading, exam authoring, question creation, and targeted student practice.
+        </p>
+      </header>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <RoleMetricCard icon={FileText} label="Mock exams" value="Open" tone="bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-300" />
+        <RoleMetricCard icon={ClipboardList} label="Practice tasks" value="Assign" tone="bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-300" />
+        <RoleMetricCard icon={Trophy} label="Question bank" value="Create" tone="bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-300" />
+        <RoleMetricCard icon={BookOpen} label="Rubrics" value="Guide" tone="bg-violet-50 text-violet-600 dark:bg-violet-900/20 dark:text-violet-300" />
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <QuickActionCard icon={FileText} title="Exam submissions" description="Open exams and review sessions that need tutor attention." href="/dashboard/exams" tone="bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-300" />
+        <QuickActionCard icon={ClipboardList} title="Practice assignments" description="Assign focused practice from reusable question bank content." href="/dashboard/practice/assignments" tone="bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-300" />
+        <QuickActionCard icon={Trophy} title="Create questions" description="Draft, import, submit, and manage questions for exams or practice." href="/dashboard/questions" tone="bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-300" />
+        <QuickActionCard icon={BookOpen} title="Rubrics" description="Maintain essay grading rubrics for AI and manual review consistency." href="/dashboard/rubrics" tone="bg-violet-50 text-violet-600 dark:bg-violet-900/20 dark:text-violet-300" />
+        <QuickActionCard icon={LibraryBig} title="Passages" description="Manage reusable passages for reading comprehension questions." href="/dashboard/passages" tone="bg-cyan-50 text-cyan-600 dark:bg-cyan-900/20 dark:text-cyan-300" />
+        <QuickActionCard icon={Users} title="Students" description="View linked student cards and progress snapshots." href="/dashboard/students" tone="bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300" />
+      </div>
+    </div>
+  );
+}
+
+function ParentDashboard({ firstName }: { firstName: string }) {
+  const [children, setChildren] = useState<StudentAnalytics[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const res = await analyticsService.getChildrenAnalytics();
+        if (res.success) setChildren(res.data);
+      } catch {
+        setChildren([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    load();
+  }, []);
+
+  const totalExams = children.reduce((sum, child) => sum + child.totalExams, 0);
+  const totalTime = children.reduce((sum, child) => sum + child.totalTimeSeconds, 0);
+  const scoredChildren = children.filter((child) => child.overallAvg !== null);
+  const familyAverage = scoredChildren.length > 0
+    ? scoredChildren.reduce((sum, child) => sum + (child.overallAvg ?? 0), 0) / scoredChildren.length
+    : null;
+  const latestExam = children.flatMap((child) =>
+    child.examHistory.map((exam) => ({ ...exam, studentName: child.studentName }))
+  ).sort((a, b) => new Date(b.takenAt).getTime() - new Date(a.takenAt).getTime())[0] ?? null;
+
+  return (
+    <div className="space-y-8">
+      <header className="flex flex-col gap-2">
+        <p className="text-xs font-black uppercase tracking-[0.24em] text-[#0A9AE2]">Parent dashboard</p>
+        <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100 sm:text-3xl">
+          Welcome, <span className="text-[#0A9AE2]">{firstName}</span>!
+        </h1>
+        <p className="max-w-2xl text-sm font-medium text-slate-500 dark:text-slate-400">
+          Monitor linked students, review mock exam results, and identify the next topics that need focus.
+        </p>
+      </header>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <RoleMetricCard icon={Users} label="Linked students" value={isLoading ? '...' : children.length} tone="bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-300" />
+        <RoleMetricCard icon={FileText} label="Completed exams" value={isLoading ? '...' : totalExams} tone="bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-300" />
+        <RoleMetricCard icon={Trophy} label="Family average" value={isLoading ? '...' : familyAverage !== null ? `${familyAverage.toFixed(0)}%` : '-'} tone="bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-300" />
+        <RoleMetricCard icon={Clock} label="Study time" value={isLoading ? '...' : formatRoleTime(totalTime)} tone="bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-300" />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[1fr_0.8fr]">
+        <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="mb-5 flex items-center justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-black text-slate-900 dark:text-slate-100">Recent result</h2>
+              <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Latest completed mock exam across linked students.</p>
+            </div>
+            <Link href="/dashboard/results" className="rounded-xl bg-[#0A9AE2] px-3 py-2 text-xs font-black text-white transition-colors hover:bg-[#0864B6]">
+              View all
+            </Link>
+          </div>
+          {latestExam ? (
+            <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-950/50">
+              <p className="text-sm font-black text-slate-900 dark:text-slate-100">{latestExam.examTitle}</p>
+              <p className="mt-1 text-xs font-bold text-slate-400">{latestExam.studentName}</p>
+              <div className="mt-4 flex items-end justify-between gap-4">
+                <div>
+                  <p className="text-xs font-black uppercase tracking-wide text-slate-400">Score</p>
+                  <p className="text-3xl font-black text-[#FF6900]">{latestExam.finalScore !== null ? latestExam.finalScore.toFixed(0) : '-'}</p>
+                </div>
+                <p className="text-xs font-bold text-slate-400">{formatRoleTime(latestExam.totalTimeSeconds ?? 0)}</p>
+              </div>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-slate-200 py-12 text-center text-sm font-bold text-slate-400 dark:border-slate-800">
+              No completed exam results yet.
+            </div>
+          )}
+        </div>
+
+        <div className="grid gap-4">
+          <QuickActionCard icon={TrendingUp} title="Exam Results" description="Open detailed score history, strengths, and weak areas." href="/dashboard/results" tone="bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-300" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function DashboardPage() {
   const user = useAuthStore((state) => state.user);
   const userDisplayName = user?.fullName || user?.name || 'User';
   const firstName = userDisplayName.split(' ')[0];
 
   if (user?.role === 'ADMIN') {
-    return (
-      <div className="space-y-8">
-        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex flex-col gap-1">
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-slate-100">
-              Welcome back, <span className="text-[#0A9AE2]">{firstName}</span>! 👋
-            </h1>
-            <p className="text-sm sm:text-base font-medium text-slate-500 dark:text-slate-400">
-              Here is what&apos;s happening with Aspire Academics today.
-            </p>
-          </div>
-        </header>
-
-        <div className="rounded-[2.5rem] border border-slate-200 bg-white p-10 text-center shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900 lg:p-20">
-          <div className="w-20 h-20 bg-[#0A9AE2]/10 text-[#0A9AE2] rounded-3xl flex items-center justify-center mx-auto mb-8">
-            <TrendingUp size={40} />
-          </div>
-          <h2 className="mb-4 text-3xl font-black tracking-tight text-slate-900 dark:text-slate-100">Platform Overview</h2>
-          <p className="mx-auto max-w-md text-lg font-medium leading-relaxed text-slate-500 dark:text-slate-400">
-            This administrative dashboard allows you to manage users, update exam content, and monitor platform revenue.
-          </p>
-          
-          <div className="mt-12 inline-flex items-center gap-3 px-6 py-3 bg-orange-50 text-orange-600 rounded-2xl font-black text-sm uppercase tracking-widest border border-orange-100">
-            <Zap size={18} /> Analytics Under Construction
-          </div>
-        </div>
-      </div>
-    );
+    return <AdminDashboard firstName={firstName} />;
   }
 
   if (user?.role === 'TUTOR') {
-    return (
-      <div className="space-y-8">
-        <BannerCarousel />
-        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex flex-col gap-1">
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-slate-100">
-              Welcome back, <span className="text-[#0A9AE2]">{firstName}</span>! 👋
-            </h1>
-            <p className="text-sm sm:text-base font-medium text-slate-500 dark:text-slate-400">
-              Here is what&apos;s happening with your classes today.
-            </p>
-          </div>
-        </header>
-      </div>
-    );
+    return <TutorDashboard firstName={firstName} />;
   }
 
   if (user?.role === 'PARENT') {
-    return (
-      <div className="space-y-8">
-        <BannerCarousel />
-        {/* Welcome Section */}
-        <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex flex-col gap-1">
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-slate-100">
-              Parent Dashboard <span className="text-[#0A9AE2]">.</span>
-            </h1>
-            <p className="text-sm sm:text-base font-medium text-slate-500 dark:text-slate-400">
-              Monitor students&apos; progress and manage accounts.
-            </p>
-          </div>
-        </header>
-
-        <div className="rounded-[2.5rem] border border-slate-200 bg-white p-10 text-center shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900 lg:p-20">
-          <div className="w-20 h-20 bg-[#0A9AE2]/10 text-[#0A9AE2] rounded-3xl flex items-center justify-center mx-auto mb-8 rotate-3">
-            <Users size={40} />
-          </div>
-          <h2 className="mb-4 text-3xl font-black tracking-tight text-slate-900 dark:text-slate-100">Welcome, {firstName}!</h2>
-          <p className="mx-auto max-w-md text-lg font-medium leading-relaxed text-slate-500 dark:text-slate-400">
-            This specialized dashboard allows you to track mock exam results, analyze performance trends, and manage student subscriptions.
-          </p>
-          
-          <div className="mt-12 inline-flex items-center gap-3 px-6 py-3 bg-orange-50 text-orange-600 rounded-2xl font-black text-sm uppercase tracking-widest border border-orange-100">
-            <Zap size={18} /> Feature Under Construction
-          </div>
-        </div>
-
-        {/* Quick Preview Grid for Parent */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 opacity-50 pointer-events-none">
-          <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
-            <h3 className="mb-2 font-bold text-slate-900 dark:text-slate-100">Linked Students</h3>
-            <p className="text-sm font-medium text-slate-400 dark:text-slate-500">Coming soon: View all registered students under your account.</p>
-          </div>
-          <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm transition-colors dark:border-slate-800 dark:bg-slate-900">
-            <h3 className="mb-2 font-bold text-slate-900 dark:text-slate-100">Recent Reports</h3>
-            <p className="text-sm font-medium text-slate-400 dark:text-slate-500">Coming soon: Download performance reports for your students.</p>
-          </div>
-        </div>
-      </div>
-    );
+    return <ParentDashboard firstName={firstName} />;
   }
 
 
@@ -443,7 +577,7 @@ export default function DashboardPage() {
           </div>
         </header>
 
-        <div className="px-5 sm:px-6">
+        <div className="min-w-0">
           <StudentPerformanceAnalytics />
         </div>
       </div>
