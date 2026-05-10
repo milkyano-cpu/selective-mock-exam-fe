@@ -39,9 +39,13 @@ export async function middleware(request: NextRequest) {
     const refreshRes = await tryServerRefresh(request);
 
     if (!refreshRes) {
+      // Refresh failed — clear stale cookies so we don't loop back from /login
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('next', pathname);
-      return NextResponse.redirect(loginUrl);
+      const redirect = NextResponse.redirect(loginUrl);
+      redirect.cookies.set(ACCESS_TOKEN_COOKIE, '', { path: '/', maxAge: 0 });
+      redirect.cookies.set(REFRESH_TOKEN_COOKIE, '', { path: '/', maxAge: 0 });
+      return redirect;
     }
 
     const redirect = NextResponse.redirect(request.url);
@@ -54,8 +58,29 @@ export async function middleware(request: NextRequest) {
     return redirect;
   }
 
-  if (isAuthPage && (accessToken || refreshToken) && pathname !== '/reset-password') {
+  // If on auth page with a valid access token, redirect to dashboard immediately.
+  if (isAuthPage && accessToken && pathname !== '/reset-password') {
     return NextResponse.redirect(new URL('/dashboard', request.url));
+  }
+
+  // If on auth page with only a refresh token (no access token), try refreshing.
+  // If refresh succeeds → redirect to dashboard. If it fails → clear stale cookies and show login.
+  if (isAuthPage && !accessToken && refreshToken && pathname !== '/reset-password') {
+    const refreshRes = await tryServerRefresh(request);
+    if (refreshRes) {
+      const redirect = NextResponse.redirect(new URL('/dashboard', request.url));
+      const setCookies =
+        typeof (refreshRes.headers as unknown as { getSetCookie?: () => string[] }).getSetCookie === 'function'
+          ? (refreshRes.headers as unknown as { getSetCookie: () => string[] }).getSetCookie()
+          : [refreshRes.headers.get('set-cookie')].filter(Boolean) as string[];
+      setCookies.forEach((cookie) => redirect.headers.append('Set-Cookie', cookie));
+      return redirect;
+    }
+    // Refresh failed — clear stale cookies so user can see login page without looping
+    const response = NextResponse.next();
+    response.cookies.set(ACCESS_TOKEN_COOKIE, '', { path: '/', maxAge: 0 });
+    response.cookies.set(REFRESH_TOKEN_COOKIE, '', { path: '/', maxAge: 0 });
+    return response;
   }
 
   return NextResponse.next();

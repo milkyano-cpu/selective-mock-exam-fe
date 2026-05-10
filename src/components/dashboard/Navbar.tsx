@@ -49,6 +49,7 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
   const mobileProfileRef = useRef<HTMLDivElement>(null);
+  const studentMobileProfileRef = useRef<HTMLDivElement>(null);
   const notifRef = useRef<HTMLDivElement>(null);
   const notifications = useNotificationStore((s) => s.notifications);
   const unreadCount = useNotificationStore((s) => s.unreadCount);
@@ -60,7 +61,8 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
       const target = event.target as Node;
       const isInsideProfile =
         Boolean(profileRef.current?.contains(target)) ||
-        Boolean(mobileProfileRef.current?.contains(target));
+        Boolean(mobileProfileRef.current?.contains(target)) ||
+        Boolean(studentMobileProfileRef.current?.contains(target));
 
       if (!isInsideProfile) {
         setIsProfileOpen(false);
@@ -117,7 +119,7 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
         )}
 
         {isStudent && (
-          <div className="relative lg:hidden" ref={mobileProfileRef}>
+          <div className="relative lg:hidden" ref={studentMobileProfileRef}>
             <button
               type="button"
               onClick={() => setIsProfileOpen((prev) => !prev)}
