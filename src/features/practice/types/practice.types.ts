@@ -20,11 +20,11 @@ export interface PracticeQuestion {
   options: McqOption[] | null;
   imageUrl: string | null;
   imageUrls: string[];
+  correctAnswer: string;
+  explanation: string | null;
 }
 
 export interface PracticeResultAnswer extends PracticeQuestion {
-  correctAnswer: string;
-  explanation: string | null;
   studentAnswer: string;
   isCorrect: boolean;
   timeSpentSeconds: number;

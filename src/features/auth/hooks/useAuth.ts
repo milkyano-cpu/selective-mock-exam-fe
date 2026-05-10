@@ -88,18 +88,10 @@ export const useAuth = () => {
   };
 
   const logout = async () => {
-    setIsLoading(true);
-    try {
-      await authService.logout();
-      clearAuth();
-      try { localStorage.removeItem('aspire.pwa.installDismissed'); } catch (_) {}
-    } catch (err) {
-      console.error('Logout error:', err);
-      // Still clear auth locally
-      clearAuth();
-      try { localStorage.removeItem('aspire.pwa.installDismissed'); } catch (_) {}
-    } finally {
-      setIsLoading(false);
+    try { localStorage.removeItem('aspire.pwa.installDismissed'); } catch (_) {}
+
+    if (typeof window !== 'undefined') {
+      window.location.replace('/api/auth/logout');
     }
   };
 

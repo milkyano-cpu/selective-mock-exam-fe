@@ -85,7 +85,7 @@ export function StudentUtilityRail() {
             </p>
           </div>
           <div className="relative z-10">
-            <BannerCarousel />
+            <BannerCarousel reserveSpace />
           </div>
         </div>
       </div>
@@ -193,8 +193,8 @@ function ReminderCalendar() {
   const wobblyCardRadius = '255px 18px 235px 22px / 18px 235px 20px 255px';
   const wobblyPanelRadius = '22px 255px 18px 235px / 235px 18px 255px 22px';
   const wobblyButtonRadius = '18px 235px 20px 255px / 255px 20px 235px 18px';
-  const handBodyFont = "'Patrick Hand', 'Comic Sans MS', 'Comic Sans', cursive";
-  const handHeadingFont = "'Kalam', 'Comic Sans MS', 'Comic Sans', cursive";
+  const handBodyFont = "var(--font-patrick-hand), 'Patrick Hand', cursive";
+  const handHeadingFont = "var(--font-kalam), 'Kalam', cursive";
   const [visibleMonth, setVisibleMonth] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -235,8 +235,7 @@ function ReminderCalendar() {
   const calendarDays = buildCalendarDays(visibleMonth);
   const selectedReminder = reminders[selectedDate];
   const upcomingReminders = Object.entries(reminders)
-    .sort(([a], [b]) => a.localeCompare(b))
-    .slice(0, 3);
+    .sort(([a], [b]) => a.localeCompare(b));
 
   const handleSelectDate = (dateKey: string) => {
     setSelectedDate(dateKey);
@@ -254,6 +253,7 @@ function ReminderCalendar() {
       }
       return next;
     });
+    setDraft('');
   };
 
   const handleRemoveReminder = (dateKey: string) => {
@@ -400,17 +400,9 @@ function ReminderCalendar() {
               <Plus size={18} strokeWidth={2.8} />
             </button>
           </div>
-          {selectedReminder && (
-            <p
-              className="mt-2 border-2 border-[#2d2d2d] bg-white px-3 py-1.5 text-[14px] font-bold text-[#2d2d2d]"
-              style={{ borderRadius: wobblyButtonRadius }}
-            >
-              {selectedReminder}
-            </p>
-          )}
         </div>
 
-        <div className="mt-3 space-y-2">
+        <div className="mt-3 max-h-40 space-y-2 overflow-y-auto">
           {upcomingReminders.length > 0 ? (
             upcomingReminders.map(([dateKey, note]) => (
               <div

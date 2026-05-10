@@ -99,7 +99,7 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
 
   return (
     <header className={[
-      'sticky top-0 z-30 flex items-center justify-between border-b px-3 backdrop-blur-2xl sm:px-4 lg:px-8',
+      'sticky top-0 z-30 flex items-center justify-between border-b px-3 backdrop-blur-2xl sm:px-4 lg:px-8 transform-gpu will-change-transform',
       isStudent
         ? 'h-[4.75rem] border-white/45 bg-white/38 shadow-[0_18px_44px_rgba(14,116,144,0.12)] supports-[backdrop-filter]:bg-white/28 dark:border-white/10 dark:bg-slate-950/42 dark:supports-[backdrop-filter]:bg-slate-950/30 lg:h-20'
         : 'border-slate-200 bg-white/80 dark:border-slate-800 dark:bg-slate-950/80',

@@ -12,8 +12,8 @@ export const analyticsService = {
     return response.data;
   },
 
-  getLeaderboard: async (period: LeaderboardPeriod = 'ALL_TIME'): Promise<LeaderboardResponse> => {
-    const response = await mdwClient.get('/analytics/leaderboard', { params: { period } });
+  getLeaderboard: async (period: LeaderboardPeriod = 'ALL_TIME', examId?: string): Promise<LeaderboardResponse> => {
+    const response = await mdwClient.get('/analytics/leaderboard', { params: { period, examId } });
     return response.data;
   },
 

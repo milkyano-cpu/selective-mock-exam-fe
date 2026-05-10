@@ -530,12 +530,13 @@ export default function ExamDetailPage() {
       const res = await examService.startSession(id);
       if (res.success) {
         router.push(`/dashboard/exams/${id}/session`);
+        return; // Keep loading state active during navigation
       } else {
         setError(res.message);
+        setIsStarting(false);
       }
     } catch (err) {
       setError(isAxiosError(err) ? err.response?.data?.message || 'Failed to start exam' : 'Failed to start exam');
-    } finally {
       setIsStarting(false);
     }
   };
@@ -649,18 +650,15 @@ export default function ExamDetailPage() {
   return (
     <div className="min-w-0 w-full space-y-5 overflow-x-hidden">
 
-      {/* ── Header ── */}
-      <div className="flex items-start gap-3 sm:items-center">
+      {/* ── Back button ── */}
+      <div>
         <button
           onClick={() => router.push('/dashboard/exams')}
-          className="rounded-xl p-2 text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+          className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-sm font-medium text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
         >
-          <ArrowLeft size={18} />
+          <ArrowLeft size={16} />
+          Back
         </button>
-        <div className="min-w-0 flex-1">
-          <p className="text-xs font-bold uppercase tracking-widest text-[#FF6900]">{EXAM_TYPE_LABELS[exam.examType]}</p>
-          <h1 className="truncate text-xl font-black text-slate-900 dark:text-slate-100">{exam.title}</h1>
-        </div>
       </div>
 
       {/* ── Alerts ── */}
@@ -1136,6 +1134,26 @@ export default function ExamDetailPage() {
           onClose={() => setShowAddModal(false)}
           onAdded={() => { loadExam(); setSuccessMsg('Questions added successfully'); }}
         />
+      )}
+
+      {isStarting && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/80 backdrop-blur-md dark:bg-slate-950/80">
+          <div className="flex w-full max-w-md flex-col items-center justify-center rounded-[2rem] border border-slate-200 bg-white p-10 text-center shadow-2xl dark:border-slate-800 dark:bg-slate-900">
+            <div className="relative mb-8">
+              <div className="absolute -inset-4 animate-pulse rounded-full bg-[#FF6900]/10 dark:bg-[#FF6900]/5"></div>
+              <div className="absolute inset-0 animate-ping rounded-full bg-[#FF6900]/20"></div>
+              <div className="relative flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-[#FF6900] to-orange-600 text-white shadow-lg">
+                <Loader2 size={36} className="animate-spin" />
+              </div>
+            </div>
+            <h3 className="mb-3 text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100">
+              Prepare yourself
+            </h3>
+            <p className="text-base font-medium leading-relaxed text-slate-500 dark:text-slate-400">
+              Setting up your session. The exam will begin shortly...
+            </p>
+          </div>
+        </div>
       )}
     </div>
   );

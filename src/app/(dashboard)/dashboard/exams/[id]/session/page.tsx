@@ -5,15 +5,15 @@ import { useParams, useRouter } from 'next/navigation';
 import { isAxiosError } from 'axios';
 import { examService } from '@/features/exams/services/exams.service';
 import { QuestionLatexRenderer } from '@/components/ui/QuestionLatexRenderer';
-import type { ExamSession, SessionQuestion } from '@/features/exams/types/exams.types';
+import type { ExamSession, SessionQuestion, BatchAnswerItem } from '@/features/exams/types/exams.types';
 import {
   AlertCircle,
+  AlertTriangle,
   ChevronLeft,
   ChevronRight,
   Clock,
   Loader2,
   Send,
-  Zap,
 } from 'lucide-react';
 
 function formatTime(seconds: number) {
@@ -24,16 +24,11 @@ function formatTime(seconds: number) {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-const FAST_ANSWER_SECONDS = 30;
 const HEARTBEAT_INTERVAL_MS = 15000;
+const BATCH_SYNC_INTERVAL_MS = 30000;
 const IDLE_AFTER_MS = 60000;
-const MOTIVATION_TIERS = [
-  { threshold: 2, message: 'Nice pace!', emoji: '👍' },
-  { threshold: 3, message: 'Good Job!', emoji: '🔥' },
-  { threshold: 5, message: "You're on fire!", emoji: '⚡' },
-  { threshold: 8, message: 'Unstoppable!', emoji: '🚀' },
-  { threshold: 12, message: 'Speed Legend!', emoji: '💫' },
-];
+const LS_ANSWERS_KEY = (sessionId: string) => `exam_answers_${sessionId}`;
+const LS_TIMES_KEY = (sessionId: string) => `exam_times_${sessionId}`;
 
 function QuestionContent({ question }: { question: SessionQuestion }) {
   const imageUrls = question.imageUrls?.length ? question.imageUrls : (question.imageUrl ? [question.imageUrl] : []);
@@ -72,6 +67,42 @@ function QuestionContent({ question }: { question: SessionQuestion }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function AntiCheatWarningModal({
+  isOpen,
+  onClose,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+}) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-[2rem] border border-red-200 bg-white p-6 shadow-2xl dark:border-red-900/50 dark:bg-slate-900">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-500/20 dark:text-red-500">
+          <AlertTriangle size={28} />
+        </div>
+        <div className="mt-5 text-center">
+          <h2 className="text-xl font-black text-slate-900 dark:text-slate-100">Warning: Unfair Practice Detected</h2>
+          <p className="mt-3 text-sm font-medium leading-relaxed text-slate-600 dark:text-slate-400">
+            Leaving the exam page or switching tabs is not allowed. 
+            <br/><br/>
+            Repeated violations will result in automatic submission.
+          </p>
+        </div>
+        <div className="mt-6">
+          <button
+            onClick={onClose}
+            className="w-full inline-flex items-center justify-center rounded-xl bg-red-600 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-red-100 transition-all hover:bg-red-700 dark:shadow-none"
+          >
+            I Understand, Return to Exam
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -146,6 +177,7 @@ export default function ExamSessionPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isSubmitConfirmOpen, setIsSubmitConfirmOpen] = useState(false);
+  const [showCheatWarning, setShowCheatWarning] = useState(false);
   const startTimeRef = useRef<number>(Date.now());
   const questionStartRef = useRef<number>(Date.now());
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -156,13 +188,11 @@ export default function ExamSessionPage() {
   const serverTimeOffsetRef = useRef(0);
   const questionTimeRef = useRef<Map<string, number>>(new Map());
   const lastActivityRef = useRef(Date.now());
-  const fastStreakRef = useRef(0);
-  const [motivationToast, setMotivationToast] = useState<{ message: string; emoji: string; streak: number } | null>(null);
-  const motivationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Debounce autosave
   const sessionRef = useRef<ExamSession | null>(null);
-  const debounceTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
-  const pendingSaveRef = useRef<Map<string, { answer: string; timeSpentSeconds: number; timeSpentDeltaSeconds: number }>>(new Map());
+  const batchSyncRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const batchSyncInFlightRef = useRef(false);
+  const answersRef = useRef<Map<string, string>>(new Map());
+  const dirtyQuestionsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => { currentIndexRef.current = currentIndex; }, [currentIndex]);
   useEffect(() => { timeLeftRef.current = timeLeft; }, [timeLeft]);
@@ -196,7 +226,7 @@ export default function ExamSessionPage() {
         startTimeRef.current = new Date(s.startTime).getTime();
         questionStartRef.current = Date.now();
 
-        // Restore existing answers
+        // Restore existing answers from server
         const existing = new Map<string, string>();
         const existingTimes = new Map<string, number>();
         s.questions.forEach((q) => {
@@ -207,8 +237,32 @@ export default function ExamSessionPage() {
             existingTimes.set(q.questionId, q.existingAnswer.timeSpentSeconds);
           }
         });
+
+        // Merge localStorage backup (client-side answers override server if newer)
+        try {
+          const lsAnswersRaw = localStorage.getItem(LS_ANSWERS_KEY(s.sessionId));
+          const lsTimesRaw = localStorage.getItem(LS_TIMES_KEY(s.sessionId));
+          if (lsAnswersRaw) {
+            const lsAnswers = JSON.parse(lsAnswersRaw) as Record<string, string>;
+            for (const [qid, ans] of Object.entries(lsAnswers)) {
+              if (ans.trim()) existing.set(qid, ans);
+            }
+          }
+          if (lsTimesRaw) {
+            const lsTimes = JSON.parse(lsTimesRaw) as Record<string, number>;
+            for (const [qid, t] of Object.entries(lsTimes)) {
+              const serverTime = existingTimes.get(qid) ?? 0;
+              if (t > serverTime) existingTimes.set(qid, t);
+            }
+          }
+        } catch {
+          // Corrupt localStorage — ignore
+        }
+
         setAnswers(existing);
+        answersRef.current = existing;
         questionTimeRef.current = existingTimes;
+        dirtyQuestionsRef.current.clear();
       } else {
         setError(res.message);
       }
@@ -272,7 +326,6 @@ export default function ExamSessionPage() {
 
     const payload = {
       activeQuestionId: delta.questionId,
-      questionTimeDeltaSeconds: delta.questionTimeDeltaSeconds,
       activeTimeDeltaSeconds: delta.activeTimeDeltaSeconds,
       idleTimeDeltaSeconds: delta.idleTimeDeltaSeconds,
     };
@@ -294,9 +347,6 @@ export default function ExamSessionPage() {
       if (res.success) {
         serverTimeOffsetRef.current = new Date(res.data.serverNow).getTime() - Date.now();
         setTimeLeft(res.data.secondsRemaining);
-        if (res.data.activeQuestionId && res.data.questionTimeSpentSeconds !== null) {
-          questionTimeRef.current.set(res.data.activeQuestionId, res.data.questionTimeSpentSeconds);
-        }
       }
       return res;
     } catch {
@@ -306,67 +356,80 @@ export default function ExamSessionPage() {
     }
   }, [captureQuestionTime]);
 
-  // Stable save helper — no deps, uses only args
-  const saveAnswer = useCallback(async (
-    sessionId: string,
-    questionId: string,
-    answer: string,
-    timeSpentSeconds: number,
-    timeSpentDeltaSeconds = 0,
-  ) => {
+  // Build batch payload from current local state (all answers or just dirty ones)
+  const buildBatchPayload = useCallback((onlyDirty = true): BatchAnswerItem[] => {
+    const currentAnswers = answersRef.current;
+    const currentTimes = questionTimeRef.current;
+    const items: BatchAnswerItem[] = [];
+    const questionIds = onlyDirty ? dirtyQuestionsRef.current : new Set(currentAnswers.keys());
+    for (const qid of questionIds) {
+      const answer = currentAnswers.get(qid);
+      if (answer !== undefined) {
+        items.push({
+          questionId: qid,
+          studentAnswer: answer,
+          timeSpentSeconds: currentTimes.get(qid) ?? 0,
+        });
+      }
+    }
+    return items;
+  }, []);
+
+  // Persist answers + times to localStorage
+  const persistToLocalStorage = useCallback(() => {
+    const sess = sessionRef.current;
+    if (!sess) return;
     try {
-      await examService.submitAnswer(sessionId, { questionId, studentAnswer: answer, timeSpentSeconds, timeSpentDeltaSeconds });
+      const answersObj: Record<string, string> = {};
+      answersRef.current.forEach((v, k) => { answersObj[k] = v; });
+      localStorage.setItem(LS_ANSWERS_KEY(sess.sessionId), JSON.stringify(answersObj));
+      const timesObj: Record<string, number> = {};
+      questionTimeRef.current.forEach((v, k) => { timesObj[k] = v; });
+      localStorage.setItem(LS_TIMES_KEY(sess.sessionId), JSON.stringify(timesObj));
     } catch {
-      // Silent fail — answer already in local state
+      // localStorage full or unavailable — ignore
     }
   }, []);
 
-  // Flush a single question's pending save immediately (e.g. on navigate away)
-  const flushSave = useCallback((questionId: string) => {
-    const timer = debounceTimersRef.current.get(questionId);
-    if (timer) {
-      clearTimeout(timer);
-      debounceTimersRef.current.delete(questionId);
-    }
-    const pending = pendingSaveRef.current.get(questionId);
-    if (pending) {
-      pendingSaveRef.current.delete(questionId);
-      const sess = sessionRef.current;
-      if (sess) saveAnswer(sess.sessionId, questionId, pending.answer, pending.timeSpentSeconds, pending.timeSpentDeltaSeconds);
-    }
-  }, [saveAnswer]);
-
-  // Flush all pending saves and await them (used before submit / time-up)
-  const flushAllPending = useCallback(async () => {
-    debounceTimersRef.current.forEach((timer) => clearTimeout(timer));
-    debounceTimersRef.current.clear();
+  // Batch sync dirty answers to backend
+  const syncBatch = useCallback(async () => {
     const sess = sessionRef.current;
-    if (!sess) return;
-    const entries = Array.from(pendingSaveRef.current.entries());
-    pendingSaveRef.current.clear();
-    await Promise.allSettled(
-      entries.map(([questionId, { answer, timeSpentSeconds, timeSpentDeltaSeconds }]) =>
-        saveAnswer(sess.sessionId, questionId, answer, timeSpentSeconds, timeSpentDeltaSeconds)
-      )
-    );
-  }, [saveAnswer]);
+    if (!sess || batchSyncInFlightRef.current) return;
+    const items = buildBatchPayload(true);
+    if (items.length === 0) return;
+    dirtyQuestionsRef.current.clear();
+    batchSyncInFlightRef.current = true;
+    try {
+      await examService.batchAnswers(sess.sessionId, { answers: items });
+    } catch {
+      // Re-mark as dirty so next sync retries
+      for (const item of items) dirtyQuestionsRef.current.add(item.questionId);
+    } finally {
+      batchSyncInFlightRef.current = false;
+    }
+  }, [buildBatchPayload]);
 
   const handleTimeUp = useCallback(async () => {
     await sendHeartbeat(captureQuestionTime());
-    await flushAllPending();
     const sess = sessionRef.current;
     if (!sess) return;
+    const allAnswers = buildBatchPayload(false);
     const totalTime = Math.max(0, Math.floor((Date.now() + serverTimeOffsetRef.current - startTimeRef.current) / 1000));
     try {
-      const res = await examService.submitSession(sess.sessionId, { totalTimeSeconds: totalTime });
+      const res = await examService.submitSession(sess.sessionId, {
+        totalTimeSeconds: totalTime,
+        answers: allAnswers.length > 0 ? allAnswers : undefined,
+      });
       if (res.success) {
+        // Clean up localStorage
+        localStorage.removeItem(LS_ANSWERS_KEY(sess.sessionId));
+        localStorage.removeItem(LS_TIMES_KEY(sess.sessionId));
         router.push(`/dashboard/exams/sessions/${sess.sessionId}/result`);
       }
     } catch {
-      // Already submitted or error — redirect anyway
       router.push('/dashboard/exams');
     }
-  }, [captureQuestionTime, flushAllPending, router, sendHeartbeat]);
+  }, [buildBatchPayload, captureQuestionTime, router, sendHeartbeat]);
 
   // Start timer
   useEffect(() => {
@@ -401,30 +464,29 @@ export default function ExamSessionPage() {
     };
   }, [session, sendHeartbeat]);
 
-  // Warn before leaving + best-effort flush via fetch+keepalive (axios doesn't work post-unload)
+  // Warn before leaving + best-effort batch flush via fetch+keepalive
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
       e.preventDefault();
       const sess = sessionRef.current;
       if (!sess) return;
-      debounceTimersRef.current.forEach((timer) => clearTimeout(timer));
-      debounceTimersRef.current.clear();
+      persistToLocalStorage();
       const delta = captureQuestionTime();
       sendHeartbeat(delta, { keepalive: true });
-      pendingSaveRef.current.forEach(({ answer, timeSpentSeconds, timeSpentDeltaSeconds }, questionId) => {
-        fetch(`/api/exams/sessions/${sess.sessionId}/answers`, {
-          method: 'POST',
+      const items = buildBatchPayload(false);
+      if (items.length > 0) {
+        fetch(`/api/exams/sessions/${sess.sessionId}/answers/batch`, {
+          method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           keepalive: true,
-          body: JSON.stringify({ questionId, studentAnswer: answer, timeSpentSeconds, timeSpentDeltaSeconds }),
+          body: JSON.stringify({ answers: items }),
         }).catch(() => {});
-      });
-      pendingSaveRef.current.clear();
+      }
     };
     window.addEventListener('beforeunload', handler);
     return () => window.removeEventListener('beforeunload', handler);
-  }, [captureQuestionTime, sendHeartbeat]);
+  }, [buildBatchPayload, captureQuestionTime, persistToLocalStorage, sendHeartbeat]);
 
   useEffect(() => {
     const markActivity = () => {
@@ -436,7 +498,12 @@ export default function ExamSessionPage() {
       } else {
         lastActivityRef.current = Date.now();
         questionStartRef.current = Date.now();
+        setShowCheatWarning(true);
       }
+    };
+
+    const disableCheating = (e: Event) => {
+      e.preventDefault();
     };
 
     window.addEventListener('mousemove', markActivity);
@@ -444,6 +511,19 @@ export default function ExamSessionPage() {
     window.addEventListener('pointerdown', markActivity);
     window.addEventListener('touchstart', markActivity);
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    
+    // Anti-cheat event listeners
+    window.addEventListener('contextmenu', disableCheating);
+    window.addEventListener('copy', disableCheating);
+    window.addEventListener('cut', disableCheating);
+    // Paste is allowed ONLY inside textareas (essay questions)
+    const disablePaste = (e: ClipboardEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.tagName !== 'TEXTAREA' && target.tagName !== 'INPUT') {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('paste', disablePaste);
 
     return () => {
       window.removeEventListener('mousemove', markActivity);
@@ -451,84 +531,49 @@ export default function ExamSessionPage() {
       window.removeEventListener('pointerdown', markActivity);
       window.removeEventListener('touchstart', markActivity);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      
+      window.removeEventListener('contextmenu', disableCheating);
+      window.removeEventListener('copy', disableCheating);
+      window.removeEventListener('cut', disableCheating);
+      window.removeEventListener('paste', disablePaste);
     };
   }, [captureQuestionTime, sendHeartbeat]);
 
-  // Cleanup motivation timer
-  useEffect(() => {
-    return () => {
-      if (motivationTimerRef.current) clearTimeout(motivationTimerRef.current);
-    };
-  }, []);
 
   // Keep sessionRef in sync so refs-based callbacks avoid stale closures
   useEffect(() => { sessionRef.current = session; }, [session]);
 
-  // Cleanup debounce timers on unmount
+  // Batch sync interval + cleanup on unmount
   useEffect(() => {
+    if (!session) return;
+
+    batchSyncRef.current = setInterval(() => {
+      persistToLocalStorage();
+      void syncBatch();
+    }, BATCH_SYNC_INTERVAL_MS);
+
     return () => {
-      debounceTimersRef.current.forEach((timer) => clearTimeout(timer));
-      debounceTimersRef.current.clear();
+      if (batchSyncRef.current) clearInterval(batchSyncRef.current);
     };
-  }, []);
+  }, [session, persistToLocalStorage, syncBatch]);
 
   const handleSelectAnswer = (questionId: string, answer: string) => {
     if (!session) return;
     lastActivityRef.current = Date.now();
     setAnswers((prev) => new Map(prev).set(questionId, answer));
+    answersRef.current.set(questionId, answer);
+    dirtyQuestionsRef.current.add(questionId);
 
-    const trackedTime = captureQuestionTime(questionId);
-    const timeSpent = trackedTime.totalTimeSpentSeconds;
+    captureQuestionTime(questionId);
 
-    // Speed streak tracking (MCQ only)
-    const answeredQuestion = session.questions.find((q) => q.questionId === questionId);
-    if (answeredQuestion?.type === 'MCQ') {
-      if (trackedTime.questionTimeDeltaSeconds < FAST_ANSWER_SECONDS) {
-        fastStreakRef.current += 1;
-        const newStreak = fastStreakRef.current;
-        const tier = [...MOTIVATION_TIERS].reverse().find((t) => newStreak >= t.threshold);
-        if (tier) {
-          if (motivationTimerRef.current) clearTimeout(motivationTimerRef.current);
-          setMotivationToast({ message: tier.message, emoji: tier.emoji, streak: newStreak });
-          motivationTimerRef.current = setTimeout(() => setMotivationToast(null), 3000);
-        }
-      } else {
-        fastStreakRef.current = 0;
-      }
-    }
-
-    // Store pending save
-    pendingSaveRef.current.set(questionId, {
-      answer,
-      timeSpentSeconds: timeSpent,
-      timeSpentDeltaSeconds: trackedTime.questionTimeDeltaSeconds,
-    });
-
-    // Cancel existing debounce for this question
-    const existing = debounceTimersRef.current.get(questionId);
-    if (existing) clearTimeout(existing);
-
-    // 300ms for MCQ, 1000ms for essay
-    const delay = answeredQuestion?.type === 'ESSAY' ? 1000 : 300;
-    const timer = setTimeout(() => {
-      debounceTimersRef.current.delete(questionId);
-      const pending = pendingSaveRef.current.get(questionId);
-      if (pending) {
-        pendingSaveRef.current.delete(questionId);
-        const sess = sessionRef.current;
-        if (sess) saveAnswer(sess.sessionId, questionId, pending.answer, pending.timeSpentSeconds, pending.timeSpentDeltaSeconds);
-      }
-    }, delay);
-    debounceTimersRef.current.set(questionId, timer);
+    persistToLocalStorage();
   };
 
   const handleNavigate = (index: number) => {
-    // Flush pending save for the question we're leaving
     const leavingQuestionId = session?.questions[currentIndex]?.questionId;
     if (leavingQuestionId) {
       const delta = captureQuestionTime(leavingQuestionId);
       void sendHeartbeat(delta);
-      flushSave(leavingQuestionId);
     }
     questionStartRef.current = Date.now();
     setCurrentIndex(index);
@@ -547,14 +592,20 @@ export default function ExamSessionPage() {
     setIsSubmitting(true);
     setSubmitError(null);
     if (timerRef.current) clearInterval(timerRef.current);
+    if (batchSyncRef.current) clearInterval(batchSyncRef.current);
 
     await sendHeartbeat(captureQuestionTime());
-    await flushAllPending();
 
+    const allAnswers = buildBatchPayload(false);
     const totalTime = Math.max(0, Math.floor((Date.now() + serverTimeOffsetRef.current - startTimeRef.current) / 1000));
     try {
-      const res = await examService.submitSession(session.sessionId, { totalTimeSeconds: totalTime });
+      const res = await examService.submitSession(session.sessionId, {
+        totalTimeSeconds: totalTime,
+        answers: allAnswers.length > 0 ? allAnswers : undefined,
+      });
       if (res.success) {
+        localStorage.removeItem(LS_ANSWERS_KEY(session.sessionId));
+        localStorage.removeItem(LS_TIMES_KEY(session.sessionId));
         router.push(`/dashboard/exams/sessions/${session.sessionId}/result`);
       } else {
         setSubmitError(res.message);
@@ -602,31 +653,7 @@ export default function ExamSessionPage() {
   const timerColor = timeLeft < 300 ? 'text-red-600 dark:text-red-400' : timeLeft < 600 ? 'text-orange-500' : 'text-slate-900 dark:text-slate-100';
 
   return (
-    <div className="flex h-[100svh] flex-col overflow-hidden bg-slate-50 dark:bg-slate-950">
-      {/* Speed Streak Motivation Toast */}
-      {motivationToast && (
-        <div
-          className="fixed left-1/2 top-4 z-[100] -translate-x-1/2"
-          style={{ animation: 'motivationSlideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1)' }}
-        >
-          <div className="flex items-center gap-3 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 px-5 py-3 text-white shadow-2xl shadow-emerald-500/25">
-            <span className="text-2xl">{motivationToast.emoji}</span>
-            <div>
-              <p className="text-sm font-black tracking-tight">{motivationToast.message}</p>
-              <p className="text-[11px] font-semibold text-emerald-100">
-                {motivationToast.streak} fast answer{motivationToast.streak !== 1 ? 's' : ''} in a row!
-              </p>
-            </div>
-            <Zap size={18} className="ml-1 text-emerald-200" />
-          </div>
-        </div>
-      )}
-      <style>{`
-        @keyframes motivationSlideDown {
-          from { opacity: 0; transform: translate(-50%, -1.5rem); }
-          to { opacity: 1; transform: translate(-50%, 0); }
-        }
-      `}</style>
+    <div className="flex h-[100svh] flex-col overflow-hidden bg-slate-50 select-none dark:bg-slate-950">
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <div className="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col p-3 sm:p-4 lg:p-6">
           <div className="mb-5 grid gap-3">
@@ -644,7 +671,7 @@ export default function ExamSessionPage() {
           </div>
 
           {/* Question number + saving indicator */}
-          <div className="mb-4 lg:pr-[15.5rem]">
+          <div className="mb-4 lg:pr-[19.5rem] xl:pr-[23.5rem]">
             <div className="flex items-center justify-between">
               <p className="text-sm font-bold text-slate-500 dark:text-slate-400">
                 Question {currentIndex + 1} of {totalQuestions}
@@ -652,9 +679,9 @@ export default function ExamSessionPage() {
             </div>
           </div>
 
-          <div className="grid min-h-0 gap-6 lg:grid-cols-[minmax(0,1fr)_14rem] lg:items-start">
+          <div className="grid min-h-0 flex-1 gap-6 lg:grid-cols-[minmax(0,1fr)_18rem] xl:grid-cols-[minmax(0,1fr)_22rem]">
             {/* Main question area */}
-            <main className="min-w-0 overflow-y-auto">
+            <main className="min-w-0 overflow-y-auto pr-2 pb-16 lg:pb-0">
               <div className="w-full">
                 <div className="mb-4 grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 rounded-2xl border border-slate-200 bg-white px-3 py-3 dark:border-slate-800 dark:bg-slate-900 sm:flex sm:flex-wrap sm:justify-between sm:gap-3 sm:px-4">
                   <button
@@ -748,12 +775,37 @@ export default function ExamSessionPage() {
                   <AlertCircle size={15} /> {submitError}
                 </div>
               )}
+
+              {/* Question navigator (mobile) */}
+              <div className="mt-6 rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:hidden">
+                <div className="mb-4 flex items-center justify-between">
+                  <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
+                    {answeredCount}/{totalQuestions} answered
+                  </p>
+                  <p className="text-xs font-bold text-slate-500">Jump to question</p>
+                </div>
+                <div className="grid grid-cols-[repeat(auto-fill,minmax(2.5rem,1fr))] gap-2 sm:grid-cols-8 md:grid-cols-10">
+                  {session.questions.map((q, i) => {
+                    const isAnswered = answers.has(q.questionId);
+                    const isCurrent = i === currentIndex;
+                    return (
+                      <button
+                        key={q.questionId}
+                        onClick={() => handleNavigate(i)}
+                        className={`aspect-square rounded-xl text-xs font-bold transition-colors ${isCurrent ? 'bg-[#FF6900] text-white shadow-sm' : isAnswered ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700'}`}
+                      >
+                        {i + 1}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
               </div>
             </main>
 
             {/* Question navigator (desktop sidebar) */}
-            <aside className="hidden min-w-0 lg:block">
-              <div className="sticky top-0 rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <aside className="hidden min-w-0 flex-col overflow-y-auto pr-2 lg:flex">
+              <div className="rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
                 <div className={`mb-4 flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 font-mono font-black dark:border-slate-700 dark:bg-slate-800/60 ${timerColor}`}>
                   <Clock size={14} />
                   <span className="text-sm tabular-nums">{formatTime(timeLeft)}</span>
@@ -761,7 +813,7 @@ export default function ExamSessionPage() {
                 <p className="text-xs font-bold uppercase tracking-wide text-slate-400">
                   {answeredCount}/{totalQuestions} answered
                 </p>
-                <div className="mt-4 grid grid-cols-4 gap-2">
+                <div className="mt-4 grid grid-cols-5 gap-2">
                   {session.questions.map((q, i) => {
                     const isAnswered = answers.has(q.questionId);
                     const isCurrent = i === currentIndex;
@@ -788,6 +840,10 @@ export default function ExamSessionPage() {
         isSubmitting={isSubmitting}
         onClose={() => setIsSubmitConfirmOpen(false)}
         onConfirm={handleConfirmSubmit}
+      />
+      <AntiCheatWarningModal
+        isOpen={showCheatWarning}
+        onClose={() => setShowCheatWarning(false)}
       />
     </div>
   );

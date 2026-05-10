@@ -10,6 +10,7 @@ import { userService } from '@/features/users/services/user.service';
 import { AnimatePresence, motion } from 'framer-motion';
 import { InstallPrompt } from '@/components/pwa/InstallPrompt';
 import { PushNotificationBanner } from '@/components/pwa/PushNotificationBanner';
+import { NavigationProgress } from '@/components/dashboard/NavigationProgress';
 import { useNotificationSSE } from '@/features/notifications/hooks/useNotificationSSE';
 import { usePathname } from 'next/navigation';
 
@@ -168,6 +169,7 @@ export default function DashboardLayout({
       </div>
 
       {!isAdminOrTutor && !(isStudent && isFocusedStudentWorkspace) && <BottomNav />}
+      <NavigationProgress />
       <InstallPrompt />
       <PushNotificationBanner />
     </div>

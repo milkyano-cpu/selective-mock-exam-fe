@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { isAxiosError } from 'axios';
 import { examService } from '@/features/exams/services/exams.service';
 import { QuestionLatexRenderer } from '@/components/ui/QuestionLatexRenderer';
-import type { SessionResult, SessionResultAnswer } from '@/features/exams/types/exams.types';
+import type { SessionResult, SessionResultAnswer, SessionInsightsResponse } from '@/features/exams/types/exams.types';
 import {
   AlertCircle,
   ArrowLeft,
@@ -17,6 +17,10 @@ import {
   ChevronDown,
   ChevronUp,
   Trophy,
+  Sparkles,
+  Lightbulb,
+  TrendingUp,
+  TrendingDown,
 } from 'lucide-react';
 
 const RANKING_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
@@ -191,9 +195,9 @@ function AnswerCard({ answer, index }: { answer: SessionResultAnswer; index: num
           {answer.explanation && (
             <div className="mt-3 rounded-xl bg-slate-50 px-3 py-2.5 dark:bg-slate-800">
               <p className="text-xs font-bold uppercase text-slate-400">Explanation</p>
-              <p className="mt-1 text-sm font-medium text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
-                {answer.explanation}
-              </p>
+              <div className="mt-1 text-sm font-medium text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
+                <QuestionLatexRenderer text={answer.explanation} isLatexFormat={answer.isLatexFormat} />
+              </div>
             </div>
           )}
 
@@ -218,6 +222,23 @@ export default function ExamResultPage() {
   const [error, setError] = useState<string | null>(null);
   const [pollCount, setPollCount] = useState(0);
 
+  const [insights, setInsights] = useState<SessionInsightsResponse['data'] | null>(null);
+  const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
+
+  const handleGenerateInsights = async () => {
+    setIsGeneratingInsights(true);
+    try {
+      const res = await examService.getInsights(sessionId);
+      if (res.success) {
+        setInsights(res.data);
+      }
+    } catch (err) {
+      console.error('Failed to generate insights', err);
+    } finally {
+      setIsGeneratingInsights(false);
+    }
+  };
+
   useEffect(() => {
     const load = async () => {
       try {
@@ -231,7 +252,6 @@ export default function ExamResultPage() {
         }
       } catch (err) {
         if (isAxiosError(err) && err.response?.data?.message?.includes('in progress')) {
-          // Still being graded — poll again
           if (pollCount < 10) {
             setTimeout(() => setPollCount((c) => c + 1), 2000);
           } else {
@@ -262,7 +282,7 @@ export default function ExamResultPage() {
 
   if (error) {
     return (
-      <div className="w-full max-w-3xl">
+      <div className="mx-auto w-full max-w-5xl px-4 py-6 md:px-8 md:py-10">
         <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 dark:border-red-800/50 dark:bg-red-900/20 dark:text-red-400">
           <AlertCircle size={16} /> {error}
         </div>
@@ -279,7 +299,7 @@ export default function ExamResultPage() {
   const percentage = reviewedQuestionCount > 0 ? (result.correctCount / reviewedQuestionCount) * 100 : 0;
 
   return (
-    <div className="w-full max-w-3xl space-y-6">
+    <div className="mx-auto w-full max-w-5xl space-y-6 px-4 py-6 md:px-8 md:py-10">
       <div className="flex items-center gap-3">
         <button
           onClick={() => router.push('/dashboard/exams')}
@@ -293,10 +313,8 @@ export default function ExamResultPage() {
         </div>
       </div>
 
-      {/* Score summary */}
       <div className="rounded-[2rem] border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
         <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
-          {/* Score circle */}
           <div className="flex flex-col items-center">
             <div className="relative flex h-28 w-28 items-center justify-center rounded-full border-4 border-[#FF6900]">
               <div className="text-center">
@@ -319,8 +337,7 @@ export default function ExamResultPage() {
             )}
           </div>
 
-          {/* Stats grid */}
-          <div className="flex-1 grid grid-cols-2 gap-4 sm:grid-cols-3">
+          <div className="flex-1 grid grid-cols-2 gap-4 sm:grid-cols-4">
             <div className="rounded-2xl bg-slate-50 p-3 dark:bg-slate-800">
               <p className="text-xs font-bold uppercase text-slate-400">Correct</p>
               <p className="mt-1 text-xl font-black text-green-600 dark:text-green-400">{result.correctCount}</p>
@@ -336,7 +353,7 @@ export default function ExamResultPage() {
               <p className="mt-1 text-xl font-black text-amber-600 dark:text-amber-400">{pendingReviewCount}</p>
               <p className="text-xs text-slate-400">answers</p>
             </div>
-            <div className="rounded-2xl bg-slate-50 p-3 dark:bg-slate-800 sm:col-span-3 lg:col-span-1">
+            <div className="rounded-2xl bg-slate-50 p-3 dark:bg-slate-800">
               <p className="text-xs font-bold uppercase text-slate-400">Time Used</p>
               <p className="mt-1 text-xl font-black text-slate-900 dark:text-slate-100 flex items-center gap-1">
                 <Clock size={16} className="text-slate-400" />{formatSeconds(result.totalTimeSeconds)}
@@ -345,7 +362,6 @@ export default function ExamResultPage() {
           </div>
         </div>
 
-        {/* Progress bar */}
         <div className="mt-5">
           <div className="h-2.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
             <div
@@ -359,13 +375,89 @@ export default function ExamResultPage() {
         </div>
       </div>
 
-      {/* Answer breakdown */}
-      {result.answers.length > 0 && (
+      <div className="rounded-[2rem] border border-indigo-200 bg-white p-6 shadow-sm dark:border-indigo-900/30 dark:bg-slate-900 sm:p-8">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
+          <div>
+            <h2 className="flex items-center gap-2 text-xl font-black text-slate-900 dark:text-slate-100">
+              <Sparkles className="text-indigo-500" /> AI Performance Insights
+            </h2>
+            <p className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400">
+              Personalized analytics and advice based on your accuracy and time management.
+            </p>
+          </div>
+          {!insights && (
+            <button
+              onClick={handleGenerateInsights}
+              disabled={isGeneratingInsights}
+              className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-indigo-500 px-5 py-2.5 text-sm font-bold text-white transition-all hover:bg-indigo-600 focus:ring-4 focus:ring-indigo-500/20 disabled:opacity-70 dark:bg-indigo-600 dark:hover:bg-indigo-700"
+            >
+              {isGeneratingInsights ? <Loader2 size={18} className="animate-spin" /> : <Sparkles size={18} />}
+              {isGeneratingInsights ? 'Analyzing...' : 'Generate Insights'}
+            </button>
+          )}
+        </div>
+
+        {insights && (
+          <div className="space-y-6">
+            <div className="rounded-2xl bg-indigo-50 p-5 dark:bg-indigo-900/10">
+              <p className="text-sm font-medium leading-relaxed text-indigo-900 dark:text-indigo-200">
+                {insights.summary}
+              </p>
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-2">
+              <div className="space-y-3">
+                <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-slate-100">
+                  <TrendingUp size={16} className="text-emerald-500" /> Key Strengths
+                </h3>
+                <ul className="space-y-2">
+                  {insights.strengths.map((str, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
+                      <span className="mt-1 block h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500" />
+                      {str}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="space-y-3">
+                <h3 className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-slate-100">
+                  <TrendingDown size={16} className="text-rose-500" /> Areas to Improve
+                </h3>
+                <ul className="space-y-2">
+                  {insights.weaknesses.map((weak, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
+                      <span className="mt-1 block h-1.5 w-1.5 shrink-0 rounded-full bg-rose-500" />
+                      {weak}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-blue-100 p-5 dark:border-blue-900/30">
+              <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-slate-100">
+                <Lightbulb size={16} className="text-amber-500" /> Actionable Advice
+              </h3>
+              <ul className="space-y-2">
+                {insights.advice.map((adv, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm font-medium text-slate-600 dark:text-slate-300">
+                    <span className="mt-1 block h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
+                    {adv}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {result.answers.some(a => a.studentAnswer && a.studentAnswer.trim() !== '') && (
         <div className="space-y-3">
           <h2 className="text-base font-black text-slate-900 dark:text-slate-100">Answer Review</h2>
-          {result.answers.map((answer, i) => (
-            <AnswerCard key={answer.questionId} answer={answer} index={i} />
-          ))}
+          {result.answers.map((answer, i) => {
+            if (!answer.studentAnswer || answer.studentAnswer.trim() === '') return null;
+            return <AnswerCard key={answer.questionId} answer={answer} index={i} />;
+          })}
         </div>
       )}
 

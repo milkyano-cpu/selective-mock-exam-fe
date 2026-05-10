@@ -241,13 +241,23 @@ export interface SubmitAnswerPayload {
   timeSpentDeltaSeconds?: number;
 }
 
+export interface BatchAnswerItem {
+  questionId: string;
+  studentAnswer: string;
+  timeSpentSeconds: number;
+}
+
+export interface BatchAnswersPayload {
+  answers: BatchAnswerItem[];
+}
+
 export interface SubmitSessionPayload {
   totalTimeSeconds?: number;
+  answers?: BatchAnswerItem[];
 }
 
 export interface SessionHeartbeatPayload {
   activeQuestionId?: string | null;
-  questionTimeDeltaSeconds?: number;
   activeTimeDeltaSeconds?: number;
   idleTimeDeltaSeconds?: number;
 }
@@ -262,7 +272,6 @@ export interface SessionHeartbeatResponse {
     expiresAt: string;
     secondsRemaining: number;
     activeQuestionId: string | null;
-    questionTimeSpentSeconds: number | null;
     activeTimeSeconds: number;
     idleTimeSeconds: number;
     expired: boolean;
@@ -347,6 +356,12 @@ export interface SubmitAnswerResponse {
   data: { questionId: string; studentAnswer: string; timeSpentSeconds: number };
 }
 
+export interface BatchAnswersResponse {
+  success: boolean;
+  message: string;
+  data: { savedCount: number };
+}
+
 export interface SubmitSessionResponse {
   success: boolean;
   message: string;
@@ -362,5 +377,16 @@ export interface SubmitManualGradesResponse {
     finalScore: number | null;
     rankingLevel: RankingLevel | null;
     pendingReviewCount: number;
+  };
+}
+
+export interface SessionInsightsResponse {
+  success: boolean;
+  message: string;
+  data: {
+    summary: string;
+    strengths: string[];
+    weaknesses: string[];
+    advice: string[];
   };
 }

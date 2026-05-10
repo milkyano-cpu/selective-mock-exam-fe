@@ -17,6 +17,8 @@ import type {
   UpdateExamPayload,
   AddExamQuestionsPayload,
   SubmitAnswerPayload,
+  BatchAnswersPayload,
+  BatchAnswersResponse,
   SubmitSessionPayload,
   SessionHeartbeatPayload,
   ManualGradePayloadItem,
@@ -24,6 +26,7 @@ import type {
   ManualGradingQueueStatus,
   ExamStatus,
   PublishExamPayload,
+  SessionInsightsResponse,
 } from '../types/exams.types';
 
 export interface ListExamsParams {
@@ -105,6 +108,11 @@ export const examService = {
     return response.data;
   },
 
+  batchAnswers: async (sessionId: string, payload: BatchAnswersPayload): Promise<BatchAnswersResponse> => {
+    const response = await mdwClient.put(`/exams/sessions/${sessionId}/answers/batch`, payload);
+    return response.data;
+  },
+
   heartbeat: async (sessionId: string, payload: SessionHeartbeatPayload): Promise<SessionHeartbeatResponse> => {
     const response = await mdwClient.post(`/exams/sessions/${sessionId}/heartbeat`, payload);
     return response.data;
@@ -117,6 +125,11 @@ export const examService = {
 
   getResult: async (sessionId: string): Promise<SessionResultResponse> => {
     const response = await mdwClient.get(`/exams/sessions/${sessionId}/result`);
+    return response.data;
+  },
+
+  getInsights: async (sessionId: string): Promise<SessionInsightsResponse> => {
+    const response = await mdwClient.get(`/exams/sessions/${sessionId}/insights`);
     return response.data;
   },
 

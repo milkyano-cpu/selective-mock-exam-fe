@@ -5,7 +5,17 @@ import { bannerService } from '@/features/banners/services/banners.service';
 import { ChevronLeft, ChevronRight, ImageOff } from 'lucide-react';
 import type { Banner } from '@/features/banners/types/banners.types';
 
-export const BannerCarousel = () => {
+type BannerCarouselProps = {
+  className?: string;
+  reserveSpace?: boolean;
+  emptyLabel?: string;
+};
+
+export const BannerCarousel = ({
+  className = '',
+  reserveSpace = false,
+  emptyLabel = 'Banner campaign will appear here',
+}: BannerCarouselProps) => {
   const [banners, setBanners] = useState<Banner[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -39,10 +49,6 @@ export const BannerCarousel = () => {
       isCancelled = true;
     };
   }, []);
-
-  useEffect(() => {
-    setCurrentIndex(0);
-  }, [banners.length]);
 
   // Pause autoplay when tab is hidden and reset index on return
   useEffect(() => {
@@ -121,13 +127,20 @@ export const BannerCarousel = () => {
     setIsPaused(true);
   };
 
-  if (isLoading || banners.length === 0) {
-    return null;
+  if (isLoading) {
+    return <BannerPlaceholder className={className} />;
+  }
+
+  if (banners.length === 0) {
+    return reserveSpace ? <BannerPlaceholder className={className} label={emptyLabel} /> : null;
   }
 
   return (
     <div
-      className="group relative min-w-0 max-w-full overflow-hidden bg-slate-100 aspect-[16/7] dark:bg-slate-900"
+      className={[
+        'group relative min-w-0 max-w-full overflow-hidden bg-slate-100 aspect-video dark:bg-slate-900',
+        className,
+      ].filter(Boolean).join(' ')}
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
@@ -200,6 +213,33 @@ export const BannerCarousel = () => {
     </div>
   );
 };
+
+function BannerPlaceholder({ className, label }: { className?: string; label?: string }) {
+  return (
+    <div
+      aria-busy={!label}
+      className={[
+        'relative min-w-0 max-w-full overflow-hidden bg-[linear-gradient(135deg,#ecfeff_0%,#eef2ff_48%,#fff7ed_100%)] aspect-video dark:bg-[linear-gradient(135deg,#082f49_0%,#1e1b4b_52%,#2a1208_100%)]',
+        className,
+      ].filter(Boolean).join(' ')}
+    >
+      {label ? (
+        <div className="absolute inset-0 flex items-center justify-center px-6 text-center">
+          <p className="max-w-xs text-sm font-black text-slate-400 dark:text-slate-500">
+            {label}
+          </p>
+        </div>
+      ) : (
+        <div className="absolute inset-0 animate-pulse">
+          <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0)_0%,rgba(255,255,255,0.62)_48%,rgba(255,255,255,0)_100%)] dark:bg-[linear-gradient(90deg,rgba(15,23,42,0)_0%,rgba(255,255,255,0.12)_48%,rgba(15,23,42,0)_100%)]" />
+          <div className="absolute left-5 top-5 h-3 w-28 rounded-full bg-white/70 dark:bg-white/10" />
+          <div className="absolute bottom-5 left-5 h-4 w-44 max-w-[52%] rounded-full bg-white/80 dark:bg-white/10" />
+          <div className="absolute bottom-5 right-5 h-2.5 w-16 rounded-full bg-white/60 dark:bg-white/10" />
+        </div>
+      )}
+    </div>
+  );
+}
 
 function BannerImage({ banner, priority }: { banner: Banner; priority: boolean }) {
   const [hasFailed, setHasFailed] = useState(false);

@@ -11,6 +11,8 @@ import {
   Loader2,
   BookOpen,
   AlertCircle,
+  Trophy,
+  XCircle,
 } from 'lucide-react';
 import { practiceService } from '@/features/practice/services/practice.service';
 import { QuestionLatexRenderer } from '@/components/ui/QuestionLatexRenderer';
@@ -38,8 +40,13 @@ export default function PracticeSessionPage() {
 
   const [currentIdx, setCurrentIdx] = useState(0);
   const [answers, setAnswers] = useState<AnswerState>({});
+  const [submittedSet, setSubmittedSet] = useState<Set<string>>(new Set());
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  
+  const [streak, setStreak] = useState(0);
+  const [showToast, setShowToast] = useState(false);
+  const [countdown, setCountdown] = useState<number | null>(null);
 
   // Track time spent per question
   const questionStartTime = useRef<number>(Date.now());
@@ -67,6 +74,16 @@ export default function PracticeSessionPage() {
           const parsed = JSON.parse(stored) as AnswerState;
           setAnswers(parsed);
         }
+        const storedSubmitted = localStorage.getItem(`${STORAGE_KEY}_submitted`);
+        if (storedSubmitted) {
+          const parsedSet = new Set<string>(JSON.parse(storedSubmitted));
+          setSubmittedSet(parsedSet);
+          // Fast forward to first unanswered question
+          const firstUnanswered = res.data.questions.findIndex(q => !parsedSet.has(q.questionId));
+          if (firstUnanswered !== -1) {
+            setCurrentIdx(firstUnanswered);
+          }
+        }
       } catch {
         // ignore parse errors
       }
@@ -93,18 +110,73 @@ export default function PracticeSessionPage() {
     questionStartTime.current = Date.now();
   }, [currentIdx, session]);
 
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (countdown !== null && countdown > 0) {
+      timer = setTimeout(() => {
+        setCountdown((prev) => (prev !== null ? prev - 1 : null));
+      }, 1000);
+    } else if (countdown === 0) {
+      setCountdown(null);
+      if (currentIdx < (session?.questions.length ?? 1) - 1) {
+        handleNextQuestion();
+      } else {
+        setShowConfirm(true);
+      }
+    }
+    return () => clearTimeout(timer);
+  }, [countdown, currentIdx, session]);
+
   const handleAnswer = (questionId: string, optionKey: string) => {
+    if (submittedSet.has(questionId)) return;
     const next = { ...answers, [questionId]: optionKey };
     setAnswers(next);
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    } catch {
-      // storage full
-    }
+    } catch {}
   };
 
-  const handleNavigate = (dir: 'prev' | 'next') => {
-    setCurrentIdx((i) => (dir === 'prev' ? Math.max(0, i - 1) : Math.min((session?.questions.length ?? 1) - 1, i + 1)));
+  const handleNextQuestion = useCallback(() => {
+    setCountdown(null);
+    setCurrentIdx((i) => Math.min((session?.questions.length ?? 1) - 1, i + 1));
+  }, [session]);
+
+  const handleSubmitQuestion = () => {
+    const q = session?.questions[currentIdx];
+    if (!q || !answers[q.questionId]) return;
+
+    const elapsed = Math.floor((Date.now() - questionStartTime.current) / 1000);
+    timeSpentMap.current[q.questionId] = (timeSpentMap.current[q.questionId] ?? 0) + elapsed;
+
+    const nextSubmitted = new Set(submittedSet);
+    nextSubmitted.add(q.questionId);
+    setSubmittedSet(nextSubmitted);
+
+    const isCorrect = answers[q.questionId] === q.correctAnswer;
+    const timeSpent = timeSpentMap.current[q.questionId];
+
+    if (isCorrect && timeSpent < 30 * 60) {
+      const newStreak = streak + 1;
+      setStreak(newStreak);
+      if (newStreak === 3) {
+        setShowToast(true);
+        setTimeout(() => {
+          setShowToast(false);
+          setStreak(0);
+        }, 4000);
+      }
+    } else {
+      setStreak(0);
+    }
+
+    try {
+      localStorage.setItem(`${STORAGE_KEY}_submitted`, JSON.stringify(Array.from(nextSubmitted)));
+    } catch {}
+
+    // UX Improvement: Start 3s countdown for auto-advance (only if not the last question)
+    if (currentIdx < (session?.questions.length ?? 1) - 1) {
+      setCountdown(3);
+    }
   };
 
   const handleSubmit = async () => {
@@ -112,9 +184,9 @@ export default function PracticeSessionPage() {
     setIsSubmitting(true);
     setShowConfirm(false);
 
-    // Record time for current question
+    // Record time for current question if not yet submitted
     const currentQuestion = session.questions[currentIdx];
-    if (currentQuestion) {
+    if (currentQuestion && !submittedSet.has(currentQuestion.questionId)) {
       const elapsed = Math.floor((Date.now() - questionStartTime.current) / 1000);
       timeSpentMap.current[currentQuestion.questionId] =
         (timeSpentMap.current[currentQuestion.questionId] ?? 0) + elapsed;
@@ -203,21 +275,19 @@ export default function PracticeSessionPage() {
         {/* Question dot indicators */}
         <div className="flex gap-1.5 mb-5 flex-wrap">
           {questions.map((q, idx) => (
-            <button
+            <div
               key={q.questionId}
-              type="button"
-              onClick={() => setCurrentIdx(idx)}
               className={[
-                'w-7 h-7 rounded-lg text-xs font-bold transition-all',
+                'w-7 h-7 rounded-lg text-xs font-bold transition-all flex items-center justify-center',
                 idx === currentIdx
-                  ? 'bg-[#0A9AE2] text-white scale-110'
-                  : answers[q.questionId]
-                  ? 'bg-[#0A9AE2]/20 text-[#0A9AE2]'
+                  ? 'bg-[#0A9AE2] text-white scale-110 shadow-md'
+                  : submittedSet.has(q.questionId)
+                  ? (answers[q.questionId] === q.correctAnswer ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30' : 'bg-rose-100 text-rose-600 dark:bg-rose-900/30')
                   : 'bg-slate-200 dark:bg-slate-700 text-slate-500',
               ].join(' ')}
             >
               {idx + 1}
-            </button>
+            </div>
           ))}
         </div>
 
@@ -287,27 +357,53 @@ export default function PracticeSessionPage() {
               <div className="space-y-3">
                 {currentQuestion.options.map((opt) => {
                   const isSelected = answers[currentQuestion.questionId] === opt.key;
+                  const isSubmitted = submittedSet.has(currentQuestion.questionId);
+                  const isCorrectAnswer = currentQuestion.correctAnswer === opt.key;
+
+                  let buttonStyles = 'border-slate-100 dark:border-slate-700 hover:border-slate-200 dark:hover:border-slate-600 text-slate-700 dark:text-slate-200';
+                  let iconStyles = 'bg-slate-100 dark:bg-slate-700 text-slate-500';
+
+                  if (isSubmitted) {
+                    if (isCorrectAnswer) {
+                      buttonStyles = 'border-emerald-500 bg-emerald-50/50 dark:bg-emerald-900/10 text-emerald-800 dark:text-emerald-300 shadow-sm';
+                      iconStyles = 'bg-emerald-500 text-white';
+                    } else if (isSelected && !isCorrectAnswer) {
+                      buttonStyles = 'border-rose-400 bg-rose-50/50 dark:bg-rose-900/10 text-rose-800 dark:text-rose-300 opacity-70';
+                      iconStyles = 'bg-rose-500 text-white';
+                    } else {
+                      buttonStyles = 'border-slate-100 dark:border-slate-800 text-slate-400 opacity-50';
+                    }
+                  } else if (isSelected) {
+                    buttonStyles = 'border-[#0A9AE2] bg-[#0A9AE2]/5 text-[#0659AA] dark:text-[#0A9AE2]';
+                    iconStyles = 'bg-[#0A9AE2] text-white';
+                  }
+
                   return (
                     <button
                       key={opt.key}
                       type="button"
                       onClick={() => handleAnswer(currentQuestion.questionId, opt.key)}
+                      disabled={isSubmitted}
                       className={[
                         'w-full flex items-center gap-3 p-4 rounded-2xl border-2 text-left transition-all duration-150',
-                        isSelected
-                          ? 'border-[#0A9AE2] bg-[#0A9AE2]/5 text-[#0659AA] dark:text-[#0A9AE2]'
-                          : 'border-slate-100 dark:border-slate-700 hover:border-slate-200 dark:hover:border-slate-600 text-slate-700 dark:text-slate-200',
+                        buttonStyles,
                       ].join(' ')}
                     >
                       <span
                         className={[
                           'w-7 h-7 rounded-full flex items-center justify-center text-sm font-black flex-shrink-0 transition-all',
-                          isSelected
-                            ? 'bg-[#0A9AE2] text-white'
-                            : 'bg-slate-100 dark:bg-slate-700 text-slate-500',
+                          iconStyles,
                         ].join(' ')}
                       >
-                        {isSelected ? <CheckCircle2 size={14} /> : opt.key}
+                        {isSubmitted && isCorrectAnswer ? (
+                          <CheckCircle2 size={14} />
+                        ) : isSubmitted && isSelected && !isCorrectAnswer ? (
+                          <XCircle size={14} />
+                        ) : isSelected ? (
+                          <CheckCircle2 size={14} />
+                        ) : (
+                          opt.key
+                        )}
                       </span>
                       <span className="text-sm font-medium">
                         <QuestionLatexRenderer text={opt.text} isLatexFormat={currentQuestion.isLatexFormat} />
@@ -317,57 +413,88 @@ export default function PracticeSessionPage() {
                 })}
               </div>
             )}
+
+            {/* Inline Result Text */}
+            {submittedSet.has(currentQuestion.questionId) && (
+              <motion.div
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-5 flex items-center gap-2"
+              >
+                {answers[currentQuestion.questionId] === currentQuestion.correctAnswer ? (
+                  <CheckCircle2 size={20} className="text-emerald-500" />
+                ) : (
+                  <XCircle size={20} className="text-rose-500" />
+                )}
+                <h4
+                  className={[
+                    'font-black text-base',
+                    answers[currentQuestion.questionId] === currentQuestion.correctAnswer
+                      ? 'text-emerald-600 dark:text-emerald-400'
+                      : 'text-rose-600 dark:text-rose-400',
+                  ].join(' ')}
+                >
+                  {answers[currentQuestion.questionId] === currentQuestion.correctAnswer
+                    ? 'Correct Answer!'
+                    : 'Incorrect Answer!'}
+                </h4>
+              </motion.div>
+            )}
+
+            {/* Explanation box after submission */}
+            {submittedSet.has(currentQuestion.questionId) && currentQuestion.explanation && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-4 p-5 rounded-2xl bg-blue-50/80 border border-blue-100 dark:bg-blue-900/20 dark:border-blue-800"
+              >
+                <div className="flex items-center gap-2 mb-2">
+                  <BookOpen size={16} className="text-blue-600 dark:text-blue-400" />
+                  <span className="text-sm font-bold text-blue-900 dark:text-blue-300">Explanation</span>
+                </div>
+                <div className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                  <QuestionLatexRenderer text={currentQuestion.explanation} isLatexFormat={currentQuestion.isLatexFormat} />
+                </div>
+              </motion.div>
+            )}
           </motion.div>
         </AnimatePresence>
 
-        {/* Navigation */}
-        <div className="flex items-center justify-between">
-          <button
-            type="button"
-            onClick={() => handleNavigate('prev')}
-            disabled={currentIdx === 0}
-            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-600 dark:text-slate-300 disabled:opacity-40 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-          >
-            <ChevronLeft size={16} />
-            Previous
-          </button>
-
-          {currentIdx < totalQuestions - 1 ? (
+        {/* Navigation / Action */}
+        <div className="flex items-center justify-end">
+          {!submittedSet.has(currentQuestion.questionId) ? (
             <button
               type="button"
-              onClick={() => handleNavigate('next')}
-              className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#0A9AE2] hover:bg-[#0659AA] text-white text-sm font-bold transition-colors"
+              onClick={handleSubmitQuestion}
+              disabled={!answers[currentQuestion.questionId]}
+              className="flex items-center gap-1.5 px-6 py-3 rounded-xl bg-[#0A9AE2] hover:bg-[#0659AA] text-white text-sm font-bold transition-colors disabled:opacity-50"
             >
-              Next
+              Submit Answer
+            </button>
+          ) : currentIdx < totalQuestions - 1 ? (
+            <button
+              type="button"
+              onClick={handleNextQuestion}
+              className="flex items-center gap-1.5 px-6 py-3 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-sm font-bold transition-colors dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
+            >
+              Next Question {countdown !== null && `(Auto in ${countdown}s)`}
               <ChevronRight size={16} />
             </button>
           ) : (
             <button
               type="button"
-              onClick={() => setShowConfirm(true)}
-              disabled={answeredCount === 0 || isSubmitting}
-              className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-[#0A9AE2] hover:bg-[#0659AA] text-white text-sm font-bold disabled:opacity-60 transition-colors"
+              onClick={() => {
+                setCountdown(null);
+                setShowConfirm(true);
+              }}
+              disabled={isSubmitting}
+              className="flex items-center gap-1.5 px-6 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-black disabled:opacity-60 transition-colors shadow-lg shadow-emerald-500/30"
             >
-              {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-              {isSubmitting ? 'Submitting…' : `Finish (${answeredCount}/${totalQuestions})`}
+              {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
+              {isSubmitting ? 'Finishing…' : `Finish Practice ${countdown !== null ? `(Auto in ${countdown}s)` : ''}`}
             </button>
           )}
         </div>
-
-        {/* Also show submit button when not on last question but all answered */}
-        {answeredCount === totalQuestions && currentIdx < totalQuestions - 1 && (
-          <div className="mt-4 flex justify-center">
-            <button
-              type="button"
-              onClick={() => setShowConfirm(true)}
-              disabled={isSubmitting}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-green-500 hover:bg-green-600 text-white text-sm font-bold transition-colors"
-            >
-              <CheckCircle2 size={14} />
-              All answered — Submit
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Submit Confirmation Modal */}
@@ -416,6 +543,23 @@ export default function PracticeSessionPage() {
                 </button>
               </div>
             </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Streak Gamification Toast */}
+      <AnimatePresence>
+        {showToast && (
+          <motion.div
+            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 50, scale: 0.9 }}
+            className="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 bg-gradient-to-r from-amber-500 to-orange-500 text-white px-6 py-4 rounded-3xl shadow-2xl flex items-center gap-3 font-black text-sm border border-white/20"
+          >
+            <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center shrink-0">
+              <Trophy size={20} className="text-amber-100" />
+            </div>
+            <span>Incredible! 3 correct answers in under 30 minutes!</span>
           </motion.div>
         )}
       </AnimatePresence>
