@@ -8,7 +8,7 @@ export async function POST(req: Request) {
     const response = await handleAuthProxy(req, '/auth/refresh', fallbackBody);
 
     // If the backend rejected the refresh token, clear the stale cookies so the
-    // middleware doesn't see them and bounce the client back to /dashboard when
+    // proxy doesn't see them and bounce the client back to /dashboard when
     // they try to navigate to /login.
     if (response.status === 401 || response.status === 403) {
       clearAuthCookies(response);

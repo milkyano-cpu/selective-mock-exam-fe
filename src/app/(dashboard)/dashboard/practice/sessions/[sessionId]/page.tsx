@@ -53,6 +53,7 @@ export default function PracticeSessionPage() {
   const timeSpentMap = useRef<Record<string, number>>({});
 
   const STORAGE_KEY = `practice_answers_${sessionId}`;
+  const questionCount = session?.questions.length ?? 1;
 
   const loadSession = useCallback(async () => {
     try {
@@ -110,6 +111,11 @@ export default function PracticeSessionPage() {
     questionStartTime.current = Date.now();
   }, [currentIdx, session]);
 
+  const handleNextQuestion = useCallback(() => {
+    setCountdown(null);
+    setCurrentIdx((i) => Math.min(questionCount - 1, i + 1));
+  }, [questionCount]);
+
   useEffect(() => {
     let timer: NodeJS.Timeout;
     if (countdown !== null && countdown > 0) {
@@ -118,14 +124,14 @@ export default function PracticeSessionPage() {
       }, 1000);
     } else if (countdown === 0) {
       setCountdown(null);
-      if (currentIdx < (session?.questions.length ?? 1) - 1) {
+      if (currentIdx < questionCount - 1) {
         handleNextQuestion();
       } else {
         setShowConfirm(true);
       }
     }
     return () => clearTimeout(timer);
-  }, [countdown, currentIdx, session]);
+  }, [countdown, currentIdx, handleNextQuestion, questionCount]);
 
   const handleAnswer = (questionId: string, optionKey: string) => {
     if (submittedSet.has(questionId)) return;
@@ -135,11 +141,6 @@ export default function PracticeSessionPage() {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     } catch {}
   };
-
-  const handleNextQuestion = useCallback(() => {
-    setCountdown(null);
-    setCurrentIdx((i) => Math.min((session?.questions.length ?? 1) - 1, i + 1));
-  }, [session]);
 
   const handleSubmitQuestion = () => {
     const q = session?.questions[currentIdx];

@@ -5,9 +5,9 @@ export const ACCESS_TOKEN_COOKIE = 'aspire_access_token';
 export const REFRESH_TOKEN_COOKIE = 'aspire_refresh_token';
 
 // path: '/' is intentional for both cookies.
-// aspire_refresh_token must be on '/' so that middleware.ts can read it on
+// aspire_refresh_token must be on '/' so that proxy.ts can read it on
 // dashboard routes (browsers only send cookies that match the request path).
-// Restricting to '/api/auth/refresh' would make it invisible to the middleware.
+// Restricting to '/api/auth/refresh' would make it invisible to the proxy.
 // Forwarding protection is handled in serverBackend.ts, which only includes the
 // refresh token in the Cookie header when the backend path is '/auth/refresh'.
 const baseCookieOptions = {

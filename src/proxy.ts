@@ -20,7 +20,7 @@ async function tryServerRefresh(request: NextRequest): Promise<Response | null> 
   }
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const accessToken = request.cookies.get(ACCESS_TOKEN_COOKIE)?.value;
   const refreshToken = request.cookies.get(REFRESH_TOKEN_COOKIE)?.value;
   const pathname = request.nextUrl.pathname;
@@ -33,13 +33,13 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  // Access token missing but refresh token present — silently refresh before SSR renders.
-  // Redirect to the same URL with the new cookies so the page gets fresh tokens on first render.
+  // Access token missing but refresh token present; silently refresh before SSR renders.
+  // Redirect to the same URL with new cookies so the page gets fresh tokens on first render.
   if (isDashboardRoute && !accessToken && refreshToken) {
     const refreshRes = await tryServerRefresh(request);
 
     if (!refreshRes) {
-      // Refresh failed — clear stale cookies so we don't loop back from /login
+      // Refresh failed; clear stale cookies so the login page does not loop.
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('next', pathname);
       const redirect = NextResponse.redirect(loginUrl);
@@ -52,7 +52,7 @@ export async function middleware(request: NextRequest) {
     const setCookies =
       typeof (refreshRes.headers as unknown as { getSetCookie?: () => string[] }).getSetCookie === 'function'
         ? (refreshRes.headers as unknown as { getSetCookie: () => string[] }).getSetCookie()
-        : [refreshRes.headers.get('set-cookie')].filter(Boolean) as string[];
+        : ([refreshRes.headers.get('set-cookie')].filter(Boolean) as string[]);
 
     setCookies.forEach((cookie) => redirect.headers.append('Set-Cookie', cookie));
     return redirect;
@@ -63,8 +63,8 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 
-  // If on auth page with only a refresh token (no access token), try refreshing.
-  // If refresh succeeds → redirect to dashboard. If it fails → clear stale cookies and show login.
+  // If on auth page with only a refresh token, try refreshing.
+  // If refresh succeeds, redirect to dashboard. If it fails, clear stale cookies.
   if (isAuthPage && !accessToken && refreshToken && pathname !== '/reset-password') {
     const refreshRes = await tryServerRefresh(request);
     if (refreshRes) {
@@ -72,11 +72,11 @@ export async function middleware(request: NextRequest) {
       const setCookies =
         typeof (refreshRes.headers as unknown as { getSetCookie?: () => string[] }).getSetCookie === 'function'
           ? (refreshRes.headers as unknown as { getSetCookie: () => string[] }).getSetCookie()
-          : [refreshRes.headers.get('set-cookie')].filter(Boolean) as string[];
+          : ([refreshRes.headers.get('set-cookie')].filter(Boolean) as string[]);
       setCookies.forEach((cookie) => redirect.headers.append('Set-Cookie', cookie));
       return redirect;
     }
-    // Refresh failed — clear stale cookies so user can see login page without looping
+
     const response = NextResponse.next();
     response.cookies.set(ACCESS_TOKEN_COOKIE, '', { path: '/', maxAge: 0 });
     response.cookies.set(REFRESH_TOKEN_COOKIE, '', { path: '/', maxAge: 0 });

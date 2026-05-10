@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { BannerCarousel } from '@/components/dashboard/BannerCarousel';
@@ -35,7 +35,7 @@ function StudentPerformanceAnalytics() {
   const [isLeaderboardLoading, setIsLeaderboardLoading] = useState(false);
   const [selectedExamId, setSelectedExamId] = useState<string>('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const dropdownRef = typeof window !== 'undefined' ? require('react').useRef<HTMLDivElement>(null) : null;
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
