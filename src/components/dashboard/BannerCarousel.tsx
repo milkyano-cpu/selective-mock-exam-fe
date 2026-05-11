@@ -140,7 +140,7 @@ export const BannerCarousel = ({
   return (
     <div
       className={[
-        'group relative min-w-0 max-w-full overflow-hidden bg-slate-100 aspect-video dark:bg-slate-900',
+        'group relative min-w-0 max-w-full overflow-hidden bg-slate-100 aspect-[21/9] dark:bg-slate-900 sm:aspect-video',
         className,
       ].filter(Boolean).join(' ')}
       onPointerEnter={(e) => { if (e.pointerType === 'mouse') setIsPaused(true); }}
@@ -283,7 +283,7 @@ function BannerImage({ banner, priority }: { banner: Banner; priority: boolean }
         onLoad={() => setHasLoaded(true)}
         onError={() => setHasFailed(true)}
         className={[
-          'h-full w-full object-contain transition-opacity duration-300 sm:object-cover',
+          'h-full w-full object-cover transition-opacity duration-300',
           hasLoaded ? 'opacity-100' : 'opacity-0',
         ].join(' ')}
       />
