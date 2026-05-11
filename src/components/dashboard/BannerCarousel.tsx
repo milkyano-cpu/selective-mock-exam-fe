@@ -22,6 +22,8 @@ export const BannerCarousel = ({
   const [isPaused, setIsPaused] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(true);
   const isHiddenRef = useRef(false);
+  const touchStartX = useRef(0);
+  const touchStartY = useRef(0);
 
   useEffect(() => {
     let isCancelled = false;
@@ -141,8 +143,8 @@ export const BannerCarousel = ({
         'group relative min-w-0 max-w-full overflow-hidden bg-slate-100 aspect-video dark:bg-slate-900',
         className,
       ].filter(Boolean).join(' ')}
-      onMouseEnter={() => setIsPaused(true)}
-      onMouseLeave={() => setIsPaused(false)}
+      onPointerEnter={(e) => { if (e.pointerType === 'mouse') setIsPaused(true); }}
+      onPointerLeave={(e) => { if (e.pointerType === 'mouse') setIsPaused(false); }}
     >
       {/* Carousel track dengan smooth slide animation + infinite loop */}
       <div
@@ -151,6 +153,17 @@ export const BannerCarousel = ({
           transform: `translateX(${-currentIndex * 100}%)`,
         }}
         onTransitionEnd={handleTransitionEnd}
+        onTouchStart={(e) => {
+          touchStartX.current = e.touches[0].clientX;
+          touchStartY.current = e.touches[0].clientY;
+        }}
+        onTouchEnd={(e) => {
+          const dx = e.changedTouches[0].clientX - touchStartX.current;
+          const dy = e.changedTouches[0].clientY - touchStartY.current;
+          if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 40) {
+            if (dx < 0) goToNext(); else goToPrevious();
+          }
+        }}
       >
         {/* Render setiap banner dengan lebar 100% */}
         {banners.map((banner, index) => (
@@ -182,19 +195,19 @@ export const BannerCarousel = ({
         <>
           <button
             onClick={goToPrevious}
-            className="absolute left-4 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-white/80 hover:bg-white text-slate-900 opacity-0 group-hover:opacity-100 transition-opacity dark:bg-slate-900/80 dark:hover:bg-slate-900 dark:text-white"
+            className="hidden sm:flex absolute left-4 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-white/80 hover:bg-white text-slate-900 opacity-0 group-hover:opacity-100 transition-opacity dark:bg-slate-900/80 dark:hover:bg-slate-900 dark:text-white items-center justify-center"
           >
             <ChevronLeft size={24} />
           </button>
           <button
             onClick={goToNext}
-            className="absolute right-4 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-white/80 hover:bg-white text-slate-900 opacity-0 group-hover:opacity-100 transition-opacity dark:bg-slate-900/80 dark:hover:bg-slate-900 dark:text-white"
+            className="hidden sm:flex absolute right-4 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-white/80 hover:bg-white text-slate-900 opacity-0 group-hover:opacity-100 transition-opacity dark:bg-slate-900/80 dark:hover:bg-slate-900 dark:text-white items-center justify-center"
           >
             <ChevronRight size={24} />
           </button>
 
           {/* Dot Indicators */}
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex gap-2">
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 hidden gap-2">
             {banners.map((_, index) => (
               <button
                 key={index}
@@ -270,7 +283,7 @@ function BannerImage({ banner, priority }: { banner: Banner; priority: boolean }
         onLoad={() => setHasLoaded(true)}
         onError={() => setHasFailed(true)}
         className={[
-          'h-full w-full object-cover transition-opacity duration-300',
+          'h-full w-full object-contain transition-opacity duration-300 sm:object-cover',
           hasLoaded ? 'opacity-100' : 'opacity-0',
         ].join(' ')}
       />
