@@ -12,12 +12,19 @@ type LatexSegment =
   | { type: 'text'; value: string }
   | { type: 'math'; value: string; displayMode: boolean };
 
+const DOLLAR_PLACEHOLDER = '\u00A4';
+
 function normalizeMathDelimiters(value: string) {
   return value.replace(/\\\\([\[\]\(\)])/g, '\\$1');
 }
 
+function preprocessEscapedDollars(value: string): string {
+  return value.replace(/\\\$/g, DOLLAR_PLACEHOLDER);
+}
+
 function parseLatexSegments(value: string, defaultDisplayMode: boolean): LatexSegment[] {
-  const normalized = normalizeMathDelimiters(value);
+  const preprocessed = preprocessEscapedDollars(value);
+  const normalized = normalizeMathDelimiters(preprocessed);
   const pattern = /(\\\[([\s\S]*?)\\\]|\\\(([\s\S]*?)\\\)|\$\$([\s\S]*?)\$\$|\$([^$\n]+)\$)/g;
   const segments: LatexSegment[] = [];
   let lastIndex = 0;
@@ -68,6 +75,39 @@ function renderMathSegment(latex: string, displayMode: boolean, className = '') 
   }
 }
 
+function processTextContent(text: string) {
+  let content = text.replace(/\u00A4/g, '$').replace(/\\\$/g, '$');
+
+  content = content.replace(/\\begin\{(?:itemize|enumerate)\}(?:\[[^\]]*\])?\s*/g, '');
+  content = content.replace(/\\end\{(?:itemize|enumerate)\}\s*/g, '');
+
+  const cmdPattern = /(\\textbf\{([^}]*)\}|\\textit\{([^}]*)\}|\\underline\{([^}]*)\}|\\item\s*)/g;
+  const parts: (string | JSX.Element)[] = [];
+  let lastIdx = 0;
+  let m: RegExpExecArray | null;
+  let i = 0;
+
+  while ((m = cmdPattern.exec(content)) !== null) {
+    if (m.index > lastIdx) parts.push(content.slice(lastIdx, m.index));
+    const key = `t${i++}`;
+    if (m[2] !== undefined) {
+      parts.push(<strong key={key}>{m[2]}</strong>);
+    } else if (m[3] !== undefined) {
+      parts.push(<em key={key}>{m[3]}</em>);
+    } else if (m[4] !== undefined) {
+      parts.push(<u key={key}>{m[4]}</u>);
+    } else {
+      parts.push(<span key={key}>{'\n\u2022 '}</span>);
+    }
+    lastIdx = m.index + m[0].length;
+  }
+
+  if (lastIdx < content.length) parts.push(content.slice(lastIdx));
+  if (parts.length === 0) return content;
+  if (parts.length === 1) return parts[0];
+  return <>{parts}</>;
+}
+
 export function LatexRenderer({ latex, displayMode = false, className = '' }: LatexRendererProps) {
   if (!latex?.trim()) return null;
 
@@ -75,14 +115,14 @@ export function LatexRenderer({ latex, displayMode = false, className = '' }: La
   const hasDelimitedMath = segments.some((segment) => segment.type === 'math');
 
   if (!hasDelimitedMath) {
-    return renderMathSegment(normalizeMathDelimiters(latex), displayMode, className);
+    return <span className={className} style={{ whiteSpace: 'pre-wrap', overflowWrap: 'break-word' }}>{processTextContent(latex)}</span>;
   }
 
   return (
     <span className={className}>
       {segments.map((segment, index) => {
         if (segment.type === 'text') {
-          return <span key={index}>{segment.value}</span>;
+          return <span key={index} style={{ whiteSpace: 'pre-wrap' }}>{processTextContent(segment.value)}</span>;
         }
 
         return (

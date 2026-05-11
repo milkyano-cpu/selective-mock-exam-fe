@@ -14,13 +14,28 @@ const TIER_OPTIONS: { value: Tier; label: string }[] = [
   { value: 'STANDARD', label: 'Standard' },
   { value: 'PREMIUM', label: 'Premium' },
 ];
+const TIER_ORDER = TIER_OPTIONS.map((tier) => tier.value);
+
+function getAllowedTiersFromMinimumTier(minimumTier: Tier): Tier[] {
+  const minimumTierIndex = TIER_ORDER.indexOf(minimumTier);
+  return TIER_ORDER.slice(minimumTierIndex >= 0 ? minimumTierIndex : 0);
+}
+
+function getMinimumTierFromAllowedTiers(allowedTiers: Tier[]): Tier {
+  const minimumTier = TIER_ORDER.find((tier) => allowedTiers.includes(tier));
+  return minimumTier ?? 'BASIC';
+}
+
+function getTierLabel(tier: Tier) {
+  return TIER_OPTIONS.find((option) => option.value === tier)?.label ?? tier;
+}
 
 const initialForm = {
   title: '',
   description: '',
   type: 'FILE' as ResourceType,
   videoUrl: '',
-  allowedTiers: ['BASIC', 'STANDARD', 'PREMIUM'] as Tier[],
+  minimumTier: 'BASIC' as Tier,
 };
 
 function getResourceUrl(resource: Resource) {
@@ -86,7 +101,7 @@ export default function ResourcesPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingResource, setEditingResource] = useState<Resource | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editForm, setEditForm] = useState({ title: '', description: '', allowedTiers: initialForm.allowedTiers });
+  const [editForm, setEditForm] = useState({ title: '', description: '', minimumTier: initialForm.minimumTier });
   const [isEditSubmitting, setIsEditSubmitting] = useState(false);
   const [editError, setEditError] = useState('');
   const [viewingResource, setViewingResource] = useState<Resource | null>(null);
@@ -203,11 +218,6 @@ export default function ResourcesPage() {
       return;
     }
 
-    if (form.allowedTiers.length === 0) {
-      setErrorMessage('Please select at least one tier.');
-      return;
-    }
-
     setIsSubmitting(true);
     try {
       const created = await resourceService.create({
@@ -215,7 +225,7 @@ export default function ResourcesPage() {
         description: form.description,
         type: form.type,
         videoUrl: form.type === 'VIDEO' && videoInputMode === 'URL' ? form.videoUrl : null,
-        allowedTiers: form.allowedTiers,
+        allowedTiers: getAllowedTiersFromMinimumTier(form.minimumTier),
       });
 
       if ((form.type === 'FILE' || (form.type === 'VIDEO' && videoInputMode === 'UPLOAD')) && file) {
@@ -243,7 +253,7 @@ export default function ResourcesPage() {
     setEditForm({
       title: resource.title,
       description: resource.description || '',
-      allowedTiers: resource.allowedTiers.length > 0 ? resource.allowedTiers : initialForm.allowedTiers,
+      minimumTier: getMinimumTierFromAllowedTiers(resource.allowedTiers),
     });
     setEditError('');
     setIsEditModalOpen(true);
@@ -253,16 +263,12 @@ export default function ResourcesPage() {
     event.preventDefault();
     if (!editingResource) return;
     setEditError('');
-    if (editForm.allowedTiers.length === 0) {
-      setEditError('Please select at least one tier.');
-      return;
-    }
     setIsEditSubmitting(true);
     try {
       await resourceService.update(editingResource.id, {
         title: editForm.title,
         description: editForm.description,
-        allowedTiers: editForm.allowedTiers,
+        allowedTiers: getAllowedTiersFromMinimumTier(editForm.minimumTier),
       });
       setIsEditModalOpen(false);
       setEditingResource(null);
@@ -370,7 +376,7 @@ export default function ResourcesPage() {
                       {resource.type}{resource.fileSize ? ` · ${formatFileSize(resource.fileSize)}` : ''} · {new Date(resource.createdAt).toLocaleDateString()}
                     </p>
                     <p className="mt-1 text-[10px] font-bold text-[#0A9AE2]">
-                      {resource.allowedTiers.map((tier) => TIER_OPTIONS.find((option) => option.value === tier)?.label ?? tier).join(', ')}
+                      Min. {getTierLabel(getMinimumTierFromAllowedTiers(resource.allowedTiers))}
                     </p>
                   </div>
                   {canManage && (
@@ -404,7 +410,7 @@ export default function ResourcesPage() {
                   <th className="px-6 py-3.5 text-left text-xs font-black uppercase tracking-wider text-slate-500">Resource</th>
                   <th className="px-6 py-3.5 text-left text-xs font-black uppercase tracking-wider text-slate-500">Description</th>
                   <th className="px-6 py-3.5 text-left text-xs font-black uppercase tracking-wider text-slate-500">Type</th>
-                  <th className="px-6 py-3.5 text-left text-xs font-black uppercase tracking-wider text-slate-500">Tier Access</th>
+                  <th className="px-6 py-3.5 text-left text-xs font-black uppercase tracking-wider text-slate-500">Minimum Tier</th>
                   <th className="px-6 py-3.5 text-left text-xs font-black uppercase tracking-wider text-slate-500">Size</th>
                   <th className="px-6 py-3.5 text-left text-xs font-black uppercase tracking-wider text-slate-500">Created</th>
                   <th className="px-6 py-3.5 text-right text-xs font-black uppercase tracking-wider text-slate-500">Actions</th>
@@ -437,13 +443,9 @@ export default function ResourcesPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="flex flex-wrap gap-1.5">
-                          {resource.allowedTiers.map((tier) => (
-                            <span key={tier} className="rounded-full bg-[#0A9AE2]/10 px-2 py-0.5 text-[10px] font-black text-[#0A9AE2]">
-                              {TIER_OPTIONS.find((option) => option.value === tier)?.label ?? tier}
-                            </span>
-                          ))}
-                        </div>
+                        <span className="rounded-full bg-[#0A9AE2]/10 px-2.5 py-1 text-[10px] font-black text-[#0A9AE2]">
+                          {getTierLabel(getMinimumTierFromAllowedTiers(resource.allowedTiers))}
+                        </span>
                       </td>
                       <td className="px-6 py-4 text-xs text-slate-500 dark:text-slate-400">
                         {resource.fileSize ? formatFileSize(resource.fileSize) : '—'}
@@ -539,21 +541,17 @@ export default function ResourcesPage() {
               </div>
 
               <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Tier Access</label>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Minimum Tier</label>
+                <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">Students at this tier or higher can view this resource.</p>
                 <div className="mt-2 grid grid-cols-3 gap-2">
                   {TIER_OPTIONS.map((tier) => {
-                    const isSelected = form.allowedTiers.includes(tier.value);
+                    const isSelected = form.minimumTier === tier.value;
                     return (
                       <button
                         key={tier.value}
                         type="button"
                         onClick={() => {
-                          setForm((prev) => ({
-                            ...prev,
-                            allowedTiers: isSelected
-                              ? prev.allowedTiers.filter((value) => value !== tier.value)
-                              : [...prev.allowedTiers, tier.value],
-                          }));
+                          setForm((prev) => ({ ...prev, minimumTier: tier.value }));
                           setErrorMessage('');
                         }}
                         className={[
@@ -790,21 +788,17 @@ export default function ResourcesPage() {
               </div>
 
               <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Tier Access</label>
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Minimum Tier</label>
+                <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">Students at this tier or higher can view this resource.</p>
                 <div className="mt-2 grid grid-cols-3 gap-2">
                   {TIER_OPTIONS.map((tier) => {
-                    const isSelected = editForm.allowedTiers.includes(tier.value);
+                    const isSelected = editForm.minimumTier === tier.value;
                     return (
                       <button
                         key={tier.value}
                         type="button"
                         onClick={() => {
-                          setEditForm((prev) => ({
-                            ...prev,
-                            allowedTiers: isSelected
-                              ? prev.allowedTiers.filter((value) => value !== tier.value)
-                              : [...prev.allowedTiers, tier.value],
-                          }));
+                          setEditForm((prev) => ({ ...prev, minimumTier: tier.value }));
                           setEditError('');
                         }}
                         className={[

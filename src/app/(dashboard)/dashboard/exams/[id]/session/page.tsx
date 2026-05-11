@@ -47,7 +47,7 @@ function QuestionContent({ question }: { question: SessionQuestion }) {
           </p>
         </div>
       )}
-      <div className="text-base font-medium leading-relaxed text-slate-900 dark:text-slate-100">
+      <div className="text-base font-medium leading-relaxed text-slate-900 dark:text-slate-100 overflow-wrap-anywhere" style={{ overflowWrap: 'anywhere' }}>
         <QuestionLatexRenderer
           text={question.contentText}
           latex={question.contentLatex}

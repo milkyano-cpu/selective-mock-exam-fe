@@ -115,9 +115,9 @@ function AnswerCard({ answer, index }: { answer: PracticeResultAnswer; index: nu
           )}
 
           {expanded && answer.explanation && (
-            <p className="mt-2 text-xs text-slate-600 dark:text-slate-300 leading-relaxed bg-white/60 dark:bg-slate-800/60 rounded-xl p-3">
-              {answer.explanation}
-            </p>
+            <div className="mt-2 text-xs text-slate-600 dark:text-slate-300 leading-relaxed bg-white/60 dark:bg-slate-800/60 rounded-xl p-3">
+              <QuestionLatexRenderer text={answer.explanation} isLatexFormat={answer.isLatexFormat} fallbackClassName="whitespace-pre-wrap" />
+            </div>
           )}
         </div>
       </div>

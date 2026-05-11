@@ -317,58 +317,58 @@ export default function PracticeHubPage() {
 
   return (
     <div className="min-h-screen px-1 py-2 md:px-2 md:py-4">
-      <div className="mx-auto max-w-7xl space-y-6">
+      <div className="mx-auto max-w-7xl space-y-4 md:space-y-6">
 
         {/* Header */}
         <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div className="grid lg:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.65fr)]">
-            <div className="relative min-h-[250px] bg-[#0b1526] p-6 text-white md:p-8">
+            <div className="relative bg-[#0b1526] px-5 py-5 text-white sm:min-h-[250px] md:p-8">
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_20%,rgba(10,154,226,0.42),transparent_28%),radial-gradient(circle_at_88%_26%,rgba(249,115,22,0.34),transparent_26%),linear-gradient(135deg,#0f172a_0%,#10233d_58%,#0b3d62_100%)]" />
-              <div className="relative z-10 flex h-full flex-col justify-between gap-8">
+              <div className="relative z-10 flex h-full flex-col justify-between gap-5 sm:gap-8">
                 <div>
-                  <div className="mb-5 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-bold text-blue-50 backdrop-blur">
-                    <Sparkles size={14} />
+                  <div className="mb-3 sm:mb-5 inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[11px] font-bold text-blue-50 backdrop-blur sm:gap-2 sm:px-3 sm:py-1.5 sm:text-xs">
+                    <Sparkles size={12} className="sm:hidden" /><Sparkles size={14} className="hidden sm:block" />
                     Smart practice hub
                   </div>
-                  <h1 className="max-w-2xl text-3xl font-black leading-tight tracking-normal md:text-5xl">
+                  <h1 className="max-w-2xl text-xl font-black leading-tight tracking-normal sm:text-3xl md:text-5xl">
                     Pick the next drill that actually moves your score.
                   </h1>
-                  <p className="mt-4 max-w-2xl text-sm font-medium leading-6 text-blue-100 md:text-base">
+                  <p className="mt-2 max-w-2xl text-xs font-medium leading-relaxed text-blue-100/80 sm:mt-4 sm:text-sm sm:leading-6 sm:text-blue-100 md:text-base">
                     Jump into tutor assignments, attack weaker topics, or build a custom practice set by subject.
                   </p>
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur">
-                    <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-white text-[#0A9AE2]">
-                      <ClipboardList size={18} />
+                <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                  <div className="rounded-xl border border-white/15 bg-white/10 p-2.5 backdrop-blur sm:rounded-2xl sm:p-4">
+                    <div className="mb-1.5 flex h-7 w-7 items-center justify-center rounded-lg bg-white text-[#0A9AE2] sm:mb-3 sm:h-9 sm:w-9 sm:rounded-xl">
+                      <ClipboardList size={14} />
                     </div>
-                    <p className="text-2xl font-black">{pendingTutorSessions.length}</p>
-                    <p className="mt-1 text-xs font-bold text-blue-100">Tutor tasks</p>
+                    <p className="text-lg font-black sm:text-2xl">{pendingTutorSessions.length}</p>
+                    <p className="mt-0.5 text-[10px] font-bold text-blue-100 sm:mt-1 sm:text-xs">Tutor tasks</p>
                   </div>
-                  <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur">
-                    <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-white text-orange-500">
-                      <Target size={18} />
+                  <div className="rounded-xl border border-white/15 bg-white/10 p-2.5 backdrop-blur sm:rounded-2xl sm:p-4">
+                    <div className="mb-1.5 flex h-7 w-7 items-center justify-center rounded-lg bg-white text-orange-500 sm:mb-3 sm:h-9 sm:w-9 sm:rounded-xl">
+                      <Target size={14} />
                     </div>
-                    <p className="text-2xl font-black">{weakTopics.length}</p>
-                    <p className="mt-1 text-xs font-bold text-blue-100">Weak areas</p>
+                    <p className="text-lg font-black sm:text-2xl">{weakTopics.length}</p>
+                    <p className="mt-0.5 text-[10px] font-bold text-blue-100 sm:mt-1 sm:text-xs">Weak areas</p>
                   </div>
-                  <div className="rounded-2xl border border-white/15 bg-white/10 p-4 backdrop-blur">
-                    <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-xl bg-white text-emerald-500">
-                      <Award size={18} />
+                  <div className="rounded-xl border border-white/15 bg-white/10 p-2.5 backdrop-blur sm:rounded-2xl sm:p-4">
+                    <div className="mb-1.5 flex h-7 w-7 items-center justify-center rounded-lg bg-white text-emerald-500 sm:mb-3 sm:h-9 sm:w-9 sm:rounded-xl">
+                      <Award size={14} />
                     </div>
-                    <p className="text-2xl font-black">{averageScore !== null ? `${Math.round(averageScore)}%` : '-'}</p>
-                    <p className="mt-1 text-xs font-bold text-blue-100">Avg score</p>
+                    <p className="text-lg font-black sm:text-2xl">{averageScore !== null ? `${Math.round(averageScore)}%` : '-'}</p>
+                    <p className="mt-0.5 text-[10px] font-bold text-blue-100 sm:mt-1 sm:text-xs">Avg score</p>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="flex flex-col justify-between gap-5 bg-slate-50 p-6 dark:bg-slate-900/70 md:p-8">
+            <div className="flex flex-col justify-between gap-4 bg-slate-50 px-5 py-4 dark:bg-slate-900/70 sm:gap-5 sm:p-6 md:p-8">
               <div>
                 <p className="text-xs font-black uppercase tracking-widest text-slate-400">Today&apos;s focus</p>
                 {firstPendingTutorSession ? (
-                  <div className="mt-4 rounded-2xl border border-[#0A9AE2]/20 bg-white p-4 shadow-sm dark:border-[#0A9AE2]/25 dark:bg-slate-950">
+                  <div className="mt-3 rounded-2xl border border-[#0A9AE2]/20 bg-white p-3 shadow-sm dark:border-[#0A9AE2]/25 dark:bg-slate-950 sm:mt-4 sm:p-4">
                     <div className="flex items-start justify-between gap-4">
                       <div className="min-w-0">
                         <p className="text-sm font-black text-slate-900 dark:text-slate-100">
@@ -390,13 +390,13 @@ export default function PracticeHubPage() {
                         }
                       }}
                       disabled={!firstPendingTutorSessionAccessible}
-                      className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-[#0A9AE2] text-sm font-black text-white transition-colors hover:bg-[#0659AA] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600 dark:disabled:bg-slate-800 dark:disabled:text-slate-400"
+                      className="mt-3 flex h-10 w-full items-center justify-center gap-2 rounded-2xl bg-[#0A9AE2] text-xs font-black text-white transition-colors hover:bg-[#0659AA] disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600 dark:disabled:bg-slate-800 dark:disabled:text-slate-400 sm:mt-4 sm:h-11 sm:text-sm"
                     >
                       {firstPendingTutorSessionAccessible ? 'Start Assignment' : 'Basic limit'} <ArrowUpRight size={16} />
                     </button>
                   </div>
                 ) : (
-                  <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900/50 dark:bg-emerald-950/30">
+                  <div className="mt-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 dark:border-emerald-900/50 dark:bg-emerald-950/30 sm:mt-4 sm:p-4">
                     <div className="flex items-center gap-3">
                       <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white text-emerald-600 dark:bg-emerald-900/50 dark:text-emerald-300">
                         <CheckCircle2 size={20} />
@@ -410,20 +410,20 @@ export default function PracticeHubPage() {
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
-                  <div className="mb-2 flex items-center gap-2 text-slate-400">
-                    <BarChart3 size={15} />
-                    <span className="text-xs font-black uppercase">Answered</span>
+              <div className="grid grid-cols-2 gap-2 sm:gap-3">
+                <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950 sm:rounded-2xl sm:p-4">
+                  <div className="mb-1.5 flex items-center gap-1.5 text-slate-400 sm:mb-2 sm:gap-2">
+                    <BarChart3 size={13} />
+                    <span className="text-[10px] font-black uppercase sm:text-xs">Answered</span>
                   </div>
-                  <p className="text-2xl font-black text-slate-900 dark:text-white">{totalAnswered}</p>
+                  <p className="text-xl font-black text-slate-900 dark:text-white sm:text-2xl">{totalAnswered}</p>
                 </div>
-                <div className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
-                  <div className="mb-2 flex items-center gap-2 text-slate-400">
-                    <Clock size={15} />
-                    <span className="text-xs font-black uppercase">Active</span>
+                <div className="rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-950 sm:rounded-2xl sm:p-4">
+                  <div className="mb-1.5 flex items-center gap-1.5 text-slate-400 sm:mb-2 sm:gap-2">
+                    <Clock size={13} />
+                    <span className="text-[10px] font-black uppercase sm:text-xs">Active</span>
                   </div>
-                  <p className="text-2xl font-black text-slate-900 dark:text-white">
+                  <p className="text-xl font-black text-slate-900 dark:text-white sm:text-2xl">
                     {sessions.filter((s) => s.status === 'IN_PROGRESS').length}
                   </p>
                 </div>
@@ -468,7 +468,7 @@ export default function PracticeHubPage() {
                   <TrendingDown size={20} />
                 </div>
                 <div>
-                  <h2 className="text-base font-black text-orange-900 dark:text-orange-100">
+                  <h2 className="text-sm font-black text-orange-900 dark:text-orange-100 sm:text-base">
                   Weak areas need a quick hit
                   </h2>
                   <p className="text-xs font-bold text-orange-600/80 dark:text-orange-300/80">Practice the topics that are currently pulling your average down.</p>
@@ -484,7 +484,7 @@ export default function PracticeHubPage() {
                 {isBasicLimited ? 'Standard unlocks this' : 'Practice All Weak Areas'}
               </button>
             </div>
-            <div className="grid gap-3 p-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 p-3 sm:gap-3 sm:p-4 md:grid-cols-2 lg:grid-cols-4">
               {weakTopics.map((p) => {
                 const accessible = isTopicAccessible(p.topicId);
                 return (
@@ -493,7 +493,7 @@ export default function PracticeHubPage() {
                   type="button"
                   onClick={() => handleStartOrResume(p.topicId, p.topicName)}
                   disabled={!accessible}
-                  className="group rounded-2xl border border-orange-100 bg-white p-4 text-left transition-all hover:-translate-y-0.5 hover:border-orange-300 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:translate-y-0 disabled:hover:shadow-none dark:border-orange-900/40 dark:bg-slate-950 dark:hover:border-orange-700"
+                  className="group rounded-xl border border-orange-100 bg-white p-3 text-left transition-all hover:-translate-y-0.5 hover:border-orange-300 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:translate-y-0 disabled:hover:shadow-none dark:border-orange-900/40 dark:bg-slate-950 dark:hover:border-orange-700 sm:rounded-2xl sm:p-4"
                 >
                   <div className="mb-3 flex items-center justify-between gap-3">
                     <Target size={17} className="text-orange-500" />
@@ -519,7 +519,7 @@ export default function PracticeHubPage() {
             <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
               <div>
                 <p className="text-xs font-black uppercase tracking-widest text-[#0A9AE2]">Choose your arena</p>
-                <h2 className="mt-1 text-2xl font-black text-slate-950 dark:text-white">Topic practice</h2>
+                <h2 className="mt-1 text-lg font-black text-slate-950 dark:text-white sm:text-2xl">Topic practice</h2>
               </div>
               {selectedSubject && (
                 <button
@@ -540,7 +540,7 @@ export default function PracticeHubPage() {
                 type="button"
                 onClick={() => setSelectedSubjectId(s.id)}
                 className={[
-                  'min-h-11 whitespace-nowrap rounded-2xl border px-4 text-sm font-black transition-all',
+                  'min-h-9 whitespace-nowrap rounded-xl border px-3 text-xs font-black transition-all sm:min-h-11 sm:rounded-2xl sm:px-4 sm:text-sm',
                   selectedSubjectId === s.id
                     ? 'border-[#0A9AE2] bg-[#0A9AE2] text-white shadow-sm'
                     : 'border-slate-200 bg-white text-slate-500 hover:border-[#0A9AE2]/40 hover:text-[#0A9AE2] dark:border-slate-700 dark:bg-slate-950 dark:text-slate-300',
@@ -579,7 +579,7 @@ export default function PracticeHubPage() {
           })()}
 
           {/* Topics list */}
-          <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-2 p-3 sm:gap-3 sm:p-4 md:grid-cols-2 xl:grid-cols-3">
             {isLoadingTopics ? (
               <div className="col-span-full flex min-h-72 items-center justify-center">
                 <Loader2 size={28} className="animate-spin text-[#0A9AE2]" />
@@ -601,7 +601,7 @@ export default function PracticeHubPage() {
                     key={topic.id}
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="group flex min-h-48 flex-col justify-between rounded-2xl border border-slate-200 bg-white p-4 transition-all hover:-translate-y-0.5 hover:border-[#0A9AE2]/40 hover:shadow-md dark:border-slate-800 dark:bg-slate-950"
+                    className="group flex min-h-40 flex-col justify-between rounded-2xl border border-slate-200 bg-white p-3.5 transition-all hover:-translate-y-0.5 hover:border-[#0A9AE2]/40 hover:shadow-md dark:border-slate-800 dark:bg-slate-950 sm:min-h-48 sm:p-4"
                   >
                     <div className="flex-1 min-w-0">
                       <div className="mb-4 flex items-start justify-between gap-3">

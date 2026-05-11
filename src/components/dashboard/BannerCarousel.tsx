@@ -270,7 +270,7 @@ function BannerImage({ banner, priority }: { banner: Banner; priority: boolean }
         onLoad={() => setHasLoaded(true)}
         onError={() => setHasFailed(true)}
         className={[
-          'h-full w-full object-contain transition-opacity duration-300',
+          'h-full w-full object-cover transition-opacity duration-300',
           hasLoaded ? 'opacity-100' : 'opacity-0',
         ].join(' ')}
       />
