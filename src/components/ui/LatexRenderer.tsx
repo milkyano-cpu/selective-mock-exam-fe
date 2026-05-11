@@ -82,7 +82,7 @@ function processTextContent(text: string) {
   content = content.replace(/\\end\{(?:itemize|enumerate)\}\s*/g, '');
 
   const cmdPattern = /(\\textbf\{([^}]*)\}|\\textit\{([^}]*)\}|\\underline\{([^}]*)\}|\\item\s*)/g;
-  const parts: (string | JSX.Element)[] = [];
+  const parts: (string | React.ReactElement)[] = [];
   let lastIdx = 0;
   let m: RegExpExecArray | null;
   let i = 0;
