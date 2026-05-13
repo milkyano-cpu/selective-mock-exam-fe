@@ -29,7 +29,7 @@ function ScoreRing({ percent }: { percent: number }) {
   const color = percent >= 70 ? '#22c55e' : percent >= 50 ? '#f59e0b' : '#f87171';
 
   return (
-    <div className="relative h-32 w-32 shrink-0 sm:h-36 sm:w-36">
+    <div className="relative h-28 w-28 shrink-0 sm:h-36 sm:w-36">
       <div className="absolute inset-2 rounded-full bg-white/95 shadow-[0_18px_45px_rgba(15,23,42,0.12)] dark:bg-slate-900" />
       <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90">
         <circle cx="60" cy="60" r={r} fill="none" stroke="#e2e8f0" strokeWidth="12" />
@@ -47,7 +47,7 @@ function ScoreRing({ percent }: { percent: number }) {
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-4xl font-black text-slate-950 dark:text-white">{Math.round(percent)}%</span>
+        <span className="text-3xl font-black text-slate-950 dark:text-white sm:text-4xl">{Math.round(percent)}%</span>
         <span className="text-[10px] font-black uppercase tracking-wide text-slate-400">score</span>
       </div>
     </div>
@@ -127,11 +127,10 @@ function AnswerCard({ answer, index }: { answer: PracticeResultAnswer; index: nu
                 Correct: <span className="text-green-600 dark:text-green-400">{answer.correctAnswer}</span>
               </span>
             )}
-          </div>
-
-          <div className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-white/70 px-2.5 py-1 text-xs font-black text-slate-500 ring-1 ring-slate-200/70 dark:bg-slate-900/40 dark:ring-slate-700">
-            <Clock size={12} />
-            Time spent: {formatDuration(answer.timeSpentSeconds)}
+            <span className="inline-flex items-center gap-1 text-slate-500">
+              <Clock size={11} />
+              {formatDuration(answer.timeSpentSeconds)}
+            </span>
           </div>
 
           {answer.explanation && (
@@ -253,7 +252,7 @@ export default function PracticeResultPage() {
     ?? (session.subjectName ? `${session.subjectName} - All Topics` : 'Mixed Practice');
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-4 md:p-8">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-3 sm:p-4 md:p-8">
       <div className="mx-auto max-w-3xl">
 
         {/* Header */}
@@ -272,30 +271,33 @@ export default function PracticeResultPage() {
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="relative mb-8 overflow-hidden rounded-[1.75rem] border border-slate-200 bg-[#0f172a] shadow-[0_24px_70px_rgba(15,23,42,0.12)] dark:border-slate-800"
+          className="relative mb-6 overflow-hidden rounded-2xl border border-slate-200 bg-[#0f172a] shadow-[0_24px_70px_rgba(15,23,42,0.12)] dark:border-slate-800 sm:mb-8 sm:rounded-[1.75rem]"
         >
           <div className="absolute inset-0 bg-[linear-gradient(135deg,#0f172a_0%,#12304a_52%,#075985_100%)]" />
           <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-[#0A9AE2] via-emerald-400 to-amber-300" />
-          <div className="relative p-5 sm:p-6">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="relative p-4 sm:p-6">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
               <div className="flex items-center gap-3 text-left">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/10 text-cyan-200 ring-1 ring-white/15">
-                  <Trophy size={27} />
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-white/10 text-cyan-200 ring-1 ring-white/15 sm:h-12 sm:w-12">
+                  <Trophy size={22} className="sm:hidden" />
+                  <Trophy size={27} className="hidden sm:block" />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-black leading-tight text-white sm:text-3xl">Practice Complete</h2>
-                  <p className="mt-1 text-sm font-bold text-cyan-100/70">{practiceName}</p>
+                  <h2 className="text-xl font-black leading-tight text-white sm:text-3xl">Practice Complete</h2>
+                  <p className="mt-0.5 text-xs font-bold text-cyan-100/70 sm:mt-1 sm:text-sm">{practiceName}</p>
                 </div>
               </div>
 
-              <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-xs font-black text-white ring-1 ring-white/15">
+              <span className="inline-flex w-fit items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 text-[11px] font-black text-white ring-1 ring-white/15 sm:text-xs">
                 <Target size={13} />
                 {scoreTone.title}
               </span>
             </div>
 
-            <div className="mt-6 grid gap-5 rounded-3xl bg-white p-4 shadow-xl shadow-slate-950/20 dark:bg-slate-950 sm:grid-cols-[150px_minmax(0,1fr)] sm:items-center sm:p-5">
-              <ScoreRing percent={scorePercent} />
+            <div className="mt-5 grid gap-4 rounded-2xl bg-white p-3.5 shadow-xl shadow-slate-950/20 dark:bg-slate-950 sm:mt-6 sm:gap-5 sm:rounded-3xl sm:p-5 sm:grid-cols-[150px_minmax(0,1fr)] sm:items-center">
+              <div className="flex justify-center sm:justify-start">
+                <ScoreRing percent={scorePercent} />
+              </div>
 
               <div className="min-w-0">
                 <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -307,17 +309,17 @@ export default function PracticeResultPage() {
                   </span>
                 </div>
 
-                <div className="flex flex-wrap items-end justify-between gap-3">
+                <div className="flex items-end justify-between gap-3">
                   <div>
-                    <p className="text-3xl font-black text-slate-950 dark:text-white">
+                    <p className="text-2xl font-black text-slate-950 dark:text-white sm:text-3xl">
                       {correctCount}
-                      <span className="text-lg text-slate-400"> / {totalQuestions}</span>
+                      <span className="text-base text-slate-400 sm:text-lg"> / {totalQuestions}</span>
                     </p>
-                    <p className="mt-0.5 text-xs font-black uppercase tracking-wide text-slate-400">questions correct</p>
+                    <p className="mt-0.5 text-[10px] font-black uppercase tracking-wide text-slate-400 sm:text-xs">questions correct</p>
                   </div>
-                  <div className="text-left sm:text-right">
-                    <p className="text-2xl font-black text-slate-950 dark:text-white">{formatDuration(totalSessionSeconds)}</p>
-                    <p className="mt-0.5 flex items-center gap-1.5 text-xs font-black uppercase tracking-wide text-slate-400 sm:justify-end">
+                  <div className="text-right">
+                    <p className="text-xl font-black text-slate-950 dark:text-white sm:text-2xl">{formatDuration(totalSessionSeconds)}</p>
+                    <p className="mt-0.5 flex items-center justify-end gap-1.5 text-[10px] font-black uppercase tracking-wide text-slate-400 sm:text-xs">
                       <Clock size={12} />
                       Total time
                     </p>
@@ -339,7 +341,7 @@ export default function PracticeResultPage() {
             </div>
 
             {/* Action buttons */}
-            <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+            <div className="mt-4 grid grid-cols-2 gap-2.5 sm:mt-5 sm:gap-3">
             <button
               type="button"
               onClick={() => router.push('/dashboard/practice')}
