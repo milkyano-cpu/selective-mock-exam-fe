@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type WheelEvent } from 'react';
 import Link from 'next/link';
 import { ArrowRight, CalendarDays, ChevronRight, Clock, Plus, Trash2 } from 'lucide-react';
 import { BannerCarousel } from '@/components/dashboard/BannerCarousel';
@@ -13,6 +13,8 @@ import type {
 } from '@/features/student-calendar/types/student-calendar.types';
 
 const LEGACY_REMINDERS_STORAGE_KEY = 'aspire_student_reminders';
+
+type ReminderRecord = Record<string, StudentCalendarReminder[]>;
 
 export function StudentUtilityRail() {
   const [activeCountdown, setActiveCountdown] = useState<CountdownItem | null>(null);
@@ -203,7 +205,7 @@ function ReminderCalendar() {
   });
   const [selectedDate, setSelectedDate] = useState(() => formatDateKey(new Date()));
   const [draft, setDraft] = useState('');
-  const [reminders, setReminders] = useState<Record<string, string>>({});
+  const [reminders, setReminders] = useState<ReminderRecord>({});
   const [isReady, setIsReady] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const selectedDateRef = useRef(selectedDate);
@@ -240,7 +242,7 @@ function ReminderCalendar() {
         }
 
         setReminders(nextReminders);
-        setDraft(nextReminders[selectedDateRef.current] ?? '');
+        setDraft('');
       } catch {
         if (!isCancelled) {
           setReminders({});
@@ -261,62 +263,59 @@ function ReminderCalendar() {
   }, []);
 
   const calendarDays = buildCalendarDays(visibleMonth);
-  const upcomingReminders = Object.entries(reminders)
-    .sort(([a], [b]) => a.localeCompare(b));
+  const upcomingReminders = Object.values(reminders)
+    .flat()
+    .sort((a, b) => a.date.localeCompare(b.date) || a.createdAt.localeCompare(b.createdAt));
 
   const handleSelectDate = (dateKey: string) => {
     setSelectedDate(dateKey);
-    setDraft(reminders[dateKey] ?? '');
+    setDraft('');
   };
 
   const handleSaveReminder = async () => {
     const text = draft.trim();
-    const previousReminders = reminders;
-    const nextReminders = { ...reminders };
-
-    if (text) {
-      nextReminders[selectedDate] = text;
-    } else {
-      delete nextReminders[selectedDate];
+    if (!text) {
+      setDraft('');
+      return;
     }
 
-    setReminders(nextReminders);
+    const previousReminders = reminders;
+    const nextReminders = { ...reminders };
     setDraft('');
 
     try {
       setIsSaving(true);
-      if (text) {
-        const response = await studentCalendarService.saveReminder({ date: selectedDate, note: text });
-        setReminders((current) => ({ ...current, [response.data.date]: response.data.note }));
-      } else if (previousReminders[selectedDate]) {
-        await studentCalendarService.removeReminder(selectedDate);
-      }
+      const response = await studentCalendarService.saveReminder({ date: selectedDate, note: text });
+      nextReminders[selectedDate] = [...(nextReminders[selectedDate] ?? []), response.data];
+      setReminders(nextReminders);
     } catch {
       setReminders(previousReminders);
-      setDraft(previousReminders[selectedDate] ?? '');
+      setDraft(text);
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleRemoveReminder = async (dateKey: string) => {
+  const handleRemoveReminder = async (reminder: StudentCalendarReminder) => {
     const previousReminders = reminders;
     const nextReminders = { ...reminders };
-    delete nextReminders[dateKey];
+    const remaining = (nextReminders[reminder.date] ?? []).filter((item) => item.id !== reminder.id);
+    if (remaining.length > 0) {
+      nextReminders[reminder.date] = remaining;
+    } else {
+      delete nextReminders[reminder.date];
+    }
     setReminders(nextReminders);
 
-    if (dateKey === selectedDate) {
+    if (reminder.date === selectedDate) {
       setDraft('');
     }
 
     try {
       setIsSaving(true);
-      await studentCalendarService.removeReminder(dateKey);
+      await studentCalendarService.removeReminder(reminder.id);
     } catch {
       setReminders(previousReminders);
-      if (dateKey === selectedDate) {
-        setDraft(previousReminders[dateKey] ?? '');
-      }
     } finally {
       setIsSaving(false);
     }
@@ -324,6 +323,23 @@ function ReminderCalendar() {
 
   const goToMonth = (offset: number) => {
     setVisibleMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + offset, 1));
+  };
+
+  const handleReminderListWheel = (event: WheelEvent<HTMLDivElement>) => {
+    const list = event.currentTarget;
+    const canScroll = list.scrollHeight > list.clientHeight;
+    if (!canScroll) return;
+
+    const isScrollingUp = event.deltaY < 0;
+    const isScrollingDown = event.deltaY > 0;
+    const isAtTop = list.scrollTop <= 0;
+    const isAtBottom = Math.ceil(list.scrollTop + list.clientHeight) >= list.scrollHeight;
+
+    if ((isScrollingUp && isAtTop) || (isScrollingDown && isAtBottom)) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    list.scrollTop += event.deltaY;
   };
 
   const todayKey = formatDateKey(new Date());
@@ -403,7 +419,7 @@ function ReminderCalendar() {
         {/* Calendar grid */}
         <div className="mb-3 grid grid-cols-7 gap-1">
           {calendarDays.map((day) => {
-            const hasReminder = Boolean(reminders[day.key]);
+            const hasReminder = (reminders[day.key]?.length ?? 0) > 0;
             const isSelected = selectedDate === day.key;
             const isToday = day.key === todayKey;
             return (
@@ -464,20 +480,25 @@ function ReminderCalendar() {
         </div>
 
         {/* Reminders list */}
-        <div className="mt-3 max-h-[120px] space-y-1.5 overflow-y-auto pr-1 custom-scrollbar">
+        <div
+          className="mt-3 max-h-[120px] space-y-1.5 overflow-y-auto overscroll-contain pr-1 custom-scrollbar [scrollbar-gutter:stable]"
+          onWheel={handleReminderListWheel}
+          tabIndex={0}
+          aria-label="Study reminder notes"
+        >
           {upcomingReminders.length > 0 ? (
-            upcomingReminders.map(([dateKey, note]) => (
+            upcomingReminders.map((reminder) => (
               <div
-                key={dateKey}
+                key={reminder.id}
                 className="flex items-center gap-2 rounded-lg border-2 border-slate-950 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-950 shadow-[2px_2px_0_#0f172a] transition-transform hover:-translate-y-0.5 dark:border-white dark:bg-slate-900 dark:text-white"
               >
                 <span className="shrink-0 rounded-md border-2 border-slate-950 bg-[#FDE047] px-1.5 py-0.5 text-[9px] font-black text-slate-950">
-                  {formatShortCalendarDate(dateKey)}
+                  {formatShortCalendarDate(reminder.date)}
                 </span>
-                <span className="min-w-0 flex-1 truncate">{note}</span>
+                <span className="min-w-0 flex-1 truncate">{reminder.note}</span>
                 <button
                   type="button"
-                  onClick={() => void handleRemoveReminder(dateKey)}
+                  onClick={() => void handleRemoveReminder(reminder)}
                   disabled={isSaving}
                   className="shrink-0 rounded-md p-0.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-[#F43F5E] dark:text-slate-500 dark:hover:bg-red-950/30"
                 >
@@ -499,15 +520,25 @@ function ReminderCalendar() {
 }
 
 function remindersToRecord(reminderItems: StudentCalendarReminder[]) {
-  return reminderItems.reduce<Record<string, string>>((acc, reminder) => {
-    acc[reminder.date] = reminder.note;
+  return reminderItems.reduce<ReminderRecord>((acc, reminder) => {
+    acc[reminder.date] = [...(acc[reminder.date] ?? []), reminder];
     return acc;
   }, {});
 }
 
 function legacyRemindersToRecord(reminderItems: UpsertStudentCalendarReminderPayload[]) {
-  return reminderItems.reduce<Record<string, string>>((acc, reminder) => {
-    acc[reminder.date] = reminder.note;
+  return reminderItems.reduce<ReminderRecord>((acc, reminder) => {
+    const now = new Date().toISOString();
+    acc[reminder.date] = [
+      ...(acc[reminder.date] ?? []),
+      {
+        id: `legacy-${reminder.date}-${acc[reminder.date]?.length ?? 0}`,
+        date: reminder.date,
+        note: reminder.note,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ];
     return acc;
   }, {});
 }

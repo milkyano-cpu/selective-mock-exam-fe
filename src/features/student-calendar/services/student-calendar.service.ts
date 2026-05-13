@@ -15,7 +15,7 @@ export const studentCalendarService = {
   saveReminder: async (
     payload: UpsertStudentCalendarReminderPayload,
   ): Promise<StudentCalendarReminderResponse> => {
-    const response = await mdwClient.put('/student-calendar/reminders', payload);
+    const response = await mdwClient.post('/student-calendar/reminders', payload);
     return response.data;
   },
 
@@ -26,8 +26,8 @@ export const studentCalendarService = {
     return response.data;
   },
 
-  removeReminder: async (date: string): Promise<ActionResponse> => {
-    const response = await mdwClient.delete(`/student-calendar/reminders/${date}`);
+  removeReminder: async (id: string): Promise<ActionResponse> => {
+    const response = await mdwClient.delete(`/student-calendar/reminders/${id}`);
     return response.data;
   },
 };

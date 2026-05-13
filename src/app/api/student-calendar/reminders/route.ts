@@ -12,17 +12,17 @@ export async function GET(req: Request) {
   }
 }
 
-export async function PUT(req: Request) {
+export async function POST(req: Request) {
   try {
     const body = await req.json();
     const backendRes = await fetchFromBackend(req, '/student-calendar/reminders', {
-      method: 'PUT',
+      method: 'POST',
       body: JSON.stringify(body),
     });
     const data = await backendRes.json().catch(() => ({}));
     return NextResponse.json(data, { status: backendRes.status });
   } catch (err) {
-    console.error('[STUDENT CALENDAR REMINDERS PUT] ERROR:', err);
+    console.error('[STUDENT CALENDAR REMINDERS POST] ERROR:', err);
     return NextResponse.json({ success: false, message: 'Internal Server Error' }, { status: 500 });
   }
 }
