@@ -23,7 +23,7 @@ export type PassageQuestionSummary = {
   type:        'MCQ' | 'ESSAY';
   difficulty:  'EASY' | 'MEDIUM' | 'HARD';
   status:      'DRAFT' | 'PENDING_APPROVAL' | 'PUBLISHED';
-  contentText: string;
+  questionText: string;
   createdAt:   string;
   updatedAt:   string;
 };

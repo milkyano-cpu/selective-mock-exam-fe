@@ -510,7 +510,7 @@ export default function NewAssignmentPage() {
                         {/* Content */}
                         <div className="flex-1 min-w-0">
                           <p className="text-sm text-slate-800 dark:text-slate-100 line-clamp-2 text-left">
-                            {q.contentText}
+                            {q.questionText}
                           </p>
                           <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                             {q.questionId && (
@@ -648,7 +648,7 @@ export default function NewAssignmentPage() {
                         {i + 1}.
                       </span>
                       <p className="text-xs text-slate-700 dark:text-slate-300 line-clamp-2 flex-1">
-                        {q.contentText}
+                        {q.questionText}
                       </p>
                       <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md flex-shrink-0 ${DIFFICULTY_COLORS[q.difficulty]}`}>
                         {q.difficulty[0]}

@@ -20,7 +20,7 @@ export interface EssayAiFeedback {
   pendingReview: boolean | null;
   reason: string | null;
   gradedAt: string | null;
-  rubric: {
+  aiRubric: {
     id: string;
     name: string;
     totalMaxScore: number;
@@ -66,9 +66,8 @@ export interface ExamQuestionItem {
     questionId: string | null;
     type: 'MCQ' | 'ESSAY';
     difficulty: 'EASY' | 'MEDIUM' | 'HARD';
-    contentText: string;
-    contentLatex: string | null;
-    isLatexFormat: boolean;
+    questionText: string;
+    latexEnabled: boolean;
     options: McqOption[] | null;
     correctAnswer: string;
     imageUrl: string | null;
@@ -82,9 +81,8 @@ export interface SessionQuestion {
   questionId: string;
   order: number;
   type: 'MCQ' | 'ESSAY';
-  contentText: string;
-  contentLatex: string | null;
-  isLatexFormat: boolean;
+  questionText: string;
+  latexEnabled: boolean;
   options: McqOption[] | null;
   imageUrl: string | null;
   imageUrls: string[];
@@ -128,9 +126,8 @@ export interface SessionSummary {
 export interface SessionResultAnswer {
   questionId: string;
   order: number;
-  contentText: string;
-  contentLatex: string | null;
-  isLatexFormat: boolean;
+  questionText: string;
+  latexEnabled: boolean;
   type: 'MCQ' | 'ESSAY';
   options: McqOption[] | null;
   studentAnswer: string;

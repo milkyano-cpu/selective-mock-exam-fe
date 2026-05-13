@@ -326,9 +326,9 @@ export default function PracticeSessionPage() {
             {/* Question text */}
             <div className="text-slate-800 dark:text-slate-100 font-semibold text-base leading-relaxed mb-6">
               <QuestionLatexRenderer
-                text={currentQuestion.contentText}
-                latex={currentQuestion.contentLatex}
-                isLatexFormat={currentQuestion.isLatexFormat}
+                text={currentQuestion.questionText}
+
+                latexEnabled={currentQuestion.latexEnabled}
               />
             </div>
 
@@ -407,7 +407,7 @@ export default function PracticeSessionPage() {
                         )}
                       </span>
                       <span className="text-sm font-medium">
-                        <QuestionLatexRenderer text={opt.text} isLatexFormat={currentQuestion.isLatexFormat} />
+                        <QuestionLatexRenderer text={opt.text} latexEnabled={currentQuestion.latexEnabled} />
                       </span>
                     </button>
                   );
@@ -454,7 +454,7 @@ export default function PracticeSessionPage() {
                   <span className="text-sm font-bold text-blue-900 dark:text-blue-300">Explanation</span>
                 </div>
                 <div className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                  <QuestionLatexRenderer text={currentQuestion.explanation} isLatexFormat={currentQuestion.isLatexFormat} />
+                  <QuestionLatexRenderer text={currentQuestion.explanation} latexEnabled={currentQuestion.latexEnabled} />
                 </div>
               </motion.div>
             )}

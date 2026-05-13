@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useAuthStore } from '@/features/auth/store/auth.store';
-import { ImportRubricModal } from '@/features/rubrics/components/ImportRubricModal';
-import { rubricsService } from '@/features/rubrics/services/rubrics.service';
-import type { CreateRubricPayload, ImportRubricsResult, Rubric, RubricDetail } from '@/features/rubrics/types/rubrics.types';
+import { ImportAiRubricModal } from '@/features/ai-rubrics/components/ImportAiRubricModal';
+import { aiRubricsService } from '@/features/ai-rubrics/services/ai-rubrics.service';
+import type { CreateAiRubricPayload, ImportAiRubricsResult, AiRubric, AiRubricDetail } from '@/features/ai-rubrics/types/ai-rubrics.types';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -79,17 +79,17 @@ function buildEmptyBandDescriptor(): BandDescriptorFormState {
   };
 }
 
-function buildForm(rubric: RubricDetail | null): FormState {
-  if (!rubric) return buildEmptyForm();
+function buildForm(aiRubric: AiRubricDetail | null): FormState {
+  if (!aiRubric) return buildEmptyForm();
   return {
-    id: rubric.id,
-    name: rubric.name,
-    description: rubric.description ?? '',
-    writingType: rubric.writingType ?? '',
-    totalMaxScore: String(rubric.totalMaxScore),
-    isDefault: rubric.isDefault,
-    isActive: rubric.isActive,
-    criteria: rubric.criteria.map((criterion) => ({
+    id: aiRubric.id,
+    name: aiRubric.name,
+    description: aiRubric.description ?? '',
+    writingType: aiRubric.writingType ?? '',
+    totalMaxScore: String(aiRubric.totalMaxScore),
+    isDefault: aiRubric.isDefault,
+    isActive: aiRubric.isActive,
+    criteria: aiRubric.criteria.map((criterion) => ({
       criterionName: criterion.criterionName,
       criterionDescription: criterion.criterionDescription,
       maxScore: String(criterion.maxScore),
@@ -103,15 +103,15 @@ function buildForm(rubric: RubricDetail | null): FormState {
   };
 }
 
-export default function RubricsPage() {
+export default function AiRubricsPage() {
   const user = useAuthStore((state) => state.user);
 
-  const [rubrics, setRubrics] = useState<Rubric[]>([]);
-  const [selected, setSelected] = useState<RubricDetail | null>(null);
+  const [aiRubrics, setAiRubrics] = useState<AiRubric[]>([]);
+  const [selected, setSelected] = useState<AiRubricDetail | null>(null);
   const [search, setSearch] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
-  const [editing, setEditing] = useState<Rubric | null>(null);
+  const [editing, setEditing] = useState<AiRubric | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isImportOpen, setIsImportOpen] = useState(false);
   const [form, setForm] = useState<FormState>(buildEmptyForm());
@@ -120,15 +120,15 @@ export default function RubricsPage() {
 
   const canManage = user?.role === 'ADMIN' || user?.role === 'TUTOR';
 
-  const loadRubrics = useCallback(async () => {
+  const loadAiRubrics = useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await rubricsService.list({ page: 1, limit: 100, search: search || undefined, activeOnly: false });
-      if (res.success) setRubrics(res.data);
+      const res = await aiRubricsService.list({ page: 1, limit: 100, search: search || undefined, activeOnly: false });
+      if (res.success) setAiRubrics(res.data);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setError(msg || 'Failed to load rubrics');
+      setError(msg || 'Failed to load aiRubrics');
     } finally {
       setIsLoading(false);
     }
@@ -136,9 +136,9 @@ export default function RubricsPage() {
 
   useEffect(() => {
     if (!canManage) return;
-    const timeoutId = window.setTimeout(() => void loadRubrics(), 0);
+    const timeoutId = window.setTimeout(() => void loadAiRubrics(), 0);
     return () => window.clearTimeout(timeoutId);
-  }, [canManage, loadRubrics]);
+  }, [canManage, loadAiRubrics]);
 
   const openCreate = () => {
     setEditing(null);
@@ -148,30 +148,30 @@ export default function RubricsPage() {
     setMessage(null);
   };
 
-  const openEdit = async (rubric: Rubric) => {
+  const openEdit = async (aiRubric: AiRubric) => {
     setError(null);
     setMessage(null);
     try {
-      const res = await rubricsService.getById(rubric.id);
+      const res = await aiRubricsService.getById(aiRubric.id);
       if (res.success) {
-        setEditing(rubric);
+        setEditing(aiRubric);
         setForm(buildForm(res.data));
         setIsFormOpen(true);
       }
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setError(msg || 'Failed to load rubric for editing');
+      setError(msg || 'Failed to load aiRubric for editing');
     }
   };
 
   const loadDetail = async (id: string) => {
     setError(null);
     try {
-      const res = await rubricsService.getById(id);
+      const res = await aiRubricsService.getById(id);
       if (res.success) setSelected(res.data);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setError(msg || 'Failed to load rubric detail');
+      setError(msg || 'Failed to load aiRubric detail');
     }
   };
 
@@ -295,7 +295,7 @@ export default function RubricsPage() {
       }
     }
 
-    const payload: CreateRubricPayload = {
+    const payload: CreateAiRubricPayload = {
       id: form.id.trim(),
       name: form.name.trim(),
       description: form.description.trim() || null,
@@ -308,7 +308,7 @@ export default function RubricsPage() {
 
     try {
       if (editing) {
-        await rubricsService.update(editing.id, {
+        await aiRubricsService.update(editing.id, {
           name: payload.name,
           description: payload.description,
           writingType: payload.writingType,
@@ -317,63 +317,63 @@ export default function RubricsPage() {
           isActive: payload.isActive,
           criteria: payload.criteria,
         });
-        setMessage('Rubric updated');
+        setMessage('AiRubric updated');
       } else {
-        await rubricsService.create(payload);
-        setMessage('Rubric created');
+        await aiRubricsService.create(payload);
+        setMessage('AiRubric created');
       }
       setIsFormOpen(false);
-      await loadRubrics();
+      await loadAiRubrics();
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setError(msg || 'Failed to save rubric');
+      setError(msg || 'Failed to save aiRubric');
     } finally {
       setIsSaving(false);
     }
   };
 
-  const markDefault = async (rubric: Rubric) => {
+  const markDefault = async (aiRubric: AiRubric) => {
     setError(null);
     setMessage(null);
     try {
-      await rubricsService.update(rubric.id, { isDefault: true, isActive: true });
-      setMessage(`${rubric.name} is now the default rubric`);
-      await loadRubrics();
+      await aiRubricsService.update(aiRubric.id, { isDefault: true, isActive: true });
+      setMessage(`${aiRubric.name} is now the default aiRubric`);
+      await loadAiRubrics();
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setError(msg || 'Failed to set default rubric');
+      setError(msg || 'Failed to set default aiRubric');
     }
   };
 
-  const deactivate = async (rubric: Rubric) => {
-    if (!confirm(`Deactivate rubric "${rubric.name}"?`)) return;
+  const deactivate = async (aiRubric: AiRubric) => {
+    if (!confirm(`Deactivate aiRubric "${aiRubric.name}"?`)) return;
     setError(null);
     setMessage(null);
     try {
-      await rubricsService.deactivate(rubric.id);
-      setMessage('Rubric deactivated');
-      await loadRubrics();
-      if (selected?.id === rubric.id) setSelected(null);
+      await aiRubricsService.deactivate(aiRubric.id);
+      setMessage('AiRubric deactivated');
+      await loadAiRubrics();
+      if (selected?.id === aiRubric.id) setSelected(null);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setError(msg || 'Failed to deactivate rubric');
+      setError(msg || 'Failed to deactivate aiRubric');
     }
   };
 
-  const importCsv = async (file: File): Promise<ImportRubricsResult | null> => {
+  const importCsv = async (file: File): Promise<ImportAiRubricsResult | null> => {
     setError(null);
     setMessage(null);
     try {
-      const res = await rubricsService.importCsv(file);
-      setMessage(`${res.data.imported} rubric(s) imported. ${res.data.failed} row(s) failed.`);
+      const res = await aiRubricsService.importCsv(file);
+      setMessage(`${res.data.imported} aiRubric(s) imported. ${res.data.failed} row(s) failed.`);
       if (res.data.errors.length > 0) {
         setError(res.data.errors.slice(0, 3).map((item) => `Row ${item.row}: ${item.reason}`).join('\n'));
       }
-      await loadRubrics();
+      await loadAiRubrics();
       return res.data;
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      setError(msg || 'Failed to import rubrics CSV');
+      setError(msg || 'Failed to import aiRubrics CSV');
       return null;
     }
   };
@@ -384,7 +384,7 @@ export default function RubricsPage() {
         <div className="text-center">
           <ShieldAlert className="mx-auto mb-4 text-red-500" size={48} />
           <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100">Access Denied</h2>
-          <p className="mt-2 font-medium text-slate-500">You don&apos;t have permission to manage rubrics.</p>
+          <p className="mt-2 font-medium text-slate-500">You don&apos;t have permission to manage aiRubrics.</p>
         </div>
       </div>
     );
@@ -395,10 +395,10 @@ export default function RubricsPage() {
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-slate-100">
-            Rubrics <span className="text-[#0A9AE2]">.</span>
+            AI Rubrics <span className="text-[#0A9AE2]">.</span>
           </h1>
           <p className="text-sm sm:text-base font-medium text-slate-500 dark:text-slate-400">
-            Manage essay rubric templates, criteria, descriptors.
+            Manage essay aiRubric templates, criteria, descriptors.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -407,7 +407,7 @@ export default function RubricsPage() {
             Import CSV
           </button>
           <button onClick={openCreate} className="inline-flex items-center gap-2 rounded-xl bg-[#0A9AE2] px-4 py-2.5 text-sm font-bold text-white shadow-sm shadow-blue-100 hover:bg-[#0864B6] dark:shadow-none">
-            <Plus size={16} /> New Rubric
+            <Plus size={16} /> New AiRubric
           </button>
         </div>
       </header>
@@ -423,9 +423,9 @@ export default function RubricsPage() {
         <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-4 dark:border-slate-800 sm:flex-row sm:items-center sm:justify-between sm:px-6">
           <div className="relative max-w-sm flex-1">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search rubrics..." className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-4 text-sm focus:border-[#0A9AE2] focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
+            <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search aiRubrics..." className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-4 text-sm focus:border-[#0A9AE2] focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
           </div>
-          <button onClick={() => void loadRubrics()} disabled={isLoading} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">
+          <button onClick={() => void loadAiRubrics()} disabled={isLoading} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">
             <RefreshCw size={15} className={isLoading ? 'animate-spin' : ''} /> Refresh
           </button>
         </div>
@@ -434,7 +434,7 @@ export default function RubricsPage() {
           <table className="w-full text-sm">
             <thead className="bg-slate-50 dark:bg-slate-800/60">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-black uppercase tracking-wide text-slate-500">Rubric</th>
+                <th className="px-6 py-3 text-left text-xs font-black uppercase tracking-wide text-slate-500">AiRubric</th>
                 <th className="px-6 py-3 text-left text-xs font-black uppercase tracking-wide text-slate-500">Writing Type</th>
                 <th className="px-6 py-3 text-left text-xs font-black uppercase tracking-wide text-slate-500">Score</th>
                 <th className="px-6 py-3 text-left text-xs font-black uppercase tracking-wide text-slate-500">Status</th>
@@ -444,28 +444,28 @@ export default function RubricsPage() {
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {isLoading ? (
                 <tr><td colSpan={5} className="px-6 py-12 text-center"><Loader2 className="mx-auto animate-spin text-[#0A9AE2]" /></td></tr>
-              ) : rubrics.length === 0 ? (
-                <tr><td colSpan={5} className="px-6 py-16 text-center text-sm font-bold text-slate-400">No rubrics found</td></tr>
-              ) : rubrics.map((rubric) => (
-                <tr key={rubric.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
+              ) : aiRubrics.length === 0 ? (
+                <tr><td colSpan={5} className="px-6 py-16 text-center text-sm font-bold text-slate-400">No aiRubrics found</td></tr>
+              ) : aiRubrics.map((aiRubric) => (
+                <tr key={aiRubric.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
                   <td className="px-6 py-4">
                     <div className="flex flex-col gap-1">
                       <div className="flex items-center gap-2">
-                        <span className="font-black text-slate-900 dark:text-slate-100">{rubric.name}</span>
-                        {rubric.isDefault && <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-700 dark:bg-amber-500/20 dark:text-amber-400"><Star size={10} /> Default</span>}
+                        <span className="font-black text-slate-900 dark:text-slate-100">{aiRubric.name}</span>
+                        {aiRubric.isDefault && <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black text-amber-700 dark:bg-amber-500/20 dark:text-amber-400"><Star size={10} /> Default</span>}
                       </div>
-                      <span className="font-mono text-xs text-slate-400">{rubric.id}</span>
+                      <span className="font-mono text-xs text-slate-400">{aiRubric.id}</span>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-slate-600 dark:text-slate-400">{rubric.writingType || '-'}</td>
-                  <td className="px-6 py-4 font-bold text-slate-700 dark:text-slate-300">{rubric.totalMaxScore} marks</td>
-                  <td className="px-6 py-4"><span className={`rounded-full px-2.5 py-1 text-xs font-black ${rubric.isActive ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}`}>{rubric.isActive ? 'Active' : 'Inactive'}</span></td>
+                  <td className="px-6 py-4 text-slate-600 dark:text-slate-400">{aiRubric.writingType || '-'}</td>
+                  <td className="px-6 py-4 font-bold text-slate-700 dark:text-slate-300">{aiRubric.totalMaxScore} marks</td>
+                  <td className="px-6 py-4"><span className={`rounded-full px-2.5 py-1 text-xs font-black ${aiRubric.isActive ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}`}>{aiRubric.isActive ? 'Active' : 'Inactive'}</span></td>
                   <td className="px-6 py-4 text-right">
                     <div className="flex justify-end gap-1">
-                      <button onClick={() => void loadDetail(rubric.id)} title="View detail" className="rounded-lg p-2 text-slate-400 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-500/10"><Eye size={16} /></button>
-                      <button onClick={() => void openEdit(rubric)} title="Edit rubric" className="rounded-lg p-2 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-500/10"><Pencil size={16} /></button>
-                      {!rubric.isDefault && <button onClick={() => void markDefault(rubric)} title="Mark as default" className="rounded-lg p-2 text-slate-400 hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-500/10"><Star size={16} /></button>}
-                      {rubric.isActive && <button onClick={() => void deactivate(rubric)} title="Deactivate" className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"><Trash2 size={16} /></button>}
+                      <button onClick={() => void loadDetail(aiRubric.id)} title="View detail" className="rounded-lg p-2 text-slate-400 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-500/10"><Eye size={16} /></button>
+                      <button onClick={() => void openEdit(aiRubric)} title="Edit aiRubric" className="rounded-lg p-2 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-500/10"><Pencil size={16} /></button>
+                      {!aiRubric.isDefault && <button onClick={() => void markDefault(aiRubric)} title="Mark as default" className="rounded-lg p-2 text-slate-400 hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-500/10"><Star size={16} /></button>}
+                      {aiRubric.isActive && <button onClick={() => void deactivate(aiRubric)} title="Deactivate" className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"><Trash2 size={16} /></button>}
                     </div>
                   </td>
                 </tr>
@@ -516,8 +516,8 @@ export default function RubricsPage() {
               <div className="flex items-center gap-3">
                 <div className="rounded-xl bg-[#0A9AE2]/10 p-2 text-[#0A9AE2]"><ClipboardCheck size={20} /></div>
                 <div>
-                  <h2 className="font-black text-slate-900 dark:text-slate-100">{editing ? 'Edit Rubric' : 'Create Rubric'}</h2>
-                  <p className="text-xs font-medium text-slate-400">Manage rubric metadata, criteria, and band descriptors.</p>
+                  <h2 className="font-black text-slate-900 dark:text-slate-100">{editing ? 'Edit AiRubric' : 'Create AiRubric'}</h2>
+                  <p className="text-xs font-medium text-slate-400">Manage aiRubric metadata, criteria, and band descriptors.</p>
                 </div>
               </div>
               <button type="button" onClick={() => setIsFormOpen(false)} className="rounded-xl p-2 hover:bg-slate-100 dark:hover:bg-slate-800"><X size={18} /></button>
@@ -525,7 +525,7 @@ export default function RubricsPage() {
             <div className="flex-1 space-y-4 overflow-y-auto p-5">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
-                  <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Rubric ID</label>
+                  <label className="text-sm font-bold text-slate-700 dark:text-slate-300">AiRubric ID</label>
                   <input required disabled={!!editing} value={form.id} onChange={(event) => setForm({ ...form, id: event.target.value })} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium focus:border-[#0A9AE2] focus:outline-none disabled:opacity-60 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
                 </div>
                 <div className="space-y-1.5">
@@ -624,7 +624,7 @@ export default function RubricsPage() {
                 )}
               </section>
               <div className="flex flex-wrap gap-4">
-                <label className="flex items-center gap-2 text-sm font-bold text-slate-600 dark:text-slate-300"><input type="checkbox" checked={form.isDefault} onChange={(event) => setForm({ ...form, isDefault: event.target.checked })} /> Default rubric</label>
+                <label className="flex items-center gap-2 text-sm font-bold text-slate-600 dark:text-slate-300"><input type="checkbox" checked={form.isDefault} onChange={(event) => setForm({ ...form, isDefault: event.target.checked })} /> Default aiRubric</label>
                 <label className="flex items-center gap-2 text-sm font-bold text-slate-600 dark:text-slate-300"><input type="checkbox" checked={form.isActive} onChange={(event) => setForm({ ...form, isActive: event.target.checked })} /> Active</label>
               </div>
             </div>
@@ -639,7 +639,7 @@ export default function RubricsPage() {
         </div>
       )}
 
-      <ImportRubricModal
+      <ImportAiRubricModal
         isOpen={isImportOpen}
         onClose={() => setIsImportOpen(false)}
         onImportCsv={importCsv}

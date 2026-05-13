@@ -441,14 +441,14 @@ function TutorDashboard({ firstName }: { firstName: string }) {
         <RoleMetricCard icon={FileText} label="Mock exams" value="Open" tone="bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-300" />
         <RoleMetricCard icon={ClipboardList} label="Practice tasks" value="Assign" tone="bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-300" />
         <RoleMetricCard icon={Trophy} label="Question bank" value="Create" tone="bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-300" />
-        <RoleMetricCard icon={BookOpen} label="Rubrics" value="Guide" tone="bg-violet-50 text-violet-600 dark:bg-violet-900/20 dark:text-violet-300" />
+        <RoleMetricCard icon={BookOpen} label="AI Rubrics" value="Guide" tone="bg-violet-50 text-violet-600 dark:bg-violet-900/20 dark:text-violet-300" />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
         <QuickActionCard icon={FileText} title="Exam submissions" description="Open exams and review sessions that need tutor attention." href="/dashboard/exams" tone="bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-300" />
         <QuickActionCard icon={ClipboardList} title="Practice assignments" description="Assign focused practice from reusable question bank content." href="/dashboard/practice/assignments" tone="bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-300" />
         <QuickActionCard icon={Trophy} title="Create questions" description="Draft, import, submit, and manage questions for exams or practice." href="/dashboard/questions" tone="bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-300" />
-        <QuickActionCard icon={BookOpen} title="Rubrics" description="Maintain essay grading rubrics for AI and manual review consistency." href="/dashboard/rubrics" tone="bg-violet-50 text-violet-600 dark:bg-violet-900/20 dark:text-violet-300" />
+        <QuickActionCard icon={BookOpen} title="AI Rubrics" description="Maintain essay grading aiRubrics for AI and manual review consistency." href="/dashboard/ai-rubrics" tone="bg-violet-50 text-violet-600 dark:bg-violet-900/20 dark:text-violet-300" />
         <QuickActionCard icon={LibraryBig} title="Passages" description="Manage reusable passages for reading comprehension questions." href="/dashboard/passages" tone="bg-cyan-50 text-cyan-600 dark:bg-cyan-900/20 dark:text-cyan-300" />
         <QuickActionCard icon={Users} title="Students" description="View linked student cards and progress snapshots." href="/dashboard/students" tone="bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300" />
       </div>
@@ -561,26 +561,8 @@ export default function DashboardPage() {
 
 
   return (
-    <div className="min-w-0 max-w-full space-y-5 overflow-x-hidden sm:space-y-6">
-      <div className="min-w-0 space-y-6">
-        <header className="relative min-w-0 px-5 pt-5 pb-2 sm:px-6 sm:pt-6">
-          <div className="flex min-w-0 flex-col gap-2">
-            <div className="min-w-0">
-              <p className="text-[11px] font-black uppercase tracking-[0.28em] text-[#0A9AE2]">Student quest board</p>
-              <h1 className="mt-1 break-words text-[clamp(1.55rem,4vw,2.1rem)] font-black leading-tight tracking-tight text-slate-900 dark:text-slate-100">
-                Welcome back, <span className="text-[#0A9AE2]">{firstName}</span>
-              </h1>
-              <p className="mt-1 max-w-2xl break-words text-sm font-medium leading-relaxed text-slate-500 dark:text-slate-400">
-                Your current exam status, weak spots, and review queue in one glance.
-              </p>
-            </div>
-          </div>
-        </header>
-
-        <div className="min-w-0">
-          <StudentPerformanceAnalytics />
-        </div>
-      </div>
+    <div className="min-w-0 max-w-full overflow-x-hidden">
+      <StudentPerformanceAnalytics />
     </div>
   );
 }

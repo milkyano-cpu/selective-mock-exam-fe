@@ -4,8 +4,7 @@ import { LatexRenderer } from './LatexRenderer';
 
 interface QuestionLatexRendererProps {
   text: string;
-  latex?: string | null;
-  isLatexFormat?: boolean;
+  latexEnabled?: boolean;
   displayMode?: boolean;
   className?: string;
   fallbackClassName?: string;
@@ -13,14 +12,13 @@ interface QuestionLatexRendererProps {
 
 export function QuestionLatexRenderer({
   text,
-  latex,
-  isLatexFormat = false,
+  latexEnabled = false,
   displayMode = false,
   className = '',
   fallbackClassName = '',
 }: QuestionLatexRendererProps) {
-  if (isLatexFormat) {
-    return <LatexRenderer latex={latex ?? text} displayMode={displayMode} className={className} />;
+  if (latexEnabled) {
+    return <LatexRenderer latex={text} displayMode={displayMode} className={className} />;
   }
 
   return <span className={fallbackClassName || className}>{text}</span>;

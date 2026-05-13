@@ -127,7 +127,7 @@ export default function PassageDetailPage({ params }: { params: Promise<{ id: st
                           <div className="space-y-1.5">
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="font-bold text-slate-900 dark:text-slate-100">
-                                {question.contentText}
+                                {question.questionText}
                               </span>
                               {question.questionId && (
                                 <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-black text-slate-500 dark:bg-slate-800 dark:text-slate-400">

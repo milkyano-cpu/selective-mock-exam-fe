@@ -10,21 +10,21 @@ import {
   X,
   XCircle,
 } from 'lucide-react';
-import type { ImportRubricsResult } from '../types/rubrics.types';
+import type { ImportAiRubricsResult } from '../types/ai-rubrics.types';
 
-interface ImportRubricModalProps {
+interface ImportAiRubricModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onImportCsv: (file: File) => Promise<ImportRubricsResult | null>;
+  onImportCsv: (file: File) => Promise<ImportAiRubricsResult | null>;
 }
 
 type Phase = 'upload' | 'results';
 
-export function ImportRubricModal({ isOpen, onClose, onImportCsv }: ImportRubricModalProps) {
+export function ImportAiRubricModal({ isOpen, onClose, onImportCsv }: ImportAiRubricModalProps) {
   const [phase, setPhase] = useState<Phase>('upload');
   const [file, setFile] = useState<File | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [result, setResult] = useState<ImportRubricsResult | null>(null);
+  const [result, setResult] = useState<ImportAiRubricsResult | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -84,7 +84,7 @@ export function ImportRubricModal({ isOpen, onClose, onImportCsv }: ImportRubric
       <div className="flex w-full max-w-lg flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl dark:border-slate-800 dark:bg-slate-900">
         <div className="flex shrink-0 items-center justify-between border-b border-slate-100 p-6 dark:border-slate-800">
           <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
-            {phase === 'upload' ? 'Import Rubrics (CSV)' : 'Import Results'}
+            {phase === 'upload' ? 'Import AI Rubrics (CSV)' : 'Import Results'}
           </h2>
           <button
             type="button"
@@ -193,7 +193,7 @@ export function ImportRubricModal({ isOpen, onClose, onImportCsv }: ImportRubric
             {result.failed === 0 ? (
               <div className="flex items-center gap-3 rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 dark:border-emerald-500/20 dark:bg-emerald-500/10">
                 <CheckCircle2 size={18} className="shrink-0 text-emerald-600 dark:text-emerald-400" />
-                <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">All rubric rows imported successfully.</p>
+                <p className="text-sm font-bold text-emerald-700 dark:text-emerald-400">All aiRubric rows imported successfully.</p>
               </div>
             ) : result.imported > 0 ? (
               <div className="flex items-center gap-3 rounded-xl border border-amber-100 bg-amber-50 px-4 py-3 dark:border-amber-500/20 dark:bg-amber-500/10">

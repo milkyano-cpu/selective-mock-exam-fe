@@ -1,59 +1,169 @@
 'use client';
 
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { studentMenuItems, parentMenuItems, adminMenuItems, tutorMenuItems } from '@/constants/navigation';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ChevronLeft, MoreHorizontal, X } from 'lucide-react';
 
 export const BottomNav = () => {
   const pathname = usePathname();
   const user = useAuthStore((state) => state.user);
+  const [isMoreOpen, setIsMoreOpen] = useState(false);
 
   let menuItems = studentMenuItems;
   if (user?.role === 'PARENT') menuItems = parentMenuItems;
   if (user?.role === 'ADMIN') menuItems = adminMenuItems;
   if (user?.role === 'TUTOR') menuItems = tutorMenuItems;
 
-  const displayItems = menuItems.slice(0, 5);
   const isStudent = user?.role === 'STUDENT' || !user?.role;
   const isItemActive = (href: string) => href === '/dashboard'
     ? pathname === '/dashboard'
     : pathname.startsWith(href);
 
-  if (isStudent) {
-    return (
-      <nav className="fixed bottom-[calc(env(safe-area-inset-bottom)+0.9rem)] left-1/2 z-50 w-[calc(100%-1.5rem)] max-w-[430px] -translate-x-1/2 lg:hidden">
-        <div className="relative h-[76px] overflow-hidden rounded-full border border-white/45 bg-white/30 px-1 py-2 shadow-[0_18px_42px_rgba(15,23,42,0.22),inset_0_1px_1px_rgba(255,255,255,0.72),inset_0_-1px_1px_rgba(255,255,255,0.18)] backdrop-blur-2xl backdrop-saturate-150 dark:border-white/10 dark:bg-slate-900/34 dark:shadow-[0_18px_42px_rgba(0,0,0,0.45),inset_0_1px_1px_rgba(255,255,255,0.08)]">
-          <div className="pointer-events-none absolute inset-x-8 top-0 h-px bg-white/80" />
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/35 via-white/8 to-slate-900/10 dark:from-white/10 dark:via-white/5 dark:to-black/20" />
-          <div className="relative flex h-full items-center overflow-x-auto scrollbar-none" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-            {menuItems.map((item) => {
-              const isActive = isItemActive(item.href);
+  // Close the More sheet on route change
+  useEffect(() => {
+    setIsMoreOpen(false);
+  }, [pathname]);
 
+  // Close on Escape key
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'Escape') setIsMoreOpen(false);
+  }, []);
+
+  useEffect(() => {
+    if (isMoreOpen) {
+      document.addEventListener('keydown', handleKeyDown);
+      return () => document.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [isMoreOpen, handleKeyDown]);
+
+  if (isStudent) {
+    // Show first 4 items + More
+    const primaryItems = menuItems.slice(0, 4);
+    const moreItems = menuItems.slice(4);
+    const isMoreActive = moreItems.some((item) => isItemActive(item.href));
+
+    return (
+      <>
+        {/* More Popover */}
+        <AnimatePresence>
+          {isMoreOpen && (
+            <>
+              <motion.div
+                key="more-backdrop"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.15 }}
+                className="fixed inset-0 z-[60] lg:hidden"
+                onClick={() => setIsMoreOpen(false)}
+              />
+              <motion.div
+                key="more-popover"
+                initial={{ opacity: 0, y: 12, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: 12, scale: 0.95 }}
+                transition={{ type: 'spring', bounce: 0.15, duration: 0.35 }}
+                className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] right-4 z-[70] w-52 overflow-hidden rounded-2xl bg-white shadow-[0_8px_32px_rgba(15,23,42,0.14),0_2px_8px_rgba(15,23,42,0.08)] dark:bg-slate-900 dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)] lg:hidden"
+              >
+                <button
+                  type="button"
+                  onClick={() => setIsMoreOpen(false)}
+                  className="flex w-full items-center gap-3 border-b border-slate-100 px-4 py-3 text-left text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800"
+                >
+                  <ChevronLeft size={18} strokeWidth={2.2} className="text-slate-400" />
+                  Back
+                </button>
+                {moreItems.map((item) => {
+                  const active = isItemActive(item.href);
+                  return (
+                    <Link
+                      key={item.label}
+                      href={item.href}
+                      className={[
+                        'flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-semibold transition-colors',
+                        active
+                          ? 'bg-[#E8F7FD] text-[#0A9AE2] dark:bg-cyan-950/30'
+                          : 'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800',
+                      ].join(' ')}
+                    >
+                      <item.icon size={18} strokeWidth={active ? 2.2 : 1.8} className={active ? 'text-[#0A9AE2]' : 'text-slate-400 dark:text-slate-500'} />
+                      {item.label}
+                    </Link>
+                  );
+                })}
+              </motion.div>
+            </>
+          )}
+        </AnimatePresence>
+
+        {/* Bottom Navigation Bar */}
+        <nav className="fixed bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] left-1/2 z-50 w-[calc(100%-1.5rem)] max-w-[430px] -translate-x-1/2 lg:hidden">
+          <div className="flex h-[72px] items-center justify-around rounded-full bg-white px-4 shadow-[0_4px_24px_rgba(15,23,42,0.10),0_1.5px_6px_rgba(15,23,42,0.06)] dark:bg-slate-900 dark:shadow-[0_4px_24px_rgba(0,0,0,0.35)]">
+            {primaryItems.map((item) => {
+              const isActive = isItemActive(item.href);
               return (
                 <Link
                   key={item.label}
                   href={item.href}
-                  className="group relative flex h-full w-[72px] shrink-0 flex-col items-center justify-center rounded-full text-center transition-transform duration-300 active:scale-95"
+                  className="group relative flex min-w-0 flex-1 flex-col items-center justify-center gap-1 text-center"
                   aria-current={isActive ? 'page' : undefined}
                 >
-                  <item.icon
-                    size={25}
-                    strokeWidth={isActive ? 2.6 : 2.25}
-                    className={`transition-all duration-300 ${isActive ? 'text-[#0A9AE2]' : 'text-slate-700 group-hover:text-[#0A9AE2] dark:text-slate-100'}`}
-                  />
-                  <span className={`mt-1 max-w-full truncate text-[10px] font-black leading-none transition-colors duration-300 ${isActive ? 'text-[#0A9AE2]' : 'text-slate-700/90 dark:text-slate-100/82'}`}>
+                  <div className="relative flex h-9 items-center justify-center px-5">
+                    {isActive && (
+                      <motion.div
+                        layoutId="student-nav-bubble"
+                        className="absolute inset-0 rounded-full bg-[#E8F7FD] dark:bg-cyan-950/50"
+                        transition={{ type: 'spring', bounce: 0.2, duration: 0.5 }}
+                      />
+                    )}
+                    <item.icon
+                      size={22}
+                      strokeWidth={isActive ? 2.4 : 1.8}
+                      className={`relative z-10 transition-colors duration-200 ${isActive ? 'text-[#0A9AE2]' : 'text-slate-400 group-hover:text-slate-600 dark:text-slate-500 dark:group-hover:text-slate-300'}`}
+                    />
+                  </div>
+                  <span className={`text-[10px] leading-none transition-colors duration-200 ${isActive ? 'font-extrabold text-[#0A9AE2]' : 'font-bold text-slate-400 dark:text-slate-500'}`}>
                     {item.label}
                   </span>
                 </Link>
               );
             })}
+
+            {/* More button */}
+            <button
+              type="button"
+              onClick={() => setIsMoreOpen((prev) => !prev)}
+              className="group relative flex min-w-0 flex-1 flex-col items-center justify-center gap-1 text-center"
+            >
+              <div className="relative flex h-9 items-center justify-center px-5">
+                {(isMoreActive || isMoreOpen) && (
+                  <motion.div
+                    layoutId="student-nav-bubble"
+                    className="absolute inset-0 rounded-full bg-[#E8F7FD] dark:bg-cyan-950/50"
+                    transition={{ type: 'spring', bounce: 0.2, duration: 0.5 }}
+                  />
+                )}
+                <MoreHorizontal
+                  size={22}
+                  strokeWidth={(isMoreActive || isMoreOpen) ? 2.4 : 1.8}
+                  className={`relative z-10 transition-colors duration-200 ${(isMoreActive || isMoreOpen) ? 'text-[#0A9AE2]' : 'text-slate-400 group-hover:text-slate-600 dark:text-slate-500 dark:group-hover:text-slate-300'}`}
+                />
+              </div>
+              <span className={`text-[10px] leading-none transition-colors duration-200 ${(isMoreActive || isMoreOpen) ? 'font-extrabold text-[#0A9AE2]' : 'font-bold text-slate-400 dark:text-slate-500'}`}>
+                More
+              </span>
+            </button>
           </div>
-        </div>
-      </nav>
+        </nav>
+      </>
     );
   }
+
+  const displayItems = menuItems.slice(0, 5);
 
   return (
     <nav className="fixed bottom-[calc(env(safe-area-inset-bottom)+1rem)] left-1/2 z-50 w-[calc(100%-2rem)] max-w-[390px] -translate-x-1/2 lg:hidden">
@@ -61,9 +171,7 @@ export const BottomNav = () => {
         className={[
           'relative overflow-hidden border p-1.5 backdrop-blur-2xl backdrop-saturate-150',
           'before:pointer-events-none before:absolute before:inset-x-6 before:top-0 before:h-px before:bg-white/80',
-          isStudent
-            ? 'rounded-[34px] border-white/65 bg-white/52 shadow-[0_18px_45px_rgba(15,23,42,0.16),inset_0_1px_0_rgba(255,255,255,0.75)] dark:border-white/10 dark:bg-slate-950/58 dark:shadow-[0_18px_45px_rgba(0,0,0,0.42),inset_0_1px_0_rgba(255,255,255,0.08)]'
-            : 'rounded-[28px] border-white/70 bg-white/78 shadow-[0_20px_50px_rgba(14,116,144,0.18)] dark:border-white/10 dark:bg-slate-950/86 dark:shadow-[0_20px_50px_rgba(0,0,0,0.34)]',
+          'rounded-[28px] border-white/70 bg-white/78 shadow-[0_20px_50px_rgba(14,116,144,0.18)] dark:border-white/10 dark:bg-slate-950/86 dark:shadow-[0_20px_50px_rgba(0,0,0,0.34)]',
         ].join(' ')}
       >
         <div className="relative flex h-16 items-center gap-1">

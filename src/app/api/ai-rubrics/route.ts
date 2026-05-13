@@ -5,7 +5,7 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const query = searchParams.toString() ? `?${searchParams.toString()}` : '';
-    const backendRes = await fetchFromBackend(req, `/rubrics${query}`);
+    const backendRes = await fetchFromBackend(req, `/ai-rubrics${query}`);
     const data = await backendRes.json().catch(() => ({}));
 
     return NextResponse.json(
@@ -18,7 +18,7 @@ export async function GET(req: Request) {
       { status: backendRes.status }
     );
   } catch (err) {
-    console.error('[RUBRICS API GET] ERROR:', err);
+    console.error('[AI_RUBRICS API GET] ERROR:', err);
     return NextResponse.json(
       { success: false, message: 'Internal Server Error', data: [] },
       { status: 500 }
@@ -29,7 +29,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const backendRes = await fetchFromBackend(req, '/rubrics', {
+    const backendRes = await fetchFromBackend(req, '/ai-rubrics', {
       method: 'POST',
       body: JSON.stringify(body),
     });
@@ -44,7 +44,7 @@ export async function POST(req: Request) {
       { status: backendRes.status }
     );
   } catch (err) {
-    console.error('[RUBRICS API POST] ERROR:', err);
+    console.error('[AI_RUBRICS API POST] ERROR:', err);
     return NextResponse.json(
       { success: false, message: 'Internal Server Error', data: {} },
       { status: 500 }

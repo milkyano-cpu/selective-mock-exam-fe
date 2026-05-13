@@ -70,9 +70,8 @@ interface AvailableQuestion {
   questionId: string | null;
   type: string;
   difficulty: string;
-  contentText: string;
-  contentLatex: string | null;
-  isLatexFormat: boolean;
+  questionText: string;
+  latexEnabled: boolean;
   subjectName: string;
   topicName: string;
   options: QuestionOption[] | null;
@@ -124,7 +123,7 @@ function AddQuestionsModal({
     if (examGradingType === 'MANUAL' && q.type !== 'ESSAY') return false;
     if (!search) return true;
     return (
-      q.contentText.toLowerCase().includes(search.toLowerCase()) ||
+      q.questionText.toLowerCase().includes(search.toLowerCase()) ||
       q.subjectName.toLowerCase().includes(search.toLowerCase()) ||
       q.topicName.toLowerCase().includes(search.toLowerCase()) ||
       q.questionId?.toLowerCase().includes(search.toLowerCase())
@@ -212,7 +211,7 @@ function AddQuestionsModal({
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="line-clamp-2 text-sm font-medium text-slate-800 dark:text-slate-200">
-                        <QuestionLatexRenderer text={q.contentText} latex={q.contentLatex} isLatexFormat={q.isLatexFormat} />
+                        <QuestionLatexRenderer text={q.questionText} latexEnabled={q.latexEnabled} />
                       </div>
                       <div className="mt-1 flex flex-wrap gap-2 text-xs font-medium text-slate-400">
                         <span>{q.subjectName}</span>
@@ -593,7 +592,7 @@ export default function ExamDetailPage() {
     if (qFilter === 'EASY'   && eq.question.difficulty !== 'EASY')   return false;
     if (qFilter === 'MEDIUM' && eq.question.difficulty !== 'MEDIUM') return false;
     if (qFilter === 'HARD'   && eq.question.difficulty !== 'HARD')   return false;
-    if (qSearch && !eq.question.contentText.toLowerCase().includes(qSearch.toLowerCase())) return false;
+    if (qSearch && !eq.question.questionText.toLowerCase().includes(qSearch.toLowerCase())) return false;
     return true;
   });
 
@@ -882,9 +881,8 @@ export default function ExamDetailPage() {
                       <div className="min-w-0 flex-1">
                         <div className="line-clamp-2 text-sm font-medium leading-snug text-slate-800 dark:text-slate-200">
                           <QuestionLatexRenderer
-                            text={eq.question.contentText}
-                            latex={eq.question.contentLatex}
-                            isLatexFormat={eq.question.isLatexFormat}
+                            text={eq.question.questionText}
+                            latexEnabled={eq.question.latexEnabled}
                           />
                         </div>
                         <div className="mt-2 flex flex-wrap items-center gap-1.5">

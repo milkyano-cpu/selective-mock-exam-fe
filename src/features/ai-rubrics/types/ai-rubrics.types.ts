@@ -1,4 +1,4 @@
-export type Rubric = {
+export type AiRubric = {
   id: string;
   name: string;
   description: string | null;
@@ -10,7 +10,7 @@ export type Rubric = {
   updatedAt: string;
 };
 
-export type RubricBandDescriptor = {
+export type AiRubricBandDescriptor = {
   id: string;
   criterionId: string;
   scoreMin: number;
@@ -20,20 +20,20 @@ export type RubricBandDescriptor = {
   updatedAt: string;
 };
 
-export type RubricCriterion = {
+export type AiRubricCriterion = {
   id: string;
-  rubricId: string;
+  aiRubricId: string;
   criterionName: string;
   criterionDescription: string;
   maxScore: number;
   sortOrder: number;
   createdAt: string;
   updatedAt: string;
-  bandDescriptors?: RubricBandDescriptor[];
+  bandDescriptors?: AiRubricBandDescriptor[];
 };
 
-export type RubricDetail = Rubric & {
-  criteria: RubricCriterion[];
+export type AiRubricDetail = AiRubric & {
+  criteria: AiRubricCriterion[];
 };
 
 export type PaginationMeta = {
@@ -56,28 +56,28 @@ export type SingleResponse<T> = {
   data: T;
 };
 
-export type ListRubricsQuery = {
+export type ListAiRubricsQuery = {
   page?: number;
   limit?: number;
   search?: string;
   activeOnly?: boolean;
 };
 
-export type RubricBandDescriptorInput = {
+export type AiRubricBandDescriptorInput = {
   scoreMin: number;
   scoreMax: number;
   descriptor: string;
 };
 
-export type RubricCriterionInput = {
+export type AiRubricCriterionInput = {
   criterionName: string;
   criterionDescription: string;
   maxScore: number;
   sortOrder?: number;
-  bandDescriptors?: RubricBandDescriptorInput[];
+  bandDescriptors?: AiRubricBandDescriptorInput[];
 };
 
-export type CreateRubricPayload = {
+export type CreateAiRubricPayload = {
   id: string;
   name: string;
   description?: string | null;
@@ -85,20 +85,20 @@ export type CreateRubricPayload = {
   isDefault?: boolean;
   isActive?: boolean;
   totalMaxScore: number;
-  criteria?: RubricCriterionInput[];
+  criteria?: AiRubricCriterionInput[];
 };
 
-export type UpdateRubricPayload = {
+export type UpdateAiRubricPayload = {
   name?: string;
   description?: string | null;
   writingType?: string | null;
   isDefault?: boolean;
   isActive?: boolean;
   totalMaxScore?: number;
-  criteria?: RubricCriterionInput[];
+  criteria?: AiRubricCriterionInput[];
 };
 
-export type ImportRubricsResult = {
+export type ImportAiRubricsResult = {
   total: number;
   imported: number;
   failed: number;

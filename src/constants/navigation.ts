@@ -1,4 +1,5 @@
 import {
+  Home,
   LayoutDashboard,
   BookOpen,
   Clock3,
@@ -22,7 +23,7 @@ import {
 } from 'lucide-react';
 
 export const studentMenuItems = [
-  { icon: LayoutDashboard, label: 'Home', href: '/dashboard' },
+  { icon: Home, label: 'Home', href: '/dashboard' },
   { icon: FileText, label: 'Mock Test', href: '/dashboard/exams' },
   { icon: BookMarked, label: 'Practice', href: '/dashboard/practice' },
   { icon: Map, label: 'Pathways', href: '/dashboard/pathways' },
@@ -56,7 +57,7 @@ export const adminMenuGroups = [
   {
     group: 'Content',
     items: [
-      { icon: ClipboardCheck, label: 'Rubrics', href: '/dashboard/rubrics' },
+      { icon: ClipboardCheck, label: 'AI Rubrics', href: '/dashboard/ai-rubrics' },
       { icon: LibraryBig, label: 'Passages', href: '/dashboard/passages' },
       { icon: BookOpen, label: 'Subjects', href: '/dashboard/subjects' },
       { icon: Trophy, label: 'Question Bank', href: '/dashboard/questions' },
@@ -113,7 +114,7 @@ export const tutorMenuGroups = [
   {
     group: 'Content',
     items: [
-      { icon: ClipboardCheck, label: 'Rubrics', href: '/dashboard/rubrics' },
+      { icon: ClipboardCheck, label: 'AI Rubrics', href: '/dashboard/ai-rubrics' },
       { icon: LibraryBig, label: 'Passages', href: '/dashboard/passages' },
       { icon: BookOpen, label: 'Subjects', href: '/dashboard/subjects' },
       { icon: Trophy, label: 'Question Bank', href: '/dashboard/questions' },

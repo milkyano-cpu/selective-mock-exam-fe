@@ -4,7 +4,7 @@ import { fetchFromBackend } from '@/lib/serverBackend';
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
-    const backendRes = await fetchFromBackend(req, '/rubrics/import', {
+    const backendRes = await fetchFromBackend(req, '/ai-rubrics/import', {
       method: 'POST',
       body: formData,
     });
@@ -19,7 +19,7 @@ export async function POST(req: Request) {
       { status: backendRes.status }
     );
   } catch (err) {
-    console.error('[RUBRICS IMPORT API POST] ERROR:', err);
+    console.error('[AI_RUBRICS IMPORT API POST] ERROR:', err);
     return NextResponse.json(
       { success: false, message: 'Internal Server Error', data: {} },
       { status: 500 }

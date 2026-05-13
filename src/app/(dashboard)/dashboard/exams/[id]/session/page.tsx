@@ -49,9 +49,8 @@ function QuestionContent({ question }: { question: SessionQuestion }) {
       )}
       <div className="text-base font-medium leading-relaxed text-slate-900 dark:text-slate-100 overflow-wrap-anywhere" style={{ overflowWrap: 'anywhere' }}>
         <QuestionLatexRenderer
-          text={question.contentText}
-          latex={question.contentLatex}
-          isLatexFormat={question.isLatexFormat}
+          text={question.questionText}
+          latexEnabled={question.latexEnabled}
           fallbackClassName="whitespace-pre-wrap"
         />
       </div>
@@ -750,7 +749,7 @@ export default function ExamSessionPage() {
                             {option.key}
                           </span>
                           <span className={`text-sm font-medium ${isSelected ? 'text-slate-900 dark:text-slate-100' : 'text-slate-700 dark:text-slate-300'}`}>
-                            <QuestionLatexRenderer text={option.text} isLatexFormat={currentQuestion.isLatexFormat} />
+                            <QuestionLatexRenderer text={option.text} latexEnabled={currentQuestion.latexEnabled} />
                           </span>
                         </button>
                       );

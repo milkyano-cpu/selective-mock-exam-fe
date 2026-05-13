@@ -85,7 +85,7 @@ function AnswerCard({ answer, index }: { answer: SessionResultAnswer; index: num
         </div>
         <div className="min-w-0 flex-1">
           <div className="line-clamp-2 text-sm font-medium text-slate-800 dark:text-slate-200">
-            <QuestionLatexRenderer text={answer.contentText} latex={answer.contentLatex} isLatexFormat={answer.isLatexFormat} />
+            <QuestionLatexRenderer text={answer.questionText} latexEnabled={answer.latexEnabled} />
           </div>
           <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
             <span className={`flex items-center gap-1 font-semibold ${statusClass}`}>
@@ -119,7 +119,7 @@ function AnswerCard({ answer, index }: { answer: SessionResultAnswer; index: num
                       {opt.key}
                     </span>
                     <span className={`font-medium ${isCorrectAnswer ? 'text-green-800 dark:text-green-300' : isIncorrectAnswer ? 'text-red-700 dark:text-red-300' : isPendingAnswer && isStudentAnswer ? 'text-blue-700 dark:text-blue-300' : 'text-slate-600 dark:text-slate-400'}`}>
-                      <QuestionLatexRenderer text={opt.text} isLatexFormat={answer.isLatexFormat} />
+                      <QuestionLatexRenderer text={opt.text} latexEnabled={answer.latexEnabled} />
                       {isCorrectAnswer && <span className="ml-2 text-xs font-bold text-green-600 dark:text-green-400">✓ Correct</span>}
                       {isIncorrectAnswer && <span className="ml-2 text-xs font-bold text-red-600 dark:text-red-400">Your answer</span>}
                       {isPendingAnswer && isStudentAnswer && <span className="ml-2 text-xs font-bold text-blue-600 dark:text-blue-400">Your answer</span>}
@@ -151,10 +151,10 @@ function AnswerCard({ answer, index }: { answer: SessionResultAnswer; index: num
                       {answer.aiFeedback.gradedAt ? `Reviewed at ${new Date(answer.aiFeedback.gradedAt).toLocaleString()}` : null}
                     </p>
                   )}
-                  {answer.aiFeedback.rubric && (
+                  {answer.aiFeedback.aiRubric && (
                     <div className="mt-3 rounded-lg bg-white/70 px-3 py-2 dark:bg-slate-900/40">
                       <p className="text-xs font-black uppercase text-emerald-700 dark:text-emerald-300">
-                        {answer.aiFeedback.rubric.name} · {answer.aiFeedback.totalAwardedMarks ?? 0}/{answer.aiFeedback.totalPossibleMarks ?? answer.aiFeedback.rubric.totalMaxScore} marks
+                        {answer.aiFeedback.aiRubric.name} · {answer.aiFeedback.totalAwardedMarks ?? 0}/{answer.aiFeedback.totalPossibleMarks ?? answer.aiFeedback.aiRubric.totalMaxScore} marks
                       </p>
                       {answer.aiFeedback.criterionScores.length > 0 && (
                         <div className="mt-2 space-y-2">
@@ -196,7 +196,7 @@ function AnswerCard({ answer, index }: { answer: SessionResultAnswer; index: num
             <div className="mt-3 rounded-xl bg-slate-50 px-3 py-2.5 dark:bg-slate-800">
               <p className="text-xs font-bold uppercase text-slate-400">Explanation</p>
               <div className="mt-1 text-sm font-medium text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
-                <QuestionLatexRenderer text={answer.explanation} isLatexFormat={answer.isLatexFormat} />
+                <QuestionLatexRenderer text={answer.explanation} latexEnabled={answer.latexEnabled} />
               </div>
             </div>
           )}

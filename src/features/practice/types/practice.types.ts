@@ -13,9 +13,8 @@ export interface McqOption {
 export interface PracticeQuestion {
   questionId: string;
   order: number;
-  contentText: string;
-  contentLatex: string | null;
-  isLatexFormat: boolean;
+  questionText: string;
+  latexEnabled: boolean;
   difficulty: Difficulty;
   options: McqOption[] | null;
   imageUrl: string | null;

@@ -1,11 +1,18 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowRight, CalendarDays, ChevronRight, Clock, Plus, Trash2 } from 'lucide-react';
 import { BannerCarousel } from '@/components/dashboard/BannerCarousel';
 import { countdownService } from '@/features/countdowns/services/countdown.service';
 import type { CountdownItem } from '@/features/countdowns/types/countdowns.types';
+import { studentCalendarService } from '@/features/student-calendar/services/student-calendar.service';
+import type {
+  StudentCalendarReminder,
+  UpsertStudentCalendarReminderPayload,
+} from '@/features/student-calendar/types/student-calendar.types';
+
+const LEGACY_REMINDERS_STORAGE_KEY = 'aspire_student_reminders';
 
 export function StudentUtilityRail() {
   const [activeCountdown, setActiveCountdown] = useState<CountdownItem | null>(null);
@@ -76,7 +83,7 @@ export function StudentUtilityRail() {
       : 'Unavailable';
 
   return (
-    <aside className="min-w-0 space-y-4 overflow-visible pb-3 pr-3">
+    <aside className="min-w-0 space-y-4 overflow-visible pb-3">
       <div className="relative min-w-0 overflow-hidden rounded-[2rem] shadow-[0_18px_50px_rgba(14,116,144,0.12)]">
         <div className="relative overflow-hidden bg-[linear-gradient(135deg,#ecfeff_0%,#eef2ff_48%,#fff7ed_100%)] dark:bg-[linear-gradient(135deg,#082f49_0%,#1e1b4b_52%,#2a1208_100%)]">
           <div className="absolute inset-0 flex items-center justify-center px-6 text-center">
@@ -119,7 +126,7 @@ function CountdownReminderCard({
   isLoading: boolean;
 }) {
   return (
-    <section className="relative min-w-0 overflow-hidden rounded-[1.35rem] border-[3px] border-slate-950 bg-[#FFF8E7] shadow-[8px_8px_0_#0f172a] dark:border-white dark:bg-slate-950 dark:shadow-[8px_8px_0_#38bdf8]">
+    <section className="relative mb-2 mr-2 min-w-0 overflow-hidden rounded-[1.35rem] border-[3px] border-slate-950 bg-[#FFF8E7] shadow-[8px_8px_0_#0f172a] dark:border-white dark:bg-slate-950 dark:shadow-[8px_8px_0_#38bdf8]">
       <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full border-[3px] border-slate-950 bg-[#FF6900] dark:border-white" />
       <div className="absolute -bottom-10 left-10 h-20 w-20 rotate-12 border-[3px] border-slate-950 bg-[#50c9c3] dark:border-white" />
       <div className="relative border-b-[3px] border-slate-950 bg-[#FDE047] px-5 py-4 text-slate-950 dark:border-white">
@@ -190,11 +197,6 @@ function CountdownReminderCard({
 }
 
 function ReminderCalendar() {
-  const wobblyCardRadius = '255px 18px 235px 22px / 18px 235px 20px 255px';
-  const wobblyPanelRadius = '22px 255px 18px 235px / 235px 18px 255px 22px';
-  const wobblyButtonRadius = '18px 235px 20px 255px / 255px 20px 235px 18px';
-  const handBodyFont = "var(--font-patrick-hand), 'Patrick Hand', cursive";
-  const handHeadingFont = "var(--font-kalam), 'Kalam', cursive";
   const [visibleMonth, setVisibleMonth] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -203,37 +205,62 @@ function ReminderCalendar() {
   const [draft, setDraft] = useState('');
   const [reminders, setReminders] = useState<Record<string, string>>({});
   const [isReady, setIsReady] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const selectedDateRef = useRef(selectedDate);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      try {
-        const stored = window.localStorage.getItem('aspire_student_reminders');
-        if (stored) {
-          const parsed = JSON.parse(stored) as Record<string, string>;
-          setReminders(parsed);
-          setDraft(parsed[selectedDate] ?? '');
-        }
-      } catch {
-        setReminders({});
-      } finally {
-        setIsReady(true);
-      }
-    }, 0);
-
-    return () => window.clearTimeout(timer);
+    selectedDateRef.current = selectedDate;
   }, [selectedDate]);
 
   useEffect(() => {
-    if (!isReady) return;
-    const timer = window.setTimeout(() => {
-      window.localStorage.setItem('aspire_student_reminders', JSON.stringify(reminders));
-    }, 0);
+    let isCancelled = false;
 
-    return () => window.clearTimeout(timer);
-  }, [isReady, reminders]);
+    const loadReminders = async () => {
+      try {
+        const response = await studentCalendarService.listReminders();
+        if (isCancelled) return;
+
+        let nextReminders = remindersToRecord(response.data);
+        const legacyReminders = readLegacyReminders();
+
+        if (legacyReminders.length > 0) {
+          try {
+            for (let index = 0; index < legacyReminders.length; index += 365) {
+              await studentCalendarService.importReminders(legacyReminders.slice(index, index + 365));
+            }
+
+            const refreshed = await studentCalendarService.listReminders();
+            if (isCancelled) return;
+
+            nextReminders = remindersToRecord(refreshed.data);
+            window.localStorage.removeItem(LEGACY_REMINDERS_STORAGE_KEY);
+          } catch {
+            nextReminders = { ...legacyRemindersToRecord(legacyReminders), ...nextReminders };
+          }
+        }
+
+        setReminders(nextReminders);
+        setDraft(nextReminders[selectedDateRef.current] ?? '');
+      } catch {
+        if (!isCancelled) {
+          setReminders({});
+          setDraft('');
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsReady(true);
+        }
+      }
+    };
+
+    void loadReminders();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
 
   const calendarDays = buildCalendarDays(visibleMonth);
-  const selectedReminder = reminders[selectedDate];
   const upcomingReminders = Object.entries(reminders)
     .sort(([a], [b]) => a.localeCompare(b));
 
@@ -242,28 +269,56 @@ function ReminderCalendar() {
     setDraft(reminders[dateKey] ?? '');
   };
 
-  const handleSaveReminder = () => {
+  const handleSaveReminder = async () => {
     const text = draft.trim();
-    setReminders((prev) => {
-      const next = { ...prev };
-      if (text) {
-        next[selectedDate] = text;
-      } else {
-        delete next[selectedDate];
-      }
-      return next;
-    });
+    const previousReminders = reminders;
+    const nextReminders = { ...reminders };
+
+    if (text) {
+      nextReminders[selectedDate] = text;
+    } else {
+      delete nextReminders[selectedDate];
+    }
+
+    setReminders(nextReminders);
     setDraft('');
+
+    try {
+      setIsSaving(true);
+      if (text) {
+        const response = await studentCalendarService.saveReminder({ date: selectedDate, note: text });
+        setReminders((current) => ({ ...current, [response.data.date]: response.data.note }));
+      } else if (previousReminders[selectedDate]) {
+        await studentCalendarService.removeReminder(selectedDate);
+      }
+    } catch {
+      setReminders(previousReminders);
+      setDraft(previousReminders[selectedDate] ?? '');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleRemoveReminder = (dateKey: string) => {
-    setReminders((prev) => {
-      const next = { ...prev };
-      delete next[dateKey];
-      return next;
-    });
+  const handleRemoveReminder = async (dateKey: string) => {
+    const previousReminders = reminders;
+    const nextReminders = { ...reminders };
+    delete nextReminders[dateKey];
+    setReminders(nextReminders);
+
     if (dateKey === selectedDate) {
       setDraft('');
+    }
+
+    try {
+      setIsSaving(true);
+      await studentCalendarService.removeReminder(dateKey);
+    } catch {
+      setReminders(previousReminders);
+      if (dateKey === selectedDate) {
+        setDraft(previousReminders[dateKey] ?? '');
+      }
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -271,173 +326,204 @@ function ReminderCalendar() {
     setVisibleMonth((prev) => new Date(prev.getFullYear(), prev.getMonth() + offset, 1));
   };
 
-  return (
-    <div
-      className="relative w-full min-w-0 self-start overflow-visible border-[3px] border-[#2d2d2d] bg-[#fdfbf7] shadow-[6px_6px_0_0_#2d2d2d]"
-      style={{
-        borderRadius: wobblyCardRadius,
-        fontFamily: handBodyFont,
-        backgroundImage: 'radial-gradient(#e5e0d8 1px, transparent 1px)',
-        backgroundSize: '18px 18px',
-      }}
-    >
-      <div className="pointer-events-none absolute left-1/2 top-[-13px] z-10 h-6 w-24 -translate-x-1/2 rotate-1 border-2 border-[#2d2d2d]/25 bg-[#e5e0d8]/80" />
-      <div className="pointer-events-none absolute -right-3 top-10 h-9 w-9 rotate-12 border-[3px] border-[#2d2d2d] bg-[#ff4d4d]" style={{ borderRadius: '42% 58% 48% 52% / 55% 42% 58% 45%' }} />
-      <div className="pointer-events-none absolute -left-3 bottom-28 h-12 w-12 -rotate-6 border-2 border-dashed border-[#2d5da1]" style={{ borderRadius: '55% 45% 50% 50% / 40% 58% 42% 60%' }} />
+  const todayKey = formatDateKey(new Date());
 
-      <div
-        className="relative m-3 border-[3px] border-[#2d2d2d] bg-white px-3.5 py-3 shadow-[3px_3px_0_0_rgba(45,45,45,0.18)]"
-        style={{ borderRadius: wobblyPanelRadius }}
-      >
-        <div className="relative flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="-rotate-1 text-[11px] font-black uppercase tracking-[0.16em] text-[#ff4d4d]">Important dates</p>
-            <h2 className="mt-0.5 truncate text-[22px] font-black leading-tight text-[#2d2d2d]" style={{ fontFamily: handHeadingFont }}>
-              Study reminder calendar
+  return (
+    <section className="relative mb-[6px] mr-[6px] mt-4 min-w-0 overflow-hidden rounded-[1.35rem] border-[3px] border-slate-950 bg-[#FFF0F6] shadow-[6px_6px_0_#0f172a] dark:border-white dark:bg-slate-950 dark:shadow-[6px_6px_0_#38bdf8]">
+      {/* Decorative shapes */}
+      <div className="absolute -right-6 -top-6 h-16 w-16 rounded-full border-[3px] border-slate-950 bg-[#C4B5FD] dark:border-white" />
+      <div className="absolute -bottom-5 left-8 h-12 w-12 rotate-12 border-[3px] border-slate-950 bg-[#FBCFE8] dark:border-white" />
+
+      {/* Header */}
+      <div className="relative border-b-[3px] border-slate-950 bg-[#C4B5FD] px-4 py-3 text-slate-950 dark:border-white">
+        <div className="absolute inset-0 opacity-30 [background-image:radial-gradient(#0f172a_1px,transparent_1px)] [background-size:10px_10px]" />
+        <div className="relative flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="mb-1 flex items-center gap-2">
+              <span className="h-2.5 w-2.5 rounded-full border-2 border-slate-950 bg-[#F43F5E]" />
+              <p className="text-[9px] font-black uppercase tracking-[0.22em] text-slate-950">Important dates</p>
+            </div>
+            <h2 className="text-base font-black leading-tight text-slate-950">
+              Study reminder
             </h2>
-            <p className="mt-0.5 truncate text-[14px] font-bold leading-relaxed text-[#2d2d2d]/70">Deadlines, tryouts, milestones.</p>
+            <p className="mt-0.5 text-[11px] font-bold text-slate-800/80">Deadlines, tryouts, milestones.</p>
           </div>
-          <div
-            className="flex h-10 w-10 shrink-0 rotate-2 items-center justify-center border-[3px] border-[#2d2d2d] bg-[#fff9c4] text-[#2d5da1] shadow-[3px_3px_0_0_#2d2d2d]"
-            style={{ borderRadius: wobblyButtonRadius }}
-          >
-            <CalendarDays size={19} strokeWidth={2.7} />
+          <div className="flex shrink-0 items-center justify-center pt-1">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl border-[3px] border-slate-950 bg-[#FDE047] text-slate-950 shadow-[3px_3px_0_#0f172a]">
+              <CalendarDays size={18} strokeWidth={2.5} />
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="relative px-3 pb-3">
-        <div
-          className="mb-3 flex -rotate-1 items-center justify-between gap-2 border-[3px] border-[#2d2d2d] bg-[#fff9c4] px-2 py-1.5 shadow-[4px_4px_0_0_#2d2d2d]"
-          style={{ borderRadius: wobblyPanelRadius }}
-        >
+      {/* Zigzag separator */}
+      <svg className="block w-full text-[#C4B5FD]" viewBox="0 0 400 8" preserveAspectRatio="none" style={{ height: 8, marginTop: -1 }}>
+        <path d="M0,0 L10,8 L20,0 L30,8 L40,0 L50,8 L60,0 L70,8 L80,0 L90,8 L100,0 L110,8 L120,0 L130,8 L140,0 L150,8 L160,0 L170,8 L180,0 L190,8 L200,0 L210,8 L220,0 L230,8 L240,0 L250,8 L260,0 L270,8 L280,0 L290,8 L300,0 L310,8 L320,0 L330,8 L340,0 L350,8 L360,0 L370,8 L380,0 L390,8 L400,0 L400,8 L0,8 Z" fill="currentColor" />
+      </svg>
+
+      <div className="relative p-3 pt-1">
+        {/* Month navigation */}
+        <div className="mb-3 flex items-center justify-between gap-2 overflow-hidden rounded-xl border-[3px] border-slate-950 bg-white px-1.5 py-1.5 shadow-[3px_3px_0_#0f172a] dark:border-white dark:bg-slate-900 dark:shadow-[3px_3px_0_#38bdf8]">
           <button
             type="button"
             onClick={() => goToMonth(-1)}
-            className="flex h-8 w-8 items-center justify-center border-[3px] border-[#2d2d2d] bg-white text-[#2d2d2d] shadow-[3px_3px_0_0_#2d2d2d] transition-transform duration-100 hover:translate-x-[1px] hover:translate-y-[1px] hover:bg-[#2d5da1] hover:text-white hover:shadow-[2px_2px_0_0_#2d2d2d] active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
-            style={{ borderRadius: wobblyButtonRadius }}
+            className="flex h-7 w-7 items-center justify-center rounded-lg border-2 border-slate-950 bg-[#FBCFE8] text-slate-950 transition-transform hover:-translate-y-0.5 active:translate-y-0 dark:border-white dark:bg-slate-700 dark:text-white"
           >
-            <ChevronRight size={16} strokeWidth={2.8} className="rotate-180" />
+            <ChevronRight size={14} strokeWidth={3} className="rotate-180" />
           </button>
-          <p className="min-w-0 rotate-1 truncate px-3 py-1.5 text-[17px] font-black leading-none text-[#2d2d2d]" style={{ fontFamily: handHeadingFont }}>
+          <p className="min-w-0 truncate px-1 text-[13px] font-black leading-none text-slate-950 dark:text-white">
             {visibleMonth.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
           </p>
           <button
             type="button"
             onClick={() => goToMonth(1)}
-            className="flex h-8 w-8 items-center justify-center border-[3px] border-[#2d2d2d] bg-white text-[#2d2d2d] shadow-[3px_3px_0_0_#2d2d2d] transition-transform duration-100 hover:translate-x-[1px] hover:translate-y-[1px] hover:bg-[#2d5da1] hover:text-white hover:shadow-[2px_2px_0_0_#2d2d2d] active:translate-x-[3px] active:translate-y-[3px] active:shadow-none"
-            style={{ borderRadius: wobblyButtonRadius }}
+            className="flex h-7 w-7 items-center justify-center rounded-lg border-2 border-slate-950 bg-[#FBCFE8] text-slate-950 transition-transform hover:-translate-y-0.5 active:translate-y-0 dark:border-white dark:bg-slate-700 dark:text-white"
           >
-            <ChevronRight size={16} strokeWidth={2.8} />
+            <ChevronRight size={14} strokeWidth={3} />
           </button>
         </div>
 
-        <div className="grid grid-cols-7 gap-1 text-center text-[12px] font-black uppercase tracking-wide text-[#2d2d2d]">
-          {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, index) => (
+        {/* Weekday labels as pills */}
+        <div className="mb-1.5 grid grid-cols-7 gap-1 text-center">
+          {['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'].map((day, index) => (
             <span
               key={`${day}-${index}`}
-              className="border-2 border-dashed border-[#2d2d2d] bg-white/80 py-0.5"
-              style={{ borderRadius: index % 2 === 0 ? wobblyButtonRadius : wobblyPanelRadius }}
+              className={[
+                'rounded-md py-0.5 text-[8px] font-black uppercase tracking-wider',
+                index === 0 || index === 6
+                  ? 'bg-[#FBCFE8] text-slate-950 dark:bg-pink-900/40 dark:text-pink-200'
+                  : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
+              ].join(' ')}
             >
               {day}
             </span>
           ))}
         </div>
 
-        <div className="mt-1 grid grid-cols-7 gap-1">
+        {/* Calendar grid */}
+        <div className="mb-3 grid grid-cols-7 gap-1">
           {calendarDays.map((day) => {
             const hasReminder = Boolean(reminders[day.key]);
             const isSelected = selectedDate === day.key;
+            const isToday = day.key === todayKey;
             return (
               <button
                 key={day.key}
                 type="button"
                 onClick={() => handleSelectDate(day.key)}
                 className={[
-                  'relative flex aspect-square min-h-8 items-center justify-center border-2 text-[15px] font-black leading-none tabular-nums transition-transform duration-100 hover:rotate-1',
-                  day.inCurrentMonth ? 'border-[#2d2d2d] text-[#2d2d2d]' : 'border-[#e5e0d8] text-[#2d2d2d]/35',
+                  'relative flex h-7 items-center justify-center rounded-lg border-2 text-[11px] font-black leading-none transition-all hover:-translate-y-0.5',
+                  day.inCurrentMonth ? 'text-slate-950 dark:text-white' : 'text-slate-300 dark:text-slate-700',
                   isSelected
-                    ? 'bg-[#ff4d4d] text-white shadow-[3px_3px_0_0_#2d2d2d]'
-                    : hasReminder
-                      ? 'bg-[#fff9c4] text-[#2d5da1] shadow-[2px_2px_0_0_#2d2d2d]'
-                      : 'bg-white hover:bg-[#fff9c4]',
+                    ? 'border-slate-950 bg-[#F43F5E] text-white shadow-[2px_2px_0_#0f172a] dark:border-white dark:shadow-[2px_2px_0_#38bdf8]'
+                    : isToday
+                      ? 'border-[3px] border-[#7C3AED] bg-[#EDE9FE] text-[#7C3AED] shadow-[2px_2px_0_#7C3AED] dark:border-violet-400 dark:bg-violet-950/50 dark:text-violet-300'
+                      : hasReminder
+                        ? 'border-slate-950 bg-[#FDE047] text-slate-950 shadow-[2px_2px_0_#0f172a] dark:border-white dark:bg-yellow-500'
+                        : 'border-transparent bg-white hover:border-slate-300 hover:bg-[#FFF0F6] dark:bg-slate-900 dark:hover:border-slate-600',
                 ].join(' ')}
-                style={{ borderRadius: day.date.getDate() % 2 === 0 ? wobblyButtonRadius : wobblyPanelRadius }}
               >
                 {day.date.getDate()}
                 {hasReminder && !isSelected && (
-                  <span className="absolute bottom-1 h-1.5 w-1.5 rounded-full bg-[#ff4d4d]" />
+                  <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#F43F5E] opacity-50" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full border border-slate-950 bg-[#F43F5E]" />
+                  </span>
                 )}
               </button>
             );
           })}
         </div>
 
-        <div
-          className="mt-3 rotate-1 border-[3px] border-[#2d2d2d] bg-[#fff9c4] p-2.5 shadow-[4px_4px_0_0_#2d2d2d]"
-          style={{ borderRadius: wobblyPanelRadius }}
-        >
-          <p
-            className="inline-flex -rotate-1 border-2 border-[#2d2d2d] bg-white px-2.5 py-0.5 text-[11px] font-black uppercase tracking-[0.12em] text-[#2d2d2d] shadow-[2px_2px_0_0_#2d2d2d]"
-            style={{ borderRadius: wobblyButtonRadius }}
-          >
-            {formatReadableDate(selectedDate)}
-          </p>
-          <div className="mt-2 flex gap-2">
-            <input
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              placeholder="Exam, tryout, lesson, deadline..."
-              className="min-w-0 flex-1 border-2 border-[#2d2d2d] bg-white px-3 py-1.5 text-[14px] font-bold text-[#2d2d2d] outline-none placeholder:text-[#2d2d2d]/40 focus:border-[#2d5da1] focus:ring-2 focus:ring-[#2d5da1]/20"
-              style={{ borderRadius: wobblyButtonRadius, fontFamily: handBodyFont }}
-            />
-            <button
-              type="button"
-              onClick={handleSaveReminder}
-              className="flex h-9 w-9 shrink-0 items-center justify-center border-[3px] border-[#2d2d2d] bg-white text-[#2d2d2d] shadow-[4px_4px_0_0_#2d2d2d] transition-transform duration-100 hover:translate-x-[2px] hover:translate-y-[2px] hover:bg-[#ff4d4d] hover:text-white hover:shadow-[2px_2px_0_0_#2d2d2d] active:translate-x-[4px] active:translate-y-[4px] active:shadow-none"
-              style={{ borderRadius: wobblyButtonRadius }}
-            >
-              <Plus size={18} strokeWidth={2.8} />
-            </button>
+
+        {/* Input area */}
+        <div className="overflow-hidden rounded-xl border-[3px] border-slate-950 bg-white shadow-[3px_3px_0_#0f172a] dark:border-white dark:bg-slate-900 dark:shadow-[3px_3px_0_#38bdf8]">
+          <div className="h-1.5 bg-[linear-gradient(90deg,#C4B5FD_0%,#F43F5E_50%,#FDE047_100%)]" />
+          <div className="p-2.5">
+            <p className="inline-flex rounded-md border-2 border-slate-950 bg-[#C4B5FD] px-2 py-0.5 text-[9px] font-black uppercase tracking-[0.12em] text-slate-950">
+              {formatReadableDate(selectedDate)}
+            </p>
+            <div className="mt-1.5 flex gap-1.5">
+              <input
+                value={draft}
+                onChange={(event) => setDraft(event.target.value)}
+                onKeyDown={(event) => { if (event.key === 'Enter') void handleSaveReminder(); }}
+                placeholder="Exam, tryout, lesson..."
+                className="min-w-0 flex-1 rounded-lg border-2 border-slate-950 bg-[#FAFAFA] px-2.5 py-1.5 text-xs font-bold text-slate-950 outline-none placeholder:text-slate-400 focus:border-[#7C3AED] focus:bg-white dark:bg-slate-800 dark:text-white dark:placeholder:text-slate-500"
+              />
+              <button
+                type="button"
+                onClick={() => void handleSaveReminder()}
+                disabled={!isReady || isSaving}
+                className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-lg border-[3px] border-slate-950 bg-[#F43F5E] text-white shadow-[2px_2px_0_#0f172a] transition-transform hover:-translate-y-0.5 active:translate-y-0 active:shadow-none dark:border-white"
+              >
+                <Plus size={16} strokeWidth={3} />
+              </button>
+            </div>
           </div>
         </div>
 
-        <div className="mt-3 max-h-40 space-y-2 overflow-y-auto">
+        {/* Reminders list */}
+        <div className="mt-3 max-h-[120px] space-y-1.5 overflow-y-auto pr-1 custom-scrollbar">
           {upcomingReminders.length > 0 ? (
             upcomingReminders.map(([dateKey, note]) => (
               <div
                 key={dateKey}
-                className="flex -rotate-1 items-center gap-2 border-2 border-[#2d2d2d] bg-white px-2.5 py-1.5 text-[14px] font-bold text-[#2d2d2d] shadow-[3px_3px_0_0_rgba(45,45,45,0.14)]"
-                style={{ borderRadius: wobblyPanelRadius }}
+                className="flex items-center gap-2 rounded-lg border-2 border-slate-950 bg-white px-2.5 py-1.5 text-xs font-bold text-slate-950 shadow-[2px_2px_0_#0f172a] transition-transform hover:-translate-y-0.5 dark:border-white dark:bg-slate-900 dark:text-white"
               >
-                <span
-                  className="shrink-0 border-2 border-[#2d2d2d] bg-[#e5e0d8] px-2 py-0.5 text-[11px] font-black text-[#2d5da1]"
-                  style={{ borderRadius: wobblyButtonRadius }}
-                >
+                <span className="shrink-0 rounded-md border-2 border-slate-950 bg-[#FDE047] px-1.5 py-0.5 text-[9px] font-black text-slate-950">
                   {formatShortCalendarDate(dateKey)}
                 </span>
                 <span className="min-w-0 flex-1 truncate">{note}</span>
                 <button
                   type="button"
-                  onClick={() => handleRemoveReminder(dateKey)}
-                  className="shrink-0 text-[#2d2d2d]/35 transition-colors hover:text-[#ff4d4d]"
+                  onClick={() => void handleRemoveReminder(dateKey)}
+                  disabled={isSaving}
+                  className="shrink-0 rounded-md p-0.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-[#F43F5E] dark:text-slate-500 dark:hover:bg-red-950/30"
                 >
-                  <Trash2 size={15} strokeWidth={2.8} />
+                  <Trash2 size={14} strokeWidth={2.5} />
                 </button>
               </div>
             ))
           ) : (
-            <p
-              className="border-2 border-dashed border-[#2d2d2d] bg-white px-3 py-2 text-center text-[14px] font-bold text-[#2d2d2d]/60"
-              style={{ borderRadius: wobblyPanelRadius }}
-            >
-              Mark exam dates, school events, or study deadlines here.
-            </p>
+            <div className="rounded-xl border-[3px] border-dashed border-slate-300 bg-[#FFF0F6] px-2 py-3 text-center dark:border-slate-600 dark:bg-slate-800/50">
+              <p className="text-[10px] font-black text-slate-500 dark:text-slate-400">
+                {isReady ? 'Mark exam dates or events here.' : 'Loading reminders...'}
+              </p>
+            </div>
           )}
         </div>
       </div>
-    </div>
+    </section>
   );
+}
+
+function remindersToRecord(reminderItems: StudentCalendarReminder[]) {
+  return reminderItems.reduce<Record<string, string>>((acc, reminder) => {
+    acc[reminder.date] = reminder.note;
+    return acc;
+  }, {});
+}
+
+function legacyRemindersToRecord(reminderItems: UpsertStudentCalendarReminderPayload[]) {
+  return reminderItems.reduce<Record<string, string>>((acc, reminder) => {
+    acc[reminder.date] = reminder.note;
+    return acc;
+  }, {});
+}
+
+function readLegacyReminders(): UpsertStudentCalendarReminderPayload[] {
+  try {
+    const stored = window.localStorage.getItem(LEGACY_REMINDERS_STORAGE_KEY);
+    if (!stored) return [];
+
+    const parsed = JSON.parse(stored) as Record<string, unknown>;
+    return Object.entries(parsed)
+      .filter(([date, note]) => /^\d{4}-\d{2}-\d{2}$/.test(date) && typeof note === 'string' && note.trim())
+      .map(([date, note]) => ({ date, note: (note as string).trim() }));
+  } catch {
+    return [];
+  }
 }
 
 function formatDateKey(date: Date) {

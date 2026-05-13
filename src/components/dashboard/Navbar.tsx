@@ -1,11 +1,11 @@
 'use client';
 
-import { Bell, ChevronDown, LogOut, Menu, Moon, Settings, Sun, CheckCheck, FileQuestion, ExternalLink, MessageSquare, Map, ClipboardList } from 'lucide-react';
+import { Bell, ChevronDown, ChevronLeft, LogOut, Menu, Moon, MoreHorizontal, Settings, Sun, CheckCheck, FileQuestion, ExternalLink, MessageSquare, Map, ClipboardList } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useSyncExternalStore, useState, useRef, useEffect, useCallback } from 'react';
 import { useTheme } from 'next-themes';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { useAuth } from '@/features/auth/hooks/useAuth';
 import { ProfileAvatar } from './ProfileAvatar';
@@ -242,40 +242,14 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
         </div>
 
         {!isStudent && <GlobalSearch role={user?.role} />}
-
-        {isStudent && (
-          <nav className="hidden items-center gap-1 rounded-3xl border border-white/55 bg-white/34 p-1.5 shadow-sm backdrop-blur-2xl dark:border-white/10 dark:bg-slate-900/36 lg:flex">
-            {studentMenuItems.slice(0, 6).map((item) => {
-              const isActive = item.href === '/dashboard'
-                ? pathname === '/dashboard'
-                : pathname.startsWith(item.href);
-
-              return (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  className={[
-                    'relative flex h-11 items-center gap-2 overflow-hidden rounded-2xl px-4 text-sm font-black transition-colors duration-300',
-                    isActive
-                      ? 'text-white shadow-md shadow-sky-500/20'
-                      : 'text-slate-500 hover:bg-white hover:text-slate-950 hover:shadow-sm dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white',
-                  ].join(' ')}
-                >
-                  {isActive && (
-                    <motion.div
-                      layoutId="student-navbar-active-pill"
-                      className="absolute inset-0 z-0 rounded-2xl bg-[#0A9AE2]"
-                      transition={{ type: 'spring', stiffness: 420, damping: 34, mass: 0.8 }}
-                    />
-                  )}
-                  <item.icon size={17} className="relative z-10" />
-                  <span className="relative z-10">{item.label}</span>
-                </Link>
-              );
-            })}
-          </nav>
-        )}
       </div>
+
+      {/* Centered desktop nav for student */}
+      {isStudent && (
+        <div className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 lg:block">
+          <StudentDesktopNav menuItems={studentMenuItems} pathname={pathname} />
+        </div>
+      )}
 
       <div className="flex shrink-0 items-center gap-1 sm:gap-2 lg:gap-4">
         {/* Profile (Desktop Only) */}
@@ -449,3 +423,126 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
     </header>
   );
 };
+
+function StudentDesktopNav({ menuItems, pathname }: { menuItems: typeof studentMenuItems; pathname: string }) {
+  const [isMoreOpen, setIsMoreOpen] = useState(false);
+  const moreRef = useRef<HTMLDivElement>(null);
+
+  const primaryItems = menuItems.slice(0, 4);
+  const moreItems = menuItems.slice(4);
+
+  const isItemActive = (href: string) => href === '/dashboard'
+    ? pathname === '/dashboard'
+    : pathname.startsWith(href);
+
+  const isMoreActive = moreItems.some((item) => isItemActive(item.href));
+
+  useEffect(() => {
+    setIsMoreOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (moreRef.current && !moreRef.current.contains(event.target as Node)) {
+        setIsMoreOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  return (
+    <nav className="hidden items-center gap-1 rounded-full bg-white p-1.5 shadow-[0_2px_16px_rgba(15,23,42,0.08)] dark:bg-slate-900 lg:flex">
+      {primaryItems.map((item) => {
+        const isActive = isItemActive(item.href);
+        return (
+          <Link
+            key={item.label}
+            href={item.href}
+            className="group relative flex h-10 items-center gap-2 rounded-full px-4 text-sm font-bold transition-colors duration-200"
+          >
+            {isActive && (
+              <motion.div
+                layoutId="student-desktop-nav-pill"
+                className="absolute inset-0 z-0 rounded-full bg-[#E8F7FD] dark:bg-cyan-950/50"
+                transition={{ type: 'spring', bounce: 0.2, duration: 0.5 }}
+              />
+            )}
+            <item.icon
+              size={17}
+              strokeWidth={isActive ? 2.4 : 1.8}
+              className={`relative z-10 transition-colors duration-200 ${isActive ? 'text-[#0A9AE2]' : 'text-slate-400 group-hover:text-slate-600 dark:text-slate-500 dark:group-hover:text-slate-300'}`}
+            />
+            <span className={`relative z-10 transition-colors duration-200 ${isActive ? 'font-extrabold text-[#0A9AE2]' : 'text-slate-500 group-hover:text-slate-700 dark:text-slate-400 dark:group-hover:text-slate-200'}`}>
+              {item.label}
+            </span>
+          </Link>
+        );
+      })}
+
+      {/* More */}
+      <div className="relative" ref={moreRef}>
+        <button
+          type="button"
+          onClick={() => setIsMoreOpen((prev) => !prev)}
+          className="group relative flex h-10 items-center gap-2 rounded-full px-4 text-sm font-bold transition-colors duration-200"
+        >
+          {(isMoreActive || isMoreOpen) && (
+            <motion.div
+              layoutId="student-desktop-nav-pill"
+              className="absolute inset-0 z-0 rounded-full bg-[#E8F7FD] dark:bg-cyan-950/50"
+              transition={{ type: 'spring', bounce: 0.2, duration: 0.5 }}
+            />
+          )}
+          <MoreHorizontal
+            size={17}
+            strokeWidth={(isMoreActive || isMoreOpen) ? 2.4 : 1.8}
+            className={`relative z-10 transition-colors duration-200 ${(isMoreActive || isMoreOpen) ? 'text-[#0A9AE2]' : 'text-slate-400 group-hover:text-slate-600 dark:text-slate-500 dark:group-hover:text-slate-300'}`}
+          />
+          <span className={`relative z-10 transition-colors duration-200 ${(isMoreActive || isMoreOpen) ? 'font-extrabold text-[#0A9AE2]' : 'text-slate-500 group-hover:text-slate-700 dark:text-slate-400 dark:group-hover:text-slate-200'}`}>
+            More
+          </span>
+        </button>
+
+        <AnimatePresence>
+          {isMoreOpen && (
+            <motion.div
+              initial={{ opacity: 0, y: 8, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 8, scale: 0.95 }}
+              transition={{ type: 'spring', bounce: 0.15, duration: 0.3 }}
+              className="absolute right-0 top-full z-50 mt-2 w-52 overflow-hidden rounded-2xl bg-white shadow-[0_8px_32px_rgba(15,23,42,0.14),0_2px_8px_rgba(15,23,42,0.08)] dark:bg-slate-900 dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)]"
+            >
+              <button
+                type="button"
+                onClick={() => setIsMoreOpen(false)}
+                className="flex w-full items-center gap-3 border-b border-slate-100 px-4 py-3 text-left text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                <ChevronLeft size={18} strokeWidth={2.2} className="text-slate-400" />
+                Back
+              </button>
+              {moreItems.map((item) => {
+                const active = isItemActive(item.href);
+                return (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    className={[
+                      'flex w-full items-center gap-3 px-4 py-3 text-left text-sm font-semibold transition-colors',
+                      active
+                        ? 'bg-[#E8F7FD] text-[#0A9AE2] dark:bg-cyan-950/30'
+                        : 'text-slate-700 hover:bg-slate-50 dark:text-slate-200 dark:hover:bg-slate-800',
+                    ].join(' ')}
+                  >
+                    <item.icon size={18} strokeWidth={active ? 2.2 : 1.8} className={active ? 'text-[#0A9AE2]' : 'text-slate-400 dark:text-slate-500'} />
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </nav>
+  );
+}

@@ -1,7 +1,7 @@
 export type QuestionType       = 'MCQ' | 'ESSAY';
 export type QuestionDifficulty = 'EASY' | 'MEDIUM' | 'HARD';
 export type QuestionStatus     = 'DRAFT' | 'PENDING_APPROVAL' | 'PUBLISHED';
-export type QuestionMarkingType = 'AUTO' | 'RUBRIC';
+export type QuestionMarkingType = 'AUTO' | 'AI_RUBRIC';
 
 export type McqOption = {
   key:  'A' | 'B' | 'C' | 'D' | 'E';
@@ -18,17 +18,16 @@ export type Question = {
   topicName:        string;
   tutorId:          string;
   passageId:        string | null;
-  rubricId:         string | null;
-  rubric:           {
+  aiRubricId:         string | null;
+  aiRubric:           {
     id: string;
     name: string;
     totalMaxScore: number;
   } | null;
   type:             QuestionType;
   difficulty:       QuestionDifficulty;
-  contentText:      string;
-  contentLatex:     string | null;
-  isLatexFormat:    boolean;
+  questionText:     string;
+  latexEnabled:    boolean;
   markingType:      QuestionMarkingType;
   maxMarks:         number;
   options:          McqOption[] | null;
@@ -39,6 +38,8 @@ export type Question = {
   imageUrls:        string[];
   subtopics:        string[];
   notes:            string | null;
+  adaptiveTags:     string | null;
+  skillTags:        string | null;
   status:           QuestionStatus;
   rejectionNote:    string | null;
   createdAt:        string;
@@ -78,7 +79,7 @@ export type UnresolvedRowData = {
   topicName:         string;
   type:              string;
   difficulty:        string;
-  contentText:       string;
+  questionText:      string;
   optionA:           string;
   optionB:           string;
   optionC:           string;
@@ -90,11 +91,12 @@ export type UnresolvedRowData = {
   imageUrl:          string | null;
   imageUrls:         string[];
   passageExternalId: string | null;
-  passageText:       string | null;
-  rubricId:          string | null;
+  aiRubricId:          string | null;
   subtopics:         string[];
   notes:             string | null;
-  isLatexFormat?:    boolean;
+  latexEnabled?:    boolean;
+  adaptiveTags?:     string | null;
+  skillTags?:        string | null;
   markingType:       QuestionMarkingType;
   maxMarks:          number;
 };
@@ -146,13 +148,12 @@ export type CreateQuestionPayload = {
   subjectId:         string;
   topicId:           string;
   passageId?:        string | null;
-  rubricId?:         string | null;
+  aiRubricId?:         string | null;
   questionNumber?:   number;
   type:              QuestionType;
   difficulty:        QuestionDifficulty;
-  contentText:       string;
-  contentLatex?:     string;
-  isLatexFormat?:    boolean;
+  questionText:      string;
+  latexEnabled?:    boolean;
   markingType?:      QuestionMarkingType;
   maxMarks?:         number;
   options?:          McqOption[];
@@ -163,6 +164,8 @@ export type CreateQuestionPayload = {
   imageUrls?:        string[];
   subtopics?:        string[];
   notes?:            string;
+  adaptiveTags?:     string | null;
+  skillTags?:        string | null;
   questionId?:       string;
 };
 

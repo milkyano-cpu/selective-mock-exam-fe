@@ -28,11 +28,18 @@ import { subjectsService } from '@/features/subjects/services/subjects.service';
 import { practiceService } from '@/features/practice/services/practice.service';
 import { analyticsService } from '@/features/analytics/services/analytics.service';
 import type { Subject, Topic } from '@/features/subjects/types/subjects.types';
-import type { FreePracticeTopic, PracticeSessionSummary, DifficultyFilter, QuestionCount } from '@/features/practice/types/practice.types';
+import type {
+  FreePracticeTopic,
+  PaginationMeta,
+  PracticeSessionSummary,
+  DifficultyFilter,
+  QuestionCount,
+} from '@/features/practice/types/practice.types';
 import type { TopicPerformanceItem } from '@/features/analytics/types/analytics.types';
 
 const DIFFICULTY_OPTIONS: DifficultyFilter[] = ['ALL', 'EASY', 'MEDIUM', 'HARD'];
 const COUNT_OPTIONS: QuestionCount[] = [5, 10, 15, 20];
+const SESSION_TABLE_PAGE_SIZE = 5;
 
 const DIFFICULTY_COLORS: Record<DifficultyFilter, string> = {
   ALL: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
@@ -51,6 +58,22 @@ function formatDate(iso: string) {
     month: 'short',
     year: 'numeric',
   });
+}
+
+function formatDateTime(iso: string) {
+  return new Date(iso).toLocaleString('en-AU', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function formatSourceType(sourceType: PracticeSessionSummary['sourceType']) {
+  if (sourceType === 'TUTOR_ASSIGNED') return 'Tutor assigned';
+  if (sourceType === 'RECOMMENDATION') return 'Recommendation';
+  return 'Self selected';
 }
 
 function ScoreBar({ score }: { score: number }) {
@@ -104,6 +127,14 @@ export default function PracticeHubPage() {
   const [isLoadingTopics, setIsLoadingTopics] = useState(false);
 
   const [sessions, setSessions] = useState<PracticeSessionSummary[]>([]);
+  const [recentSessions, setRecentSessions] = useState<PracticeSessionSummary[]>([]);
+  const [recentSessionsPage, setRecentSessionsPage] = useState(1);
+  const [recentSessionsMeta, setRecentSessionsMeta] = useState<PaginationMeta>({
+    page: 1,
+    limit: SESSION_TABLE_PAGE_SIZE,
+    total: 0,
+    totalPages: 1,
+  });
   const [isLoadingSessions, setIsLoadingSessions] = useState(true);
   const [freeTopics, setFreeTopics] = useState<FreePracticeTopic[]>([]);
   const [hasFullPracticeAccess, setHasFullPracticeAccess] = useState(true);
@@ -148,13 +179,25 @@ export default function PracticeHubPage() {
   }, []);
 
   const loadSessions = useCallback(async () => {
+    setIsLoadingSessions(true);
     try {
-      const res = await practiceService.list({ limit: 20 });
-      if (res.success) setSessions(res.data);
+      const [overviewRes, tableRes] = await Promise.all([
+        practiceService.list({ limit: 20 }),
+        practiceService.list({ page: recentSessionsPage, limit: SESSION_TABLE_PAGE_SIZE }),
+      ]);
+
+      if (overviewRes.success) setSessions(overviewRes.data);
+      if (tableRes.success) {
+        setRecentSessions(tableRes.data);
+        setRecentSessionsMeta({
+          ...tableRes.meta,
+          totalPages: Math.max(tableRes.meta.totalPages, 1),
+        });
+      }
     } finally {
       setIsLoadingSessions(false);
     }
-  }, []);
+  }, [recentSessionsPage]);
 
   const loadAccess = useCallback(async () => {
     try {
@@ -207,7 +250,8 @@ export default function PracticeHubPage() {
   );
 
   const tutorSessions = sessions.filter((s) => s.sourceType === 'TUTOR_ASSIGNED');
-  const selfSessions = sessions.filter((s) => s.sourceType !== 'TUTOR_ASSIGNED');
+  const canGoToPreviousSessionPage = recentSessionsPage > 1;
+  const canGoToNextSessionPage = recentSessionsPage < recentSessionsMeta.totalPages;
 
   const openModal = (target: ModalTarget) => {
     setStartModal(target);
@@ -756,83 +800,153 @@ export default function PracticeHubPage() {
 
         {/* Recent Sessions */}
         <div>
-          <h2 className="text-base font-black text-slate-700 dark:text-slate-300 mb-3">Recent Sessions</h2>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <h2 className="text-base font-black text-slate-700 dark:text-slate-300">Recent Sessions</h2>
+            {recentSessionsMeta.total > 0 && (
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-black text-slate-500 dark:bg-slate-800 dark:text-slate-300">
+                {recentSessionsMeta.total} session{recentSessionsMeta.total === 1 ? '' : 's'}
+              </span>
+            )}
+          </div>
           {isLoadingSessions ? (
             <div className="flex justify-center py-8">
               <Loader2 size={28} className="animate-spin text-[#0A9AE2]" />
             </div>
-          ) : selfSessions.length === 0 ? (
+          ) : recentSessions.length === 0 ? (
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-8 text-center text-slate-400 text-sm">
               No practice sessions yet. Start your first session above!
             </div>
           ) : (
-            <div className="space-y-2">
-              {selfSessions.map((s) => {
-                const accessible = isTopicAccessible(s.topicId);
-                return (
-                <div
-                  key={s.sessionId}
-                  className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 px-5 py-4 flex items-center gap-4"
-                >
-                  <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center flex-shrink-0">
-                    {s.status === 'COMPLETED' ? (
-                      <CheckCircle2 size={18} className="text-green-500" />
-                    ) : (
-                      <Clock size={18} className="text-amber-500" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-bold text-sm text-slate-800 dark:text-slate-100 truncate">
-                      {s.topicName
-                        ?? (s.subjectName ? `${s.subjectName} - All Topics` : 'Mixed Practice')}
-                    </p>
-                    <p className="text-xs text-slate-400">
-                      {s.subjectName && !s.topicName && `${s.subjectName} - `}
-                      {s.questionCount}Q - {s.difficulty} - {formatDate(s.startedAt)}
-                    </p>
-                  </div>
-                  {s.status === 'COMPLETED' && s.scorePercent !== null && (
-                    <span
-                      className={[
-                        'text-sm font-black px-2.5 py-1 rounded-lg',
-                        s.scorePercent >= 70
-                          ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400'
-                          : s.scorePercent >= 50
-                          ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400'
-                          : 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400',
-                      ].join(' ')}
-                    >
-                      {Math.round(s.scorePercent)}%
-                    </span>
-                  )}
-                  {s.status === 'IN_PROGRESS' && accessible && (
-                    <span className="text-xs font-bold text-amber-600 bg-amber-50 dark:bg-amber-900/20 dark:text-amber-400 px-2.5 py-1 rounded-lg">
-                      In Progress
-                    </span>
-                  )}
-                  {!accessible && (
-                    <span className="inline-flex items-center gap-1 text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-lg dark:bg-slate-800 dark:text-slate-300">
-                      <LockKeyhole size={12} /> Basic limit
-                    </span>
-                  )}
+            <div className="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[860px] text-left">
+                  <thead className="bg-slate-50 text-[11px] font-black uppercase tracking-wide text-slate-400 dark:bg-slate-950/40 dark:text-slate-500">
+                    <tr>
+                      <th className="px-5 py-3">Practice</th>
+                      <th className="px-4 py-3">Subject</th>
+                      <th className="px-4 py-3">Source</th>
+                      <th className="px-4 py-3">Questions</th>
+                      <th className="px-4 py-3">Difficulty</th>
+                      <th className="px-4 py-3">Started</th>
+                      <th className="px-4 py-3">Status</th>
+                      <th className="px-4 py-3 text-right">Score</th>
+                      <th className="px-5 py-3 text-right">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    {recentSessions.map((s) => {
+                      const accessible = isTopicAccessible(s.topicId);
+                      const practiceName = s.topicName
+                        ?? (s.subjectName ? `${s.subjectName} - All Topics` : 'Mixed Practice');
+                      return (
+                        <tr key={s.sessionId} className="text-sm text-slate-600 dark:text-slate-300">
+                          <td className="px-5 py-4">
+                            <div className="flex items-center gap-3">
+                              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800">
+                                {s.status === 'COMPLETED' ? (
+                                  <CheckCircle2 size={18} className="text-green-500" />
+                                ) : (
+                                  <Clock size={18} className="text-amber-500" />
+                                )}
+                              </span>
+                              <div className="min-w-0">
+                                <p className="truncate font-black text-slate-800 dark:text-slate-100">{practiceName}</p>
+                                <p className="mt-0.5 text-xs font-bold text-slate-400">{s.sessionId.slice(0, 8)}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-4 py-4 font-bold">{s.subjectName ?? '-'}</td>
+                          <td className="px-4 py-4">
+                            <span className="rounded-lg bg-blue-50 px-2.5 py-1 text-xs font-black text-blue-600 dark:bg-blue-900/20 dark:text-blue-300">
+                              {formatSourceType(s.sourceType)}
+                            </span>
+                          </td>
+                          <td className="px-4 py-4 font-black">{s.questionCount}Q</td>
+                          <td className="px-4 py-4">
+                            <span className={`rounded-lg px-2.5 py-1 text-xs font-black ${DIFFICULTY_COLORS[s.difficulty]}`}>
+                              {s.difficulty}
+                            </span>
+                          </td>
+                          <td className="px-4 py-4 text-xs font-bold text-slate-500">{formatDateTime(s.startedAt)}</td>
+                          <td className="px-4 py-4">
+                            {s.status === 'COMPLETED' ? (
+                              <span className="rounded-lg bg-green-50 px-2.5 py-1 text-xs font-black text-green-600 dark:bg-green-900/20 dark:text-green-300">
+                                Completed
+                              </span>
+                            ) : accessible ? (
+                              <span className="rounded-lg bg-amber-50 px-2.5 py-1 text-xs font-black text-amber-600 dark:bg-amber-900/20 dark:text-amber-300">
+                                In Progress
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-500 dark:bg-slate-800 dark:text-slate-300">
+                                <LockKeyhole size={12} /> Basic limit
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-4 text-right">
+                            {s.status === 'COMPLETED' && s.scorePercent !== null ? (
+                              <span
+                                className={[
+                                  'inline-flex rounded-lg px-2.5 py-1 text-sm font-black',
+                                  s.scorePercent >= 70
+                                    ? 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400'
+                                    : s.scorePercent >= 50
+                                    ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400'
+                                    : 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400',
+                                ].join(' ')}
+                              >
+                                {Math.round(s.scorePercent)}%
+                              </span>
+                            ) : (
+                              <span className="text-xs font-bold text-slate-400">-</span>
+                            )}
+                          </td>
+                          <td className="px-5 py-4 text-right">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (!accessible) return;
+                                router.push(
+                                  s.status === 'COMPLETED'
+                                    ? `/dashboard/practice/sessions/${s.sessionId}/result`
+                                    : `/dashboard/practice/sessions/${s.sessionId}`
+                                );
+                              }}
+                              disabled={!accessible}
+                              className="inline-flex items-center gap-1.5 rounded-xl bg-slate-100 px-3 py-2 text-xs font-black text-slate-600 transition-colors hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-40 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                            >
+                              Detail {accessible ? <ChevronRight size={14} /> : <LockKeyhole size={13} />}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+              <div className="flex flex-col gap-3 border-t border-slate-100 px-5 py-4 text-xs font-bold text-slate-500 dark:border-slate-800 dark:text-slate-400 sm:flex-row sm:items-center sm:justify-between">
+                <p>
+                  Page {recentSessionsMeta.page} of {recentSessionsMeta.totalPages} · Showing {recentSessions.length} of {recentSessionsMeta.total}
+                </p>
+                <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => {
-                      if (!accessible) return;
-                      router.push(
-                        s.status === 'COMPLETED'
-                          ? `/dashboard/practice/sessions/${s.sessionId}/result`
-                          : `/dashboard/practice/sessions/${s.sessionId}`
-                      );
-                    }}
-                    disabled={!accessible}
-                    className="flex-shrink-0 w-8 h-8 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                    onClick={() => setRecentSessionsPage((page) => Math.max(1, page - 1))}
+                    disabled={!canGoToPreviousSessionPage}
+                    className="inline-flex items-center gap-1 rounded-xl border border-slate-200 px-3 py-2 font-black text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
                   >
-                    {accessible ? <ChevronRight size={16} /> : <LockKeyhole size={14} />}
+                    <ChevronRight size={14} className="rotate-180" /> Prev
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRecentSessionsPage((page) => Math.min(recentSessionsMeta.totalPages, page + 1))}
+                    disabled={!canGoToNextSessionPage}
+                    className="inline-flex items-center gap-1 rounded-xl border border-slate-200 px-3 py-2 font-black text-slate-600 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                  >
+                    Next <ChevronRight size={14} />
                   </button>
                 </div>
-                );
-              })}
+              </div>
             </div>
           )}
         </div>

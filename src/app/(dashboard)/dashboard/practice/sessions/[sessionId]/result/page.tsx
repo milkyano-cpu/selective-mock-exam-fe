@@ -85,7 +85,7 @@ function AnswerCard({ answer, index }: { answer: PracticeResultAnswer; index: nu
         <div className="flex-1 min-w-0">
           <p className="text-sm font-semibold text-slate-700 dark:text-slate-200 leading-snug line-clamp-2">
             <span className="font-black text-slate-500 mr-1">Q{index + 1}.</span>
-            <QuestionLatexRenderer text={answer.contentText} latex={answer.contentLatex} isLatexFormat={answer.isLatexFormat} />
+            <QuestionLatexRenderer text={answer.questionText} latexEnabled={answer.latexEnabled} />
           </p>
 
           <div className="flex flex-wrap gap-3 mt-2 text-xs font-bold">
@@ -116,7 +116,7 @@ function AnswerCard({ answer, index }: { answer: PracticeResultAnswer; index: nu
 
           {expanded && answer.explanation && (
             <div className="mt-2 text-xs text-slate-600 dark:text-slate-300 leading-relaxed bg-white/60 dark:bg-slate-800/60 rounded-xl p-3">
-              <QuestionLatexRenderer text={answer.explanation} isLatexFormat={answer.isLatexFormat} fallbackClassName="whitespace-pre-wrap" />
+              <QuestionLatexRenderer text={answer.explanation} latexEnabled={answer.latexEnabled} fallbackClassName="whitespace-pre-wrap" />
             </div>
           )}
         </div>

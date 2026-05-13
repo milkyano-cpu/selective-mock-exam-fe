@@ -94,7 +94,7 @@ function EssayReviewCard({
         </div>
         <div className="min-w-0 flex-1">
           <div className="line-clamp-2 text-sm font-medium text-slate-800 dark:text-slate-200">
-            <QuestionLatexRenderer text={answer.contentText} latex={answer.contentLatex} isLatexFormat={answer.isLatexFormat} />
+            <QuestionLatexRenderer text={answer.questionText} latexEnabled={answer.latexEnabled} />
           </div>
           <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
             <span className={`font-semibold ${pending ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500 dark:text-slate-400'}`}>
@@ -133,10 +133,10 @@ function EssayReviewCard({
                   {answer.aiFeedback.gradedAt ? `Reviewed at ${formatDateTime(answer.aiFeedback.gradedAt)}` : null}
                 </p>
               )}
-              {answer.aiFeedback.rubric && (
+              {answer.aiFeedback.aiRubric && (
                 <div className="mt-3 rounded-lg bg-white/70 px-3 py-2 dark:bg-slate-900/40">
                   <p className="text-xs font-black uppercase text-emerald-700 dark:text-emerald-300">
-                    {answer.aiFeedback.rubric.name} · {answer.aiFeedback.totalAwardedMarks ?? 0}/{answer.aiFeedback.totalPossibleMarks ?? answer.aiFeedback.rubric.totalMaxScore} marks
+                    {answer.aiFeedback.aiRubric.name} · {answer.aiFeedback.totalAwardedMarks ?? 0}/{answer.aiFeedback.totalPossibleMarks ?? answer.aiFeedback.aiRubric.totalMaxScore} marks
                   </p>
                   {answer.aiFeedback.criterionScores.length > 0 && (
                     <div className="mt-2 space-y-2">
@@ -209,7 +209,7 @@ function McqReviewCard({ answer, index }: { answer: ReviewSessionAnswer; index: 
         </div>
         <div className="min-w-0 flex-1">
           <div className="line-clamp-2 text-sm font-medium text-slate-800 dark:text-slate-200">
-            <QuestionLatexRenderer text={answer.contentText} latex={answer.contentLatex} isLatexFormat={answer.isLatexFormat} />
+            <QuestionLatexRenderer text={answer.questionText} latexEnabled={answer.latexEnabled} />
           </div>
           <div className="mt-1.5 flex items-center gap-2 text-xs">
             <span className={`font-semibold ${answer.isCorrect ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
@@ -242,7 +242,7 @@ function McqReviewCard({ answer, index }: { answer: ReviewSessionAnswer; index: 
                       {opt.key}
                     </span>
                     <span className={`font-medium ${isCorrectAnswer ? 'text-green-800 dark:text-green-300' : isIncorrectAnswer ? 'text-red-700 dark:text-red-300' : 'text-slate-600 dark:text-slate-400'}`}>
-                      <QuestionLatexRenderer text={opt.text} isLatexFormat={answer.isLatexFormat} />
+                      <QuestionLatexRenderer text={opt.text} latexEnabled={answer.latexEnabled} />
                     </span>
                   </div>
                 );

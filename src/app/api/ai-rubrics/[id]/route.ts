@@ -6,7 +6,7 @@ type Params = { params: Promise<{ id: string }> };
 export async function GET(req: Request, { params }: Params) {
   try {
     const { id } = await params;
-    const backendRes = await fetchFromBackend(req, `/rubrics/${id}`);
+    const backendRes = await fetchFromBackend(req, `/ai-rubrics/${id}`);
     const data = await backendRes.json().catch(() => ({}));
 
     return NextResponse.json(
@@ -18,7 +18,7 @@ export async function GET(req: Request, { params }: Params) {
       { status: backendRes.status }
     );
   } catch (err) {
-    console.error('[RUBRICS API GET BY ID] ERROR:', err);
+    console.error('[AI_RUBRICS API GET BY ID] ERROR:', err);
     return NextResponse.json(
       { success: false, message: 'Internal Server Error', data: {} },
       { status: 500 }
@@ -30,7 +30,7 @@ export async function PATCH(req: Request, { params }: Params) {
   try {
     const { id } = await params;
     const body = await req.json();
-    const backendRes = await fetchFromBackend(req, `/rubrics/${id}`, {
+    const backendRes = await fetchFromBackend(req, `/ai-rubrics/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(body),
     });
@@ -45,7 +45,7 @@ export async function PATCH(req: Request, { params }: Params) {
       { status: backendRes.status }
     );
   } catch (err) {
-    console.error('[RUBRICS API PATCH] ERROR:', err);
+    console.error('[AI_RUBRICS API PATCH] ERROR:', err);
     return NextResponse.json(
       { success: false, message: 'Internal Server Error', data: {} },
       { status: 500 }
@@ -56,7 +56,7 @@ export async function PATCH(req: Request, { params }: Params) {
 export async function DELETE(req: Request, { params }: Params) {
   try {
     const { id } = await params;
-    const backendRes = await fetchFromBackend(req, `/rubrics/${id}`, {
+    const backendRes = await fetchFromBackend(req, `/ai-rubrics/${id}`, {
       method: 'DELETE',
     });
     const data = await backendRes.json().catch(() => ({}));
@@ -69,7 +69,7 @@ export async function DELETE(req: Request, { params }: Params) {
       { status: backendRes.status }
     );
   } catch (err) {
-    console.error('[RUBRICS API DELETE] ERROR:', err);
+    console.error('[AI_RUBRICS API DELETE] ERROR:', err);
     return NextResponse.json(
       { success: false, message: 'Internal Server Error' },
       { status: 500 }

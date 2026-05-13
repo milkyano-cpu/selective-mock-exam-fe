@@ -1002,9 +1002,9 @@ export function ImportModal({
                                       ? 'text-slate-400 dark:text-slate-500'
                                       : 'text-slate-800 dark:text-slate-200'
                                   }`}>
-                                    {q.contentText}
+                                    {q.questionText}
                                   </p>
-                                  {q.isLatexFormat && (
+                                  {q.latexEnabled && (
                                     <span className="shrink-0 inline-flex px-1.5 py-0.5 rounded text-[10px] font-bold bg-violet-100 text-violet-700 dark:bg-violet-500/20 dark:text-violet-400">
                                       LaTeX
                                     </span>
@@ -1066,11 +1066,11 @@ export function ImportModal({
                               <td className="px-4 py-4 align-top">
                                 <div className="flex flex-col gap-0.5">
                                   <span className="text-xs font-bold text-slate-600 dark:text-slate-300">
-                                    {q.markingType === 'AUTO' ? 'Auto' : 'Rubric'} · {q.maxMarks} mark{q.maxMarks !== 1 ? 's' : ''}
+                                    {q.markingType === 'AUTO' ? 'Auto' : 'AI Rubric'} · {q.maxMarks} mark{q.maxMarks !== 1 ? 's' : ''}
                                   </span>
-                                  {q.type === 'ESSAY' && q.rubricId && (
+                                  {q.type === 'ESSAY' && q.aiRubricId && (
                                     <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500">
-                                      {q.rubric?.name ?? q.rubricId} ({q.rubricId})
+                                      {q.aiRubric?.name ?? q.aiRubricId} ({q.aiRubricId})
                                     </span>
                                   )}
                                 </div>
@@ -1148,7 +1148,7 @@ export function ImportModal({
 
                             <td className="px-4 py-4 max-w-xs align-top">
                               <p className="font-semibold text-sm line-clamp-2 leading-relaxed text-slate-700 dark:text-slate-300">
-                                {ur.rowData.contentText}
+                                {ur.rowData.questionText}
                               </p>
                               <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400 text-xs font-bold">
@@ -1183,11 +1183,11 @@ export function ImportModal({
                             <td className="px-4 py-4 align-top">
                               <div className="flex flex-col gap-0.5">
                                 <span className="text-xs font-bold text-slate-600 dark:text-slate-300">
-                                  {ur.rowData.markingType === 'AUTO' ? 'Auto' : 'Rubric'} · {ur.rowData.maxMarks} mark{ur.rowData.maxMarks !== 1 ? 's' : ''}
+                                  {ur.rowData.markingType === 'AUTO' ? 'Auto' : 'AI Rubric'} · {ur.rowData.maxMarks} mark{ur.rowData.maxMarks !== 1 ? 's' : ''}
                                 </span>
-                                {ur.rowData.type === 'ESSAY' && ur.rowData.rubricId && (
+                                {ur.rowData.type === 'ESSAY' && ur.rowData.aiRubricId && (
                                   <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500">
-                                    {ur.rowData.rubricId}
+                                    {ur.rowData.aiRubricId}
                                   </span>
                                 )}
                               </div>

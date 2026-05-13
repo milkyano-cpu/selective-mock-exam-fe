@@ -688,20 +688,20 @@ export default function QuestionsPage() {
                             <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[8px] font-black border ${DIFFICULTY_BADGE[q.difficulty]}`}>
                               {q.difficulty}
                             </span>
-                            {q.isLatexFormat && (
+                            {q.latexEnabled && (
                               <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[8px] font-black bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-400">
                                 LaTeX
                               </span>
                             )}
                           </div>
 
-                          {q.isLatexFormat ? (
+                          {q.latexEnabled ? (
                             <div className="overflow-x-auto text-slate-900 dark:text-slate-100 leading-relaxed font-bold">
-                              <LatexRenderer latex={q.contentLatex ?? q.contentText} displayMode={false} />
+                              <LatexRenderer latex={q.questionText} displayMode={false} />
                             </div>
                           ) : (
                             <p className="font-bold text-slate-900 dark:text-slate-100 line-clamp-2 group-hover:text-[#0A9AE2] transition-colors leading-relaxed">
-                              {q.contentText}
+                              {q.questionText}
                             </p>
                           )}
                           <div className="flex flex-wrap gap-1.5 text-[10px] sm:text-xs font-semibold text-slate-500 dark:text-slate-400">
@@ -720,24 +720,19 @@ export default function QuestionsPage() {
                               Type: {TYPE_LABEL[q.type]}
                             </span>
                             <span className="rounded-full bg-slate-100 px-2 py-0.5 dark:bg-slate-800">
-                              Marking: {q.markingType === 'AUTO' ? 'Auto' : 'Rubric'} - {q.maxMarks} mark{q.maxMarks !== 1 ? 's' : ''}
+                              Marking: {q.markingType === 'AUTO' ? 'Auto' : 'AI Rubric'} - {q.maxMarks} mark{q.maxMarks !== 1 ? 's' : ''}
                             </span>
-                            {q.type === 'ESSAY' && q.rubricId && (
+                            {q.type === 'ESSAY' && q.aiRubricId && (
                               <span className="rounded-full bg-purple-100 px-2 py-0.5 text-purple-700 dark:bg-purple-500/20 dark:text-purple-400 font-mono text-[10px]">
-                                Rubric: {q.rubric?.name ?? q.rubricId} ({q.rubricId})
+                                AI Rubric: {q.aiRubric?.name ?? q.aiRubricId} ({q.aiRubricId})
                               </span>
                             )}
-                            {q.isLatexFormat && (
+                            {q.latexEnabled && (
                               <span className="rounded-full hidden md:inline-flex items-center px-2 py-0.5 bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-400">
                                 LaTeX
                               </span>
                             )}
                           </div>
-                          {!q.isLatexFormat && q.contentLatex && (
-                            <div className="overflow-x-auto text-slate-700 dark:text-slate-300 py-0.5 sm:py-1">
-                              <LatexRenderer latex={q.contentLatex} displayMode={false} />
-                            </div>
-                          )}
                           {q.subtopics && q.subtopics.length > 0 && (
                             <p className="text-[10px] sm:text-xs text-slate-400 dark:text-slate-500 truncate max-w-[150px] sm:max-w-none">
                               {q.subtopics.join(' · ')}

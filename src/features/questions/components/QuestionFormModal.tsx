@@ -9,8 +9,8 @@ import { subjectsService } from '@/features/subjects/services/subjects.service';
 import type { Subject, Topic } from '@/features/subjects/types/subjects.types';
 import { passagesService } from '@/features/passages/services/passages.service';
 import type { PassageListItem } from '@/features/passages/types/passages.types';
-import { rubricsService } from '@/features/rubrics/services/rubrics.service';
-import type { Rubric } from '@/features/rubrics/types/rubrics.types';
+import { aiRubricsService } from '@/features/ai-rubrics/services/ai-rubrics.service';
+import type { AiRubric } from '@/features/ai-rubrics/types/ai-rubrics.types';
 import type { Question, CreateQuestionPayload } from '../types/questions.types';
 import { questionsService } from '../services/questions.service';
 import { LatexRenderer } from '@/components/ui/LatexRenderer';
@@ -23,11 +23,10 @@ const formSchema = z
     subjectId:        z.string().min(1, 'Subject is required'),
     topicId:          z.string().min(1, 'Topic is required'),
     passageId:        z.string().optional(),
-    rubricId:         z.string().optional(),
+    aiRubricId:         z.string().optional(),
     type:             z.enum(['MCQ', 'ESSAY']),
     difficulty:       z.enum(['EASY', 'MEDIUM', 'HARD']),
-    contentText:      z.string().min(1, 'Question text is required').max(5000, 'Max 5000 characters'),
-    contentLatex:     z.string().optional(),
+    questionText:     z.string().min(1, 'Question text is required').max(5000, 'Max 5000 characters'),
     optionA:          z.string().optional(),
     optionB:          z.string().optional(),
     optionC:          z.string().optional(),
@@ -40,9 +39,11 @@ const formSchema = z
     imageUrl:         z.string().optional(),
     subtopicsRaw:     z.string().optional(),
     notes:            z.string().max(2000).optional(),
+    adaptiveTags:     z.string().max(2000).optional(),
+    skillTags:        z.string().max(2000).optional(),
     questionId:       z.string().max(100).optional(),
-    isLatexFormat:    z.boolean().default(false),
-    markingType:      z.enum(['AUTO', 'RUBRIC']),
+    latexEnabled:    z.boolean().default(false),
+    markingType:      z.enum(['AUTO', 'AI_RUBRIC']),
     maxMarks:         z.string().min(1, 'Max marks is required'),
   })
   .superRefine((data, ctx) => {
@@ -58,14 +59,14 @@ const formSchema = z
         ctx.addIssue({ code: 'custom', path: ['correctAnswer'], message: 'Select the correct answer' });
       }
     }
-    if (data.type === 'MCQ' && data.markingType === 'RUBRIC') {
+    if (data.type === 'MCQ' && data.markingType === 'AI_RUBRIC') {
       ctx.addIssue({ code: 'custom', path: ['markingType'], message: 'MCQ questions must use Auto marking' });
     }
-    if (data.type === 'MCQ' && data.rubricId) {
-      ctx.addIssue({ code: 'custom', path: ['rubricId'], message: 'MCQ questions must not use a rubric' });
+    if (data.type === 'MCQ' && data.aiRubricId) {
+      ctx.addIssue({ code: 'custom', path: ['aiRubricId'], message: 'MCQ questions must not use an AI Rubric' });
     }
     if (data.type === 'ESSAY' && data.markingType === 'AUTO') {
-      ctx.addIssue({ code: 'custom', path: ['markingType'], message: 'Essay questions must use Rubric marking' });
+      ctx.addIssue({ code: 'custom', path: ['markingType'], message: 'Essay questions must use AI Rubric marking' });
     }
     const parsedMaxMarks = parseInt(data.maxMarks, 10);
     if (!Number.isFinite(parsedMaxMarks) || parsedMaxMarks < 1) {
@@ -103,11 +104,12 @@ function RequiredAsterisk() {
 function buildDefaultValues(q: Question | null | undefined): FormInput {
   if (!q) {
     return {
-      subjectId: '', topicId: '', passageId: '', rubricId: '', type: 'MCQ', difficulty: 'MEDIUM',
-      contentText: '', contentLatex: '', optionA: '', optionB: '', optionC: '', optionD: '',
+      subjectId: '', topicId: '', passageId: '', aiRubricId: '', type: 'MCQ', difficulty: 'MEDIUM',
+      questionText: '', optionA: '', optionB: '', optionC: '', optionD: '',
       optionE: '', correctAnswer: '', essayAnswer: '', explanation: '',
       timeLimitSeconds: '', imageUrl: '', subtopicsRaw: '', notes: '', questionId: '',
-      isLatexFormat: false, markingType: 'AUTO', maxMarks: '1',
+      adaptiveTags: '', skillTags: '',
+      latexEnabled: false, markingType: 'AUTO', maxMarks: '1',
     };
   }
 
@@ -116,11 +118,10 @@ function buildDefaultValues(q: Question | null | undefined): FormInput {
     subjectId:        q.subjectId,
     topicId:          q.topicId,
     passageId:        q.passageId ?? '',
-    rubricId:         q.rubricId ?? '',
+    aiRubricId:         q.aiRubricId ?? '',
     type:             q.type,
     difficulty:       q.difficulty,
-    contentText:      q.contentText,
-    contentLatex:     q.contentLatex ?? '',
+    questionText:     q.questionText,
     optionA:          opts.find(o => o.key === 'A')?.text ?? '',
     optionB:          opts.find(o => o.key === 'B')?.text ?? '',
     optionC:          opts.find(o => o.key === 'C')?.text ?? '',
@@ -133,9 +134,11 @@ function buildDefaultValues(q: Question | null | undefined): FormInput {
     imageUrl:         q.imageUrls?.length ? q.imageUrls.join(' | ') : (q.imageUrl ?? ''),
     subtopicsRaw:     (q.subtopics ?? []).join(', '),
     notes:            q.notes ?? '',
+    adaptiveTags:     q.adaptiveTags ?? '',
+    skillTags:        q.skillTags ?? '',
     questionId:       q.questionId ?? '',
-    isLatexFormat:    q.isLatexFormat ?? false,
-    markingType:      q.markingType ?? (q.type === 'ESSAY' ? 'RUBRIC' : 'AUTO'),
+    latexEnabled:    q.latexEnabled ?? false,
+    markingType:      q.markingType ?? (q.type === 'ESSAY' ? 'AI_RUBRIC' : 'AUTO'),
     maxMarks:         String(q.maxMarks ?? (q.type === 'ESSAY' ? 20 : 1)),
   };
 }
@@ -146,7 +149,7 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [topics, setTopics]     = useState<Topic[]>([]);
   const [passages, setPassages] = useState<PassageListItem[]>([]);
-  const [rubrics, setRubrics]   = useState<Rubric[]>([]);
+  const [aiRubrics, setAiRubrics]   = useState<AiRubric[]>([]);
   const [passageSearch, setPassageSearch] = useState('');
   const [isPassagePickerOpen, setIsPassagePickerOpen] = useState(false);
   const passagePickerRef = useRef<HTMLDivElement | null>(null);
@@ -167,7 +170,7 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
   const selectedType      = watch('type');
   const selectedSubjectId = watch('subjectId');
   const selectedPassageId = watch('passageId');
-  const isLatexFormat     = watch('isLatexFormat');
+  const latexEnabled     = watch('latexEnabled');
   const initialPassageId  = initialData?.passageId ?? '';
 
   const loadTopicsForSubject = useCallback(async (subjectId: string) => {
@@ -203,10 +206,10 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
     Promise.all([
       subjectsService.listSubjects({ page: 1, limit: 100 }),
       passagesService.list({ page: 1, limit: 100 }),
-      rubricsService.list({ page: 1, limit: 100, activeOnly: true }),
-    ]).then(async ([subjectsRes, passagesRes, rubricsRes]) => {
+      aiRubricsService.list({ page: 1, limit: 100, activeOnly: true }),
+    ]).then(async ([subjectsRes, passagesRes, aiRubricsRes]) => {
       if (subjectsRes.success) setSubjects(subjectsRes.data);
-      if (rubricsRes.success) setRubrics(rubricsRes.data);
+      if (aiRubricsRes.success) setAiRubrics(aiRubricsRes.data);
 
       if (passagesRes.success) {
         let nextPassages = passagesRes.data;
@@ -219,7 +222,7 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
         setPassages(nextPassages);
       }
     }).catch((error) => {
-      console.error('Failed to load subjects, passages, and rubrics:', error);
+      console.error('Failed to load subjects, passages, and aiRubrics:', error);
     });
   }, [initialPassageId, isOpen]);
 
@@ -280,10 +283,10 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
     }
   };
 
-  const handleRubricChange = (event: ChangeEvent<HTMLSelectElement>) => {
-    const selectedRubric = rubrics.find((rubric) => rubric.id === event.target.value);
-    if (selectedRubric) {
-      setValue('maxMarks', String(selectedRubric.totalMaxScore), { shouldDirty: true, shouldValidate: true });
+  const handleAiRubricChange = (event: ChangeEvent<HTMLSelectElement>) => {
+    const selectedAiRubric = aiRubrics.find((aiRubric) => aiRubric.id === event.target.value);
+    if (selectedAiRubric) {
+      setValue('maxMarks', String(selectedAiRubric.totalMaxScore), { shouldDirty: true, shouldValidate: true });
     }
   };
 
@@ -300,14 +303,11 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
       subjectId:        values.subjectId,
       topicId:          values.topicId,
       passageId:        values.passageId || (initialData ? null : undefined),
-      rubricId:         values.type === 'ESSAY' ? (values.rubricId || null) : null,
+      aiRubricId:         values.type === 'ESSAY' ? (values.aiRubricId || null) : null,
       type:             values.type,
       difficulty:       values.difficulty,
-      contentText:      values.contentText,
-      contentLatex:     values.isLatexFormat
-                          ? values.contentText
-                          : (values.contentLatex?.trim() || undefined),
-      isLatexFormat:    values.isLatexFormat,
+      questionText:     values.questionText,
+      latexEnabled:    values.latexEnabled,
       markingType:      values.markingType,
       maxMarks:         parseInt(values.maxMarks, 10),
       explanation:      values.explanation?.trim() || undefined,
@@ -318,6 +318,8 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
                           : undefined,
       subtopics:        subtopics.length ? subtopics : undefined,
       notes:            values.notes?.trim() || undefined,
+      adaptiveTags:     values.adaptiveTags?.trim() || null,
+      skillTags:        values.skillTags?.trim() || null,
       questionId:       values.questionId?.trim() || undefined,
     };
 
@@ -384,9 +386,9 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
                       type="button"
                       onClick={() => {
                         field.onChange(t);
-                        setValue('markingType', t === 'ESSAY' ? 'RUBRIC' : 'AUTO');
+                        setValue('markingType', t === 'ESSAY' ? 'AI_RUBRIC' : 'AUTO');
                         setValue('maxMarks', t === 'ESSAY' ? '20' : '1');
-                        if (t === 'MCQ') setValue('rubricId', '');
+                        if (t === 'MCQ') setValue('aiRubricId', '');
                       }}
                       className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition-all ${
                         field.value === t
@@ -416,7 +418,7 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
                     searchPlaceholder="Search marking types..."
                     options={[
                       { value: 'AUTO', label: 'Auto' },
-                      { value: 'RUBRIC', label: 'Rubric' },
+                      { value: 'AI_RUBRIC', label: 'AI Rubric' },
                     ]}
                   />
                 )}
@@ -439,22 +441,22 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
 
           {selectedType === 'ESSAY' && (
             <div className="space-y-1.5">
-              <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Rubric</label>
+              <label className="text-sm font-bold text-slate-700 dark:text-slate-300">AI Rubric</label>
               <select
-                {...register('rubricId', { onChange: handleRubricChange })}
+                {...register('aiRubricId', { onChange: handleAiRubricChange })}
                 className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 font-medium text-slate-900 transition-all focus:border-[#0A9AE2] focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
               >
-                <option value="">Use default rubric</option>
-                {rubrics.map((rubric) => (
-                  <option key={rubric.id} value={rubric.id}>
-                    {rubric.name} ({rubric.id}) - {rubric.totalMaxScore} marks
+                <option value="">Use default AI Rubric</option>
+                {aiRubrics.map((aiRubric) => (
+                  <option key={aiRubric.id} value={aiRubric.id}>
+                    {aiRubric.name} ({aiRubric.id}) - {aiRubric.totalMaxScore} marks
                   </option>
                 ))}
               </select>
               <p className="text-xs font-medium text-slate-400 dark:text-slate-500">
-                Leave blank to use the active default rubric during essay scoring.
+                Leave blank to use the active default AI Rubric during essay scoring.
               </p>
-              {errors.rubricId && <p className="text-xs text-red-500 font-bold">{errors.rubricId.message}</p>}
+              {errors.aiRubricId && <p className="text-xs text-red-500 font-bold">{errors.aiRubricId.message}</p>}
             </div>
           )}
           {/* Subject + Topic row */}
@@ -683,30 +685,30 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
           <div className="space-y-1.5">
             <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Question Text<RequiredAsterisk /></label>
             <textarea
-              {...register('contentText')}
+              {...register('questionText')}
               placeholder="Enter the question..."
               rows={4}
               className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 font-medium text-slate-900 transition-all focus:border-[#0A9AE2] focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 resize-none"
             />
-            {errors.contentText && <p className="text-xs text-red-500 font-bold">{errors.contentText.message}</p>}
+            {errors.questionText && <p className="text-xs text-red-500 font-bold">{errors.questionText.message}</p>}
           </div>
 
-          {/* isLatexFormat toggle */}
+          {/* latexEnabled toggle */}
           <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-950">
             <Controller
-              name="isLatexFormat"
+              name="latexEnabled"
               control={control}
               render={({ field }) => (
                 <input
                   type="checkbox"
-                  id="isLatexFormat"
+                  id="latexEnabled"
                   checked={field.value}
                   onChange={e => field.onChange(e.target.checked)}
                   className="mt-0.5 h-4 w-4 rounded border-slate-300 text-[#0A9AE2] focus:ring-[#0A9AE2] cursor-pointer"
                 />
               )}
             />
-            <label htmlFor="isLatexFormat" className="flex flex-col gap-0.5 cursor-pointer">
+            <label htmlFor="latexEnabled" className="flex flex-col gap-0.5 cursor-pointer">
               <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Render as LaTeX format</span>
               <span className="text-xs font-medium text-slate-400 dark:text-slate-500">
                 Question text and answer options will be rendered with KaTeX
@@ -714,34 +716,12 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
             </label>
           </div>
 
-          {/* LaTeX (optional — hidden when isLatexFormat is on) */}
-          {!isLatexFormat && (
-            <div className="space-y-1.5">
-              <label className="text-sm font-bold text-slate-700 dark:text-slate-300">
-                LaTeX Version <span className="text-slate-400 font-medium">(optional)</span>
-              </label>
-              <input
-                {...register('contentLatex')}
-                placeholder="e.g. \frac{a}{b} + c = d"
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 font-medium text-slate-900 font-mono transition-all focus:border-[#0A9AE2] focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-              />
-              {watch('contentLatex') && (
-                <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-950">
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-wide mb-2">Preview</p>
-                  <div className="text-slate-900 dark:text-slate-100 overflow-x-auto">
-                    <LatexRenderer latex={watch('contentLatex') ?? ''} displayMode />
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Live LaTeX preview for question text when isLatexFormat is on */}
-          {isLatexFormat && watch('contentText') && (
+          {/* Live LaTeX preview for question text when latexEnabled is on */}
+          {latexEnabled && watch('questionText') && (
             <div className="rounded-xl border border-purple-200 bg-purple-50/50 px-4 py-3 dark:border-purple-500/20 dark:bg-purple-500/5">
               <p className="text-xs font-bold text-purple-500 uppercase tracking-wide mb-2">LaTeX Preview</p>
               <div className="text-slate-900 dark:text-slate-100 overflow-x-auto">
-                <LatexRenderer latex={watch('contentText')} displayMode />
+                <LatexRenderer latex={watch('questionText')} displayMode />
               </div>
             </div>
           )}
@@ -852,7 +832,7 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
                 <p className="text-xs text-red-500 font-bold">{errors.correctAnswer.message}</p>
               )}
               <p className="text-xs text-slate-500">Click a letter to mark it as the correct answer.</p>
-              {isLatexFormat && (
+              {latexEnabled && (
                 <div className="mt-1 space-y-2 rounded-xl border border-purple-100 bg-purple-50/50 p-3 dark:border-purple-500/20 dark:bg-purple-500/5">
                   <p className="text-xs font-bold text-purple-500 uppercase tracking-wide">Options LaTeX Preview</p>
                   {(['A', 'B', 'C', 'D', 'E'] as const).map(key => {
@@ -876,11 +856,11 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
           {selectedType === 'ESSAY' && (
             <div className="space-y-1.5">
               <label className="text-sm font-bold text-slate-700 dark:text-slate-300">
-                Model Answer / Rubric <span className="text-slate-400 font-medium">(optional)</span>
+                Model Answer / AI Rubric <span className="text-slate-400 font-medium">(optional)</span>
               </label>
               <textarea
                 {...register('essayAnswer')}
-                placeholder="Enter model answer or grading rubric..."
+                placeholder="Enter model answer or grading AI Rubric..."
                 rows={4}
                 className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 font-medium text-slate-900 transition-all focus:border-[#0A9AE2] focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 resize-none"
               />

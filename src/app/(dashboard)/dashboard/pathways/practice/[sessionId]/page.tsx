@@ -220,7 +220,7 @@ export default function PathwayPracticePage() {
                 >
                   <span className="font-black flex-shrink-0">Q{idx + 1}.</span>
                   <span className="flex-1 line-clamp-2">
-                    <QuestionLatexRenderer text={q.contentText} latex={q.contentLatex} isLatexFormat={q.isLatexFormat} />
+                    <QuestionLatexRenderer text={q.questionText} latexEnabled={q.latexEnabled} />
                   </span>
                   <span className="flex-shrink-0 font-black">
                     {isCorrect ? '✓' : `✗ (${q.correctAnswer})`}
@@ -296,9 +296,8 @@ export default function PathwayPracticePage() {
             {/* Question text */}
             <div className="text-slate-800 dark:text-slate-100 font-semibold text-base leading-relaxed mb-6">
               <QuestionLatexRenderer
-                text={currentQuestion.contentText}
-                latex={currentQuestion.contentLatex}
-                isLatexFormat={currentQuestion.isLatexFormat}
+                text={currentQuestion.questionText}
+                latexEnabled={currentQuestion.latexEnabled}
               />
             </div>
 
@@ -330,7 +329,7 @@ export default function PathwayPracticePage() {
                         {isSelected ? <CheckCircle2 size={14} /> : opt.key}
                       </span>
                       <span className="text-sm font-medium">
-                        <QuestionLatexRenderer text={opt.text} isLatexFormat={currentQuestion.isLatexFormat} />
+                        <QuestionLatexRenderer text={opt.text} latexEnabled={currentQuestion.latexEnabled} />
                       </span>
                     </button>
                   );

@@ -1,0 +1,28 @@
+import { NextResponse } from 'next/server';
+import { fetchFromBackend } from '@/lib/serverBackend';
+
+export async function GET(req: Request) {
+  try {
+    const backendRes = await fetchFromBackend(req, '/student-calendar/reminders');
+    const data = await backendRes.json().catch(() => ({}));
+    return NextResponse.json(data, { status: backendRes.status });
+  } catch (err) {
+    console.error('[STUDENT CALENDAR REMINDERS GET] ERROR:', err);
+    return NextResponse.json({ success: false, message: 'Internal Server Error', data: [] }, { status: 500 });
+  }
+}
+
+export async function PUT(req: Request) {
+  try {
+    const body = await req.json();
+    const backendRes = await fetchFromBackend(req, '/student-calendar/reminders', {
+      method: 'PUT',
+      body: JSON.stringify(body),
+    });
+    const data = await backendRes.json().catch(() => ({}));
+    return NextResponse.json(data, { status: backendRes.status });
+  } catch (err) {
+    console.error('[STUDENT CALENDAR REMINDERS PUT] ERROR:', err);
+    return NextResponse.json({ success: false, message: 'Internal Server Error' }, { status: 500 });
+  }
+}
