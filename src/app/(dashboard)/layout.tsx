@@ -25,7 +25,6 @@ export default function DashboardLayout({
   const user = useAuthStore((state) => state.user);
   const isAdminOrTutor = user?.role === 'ADMIN' || user?.role === 'TUTOR';
   const isStudent = user?.role === 'STUDENT';
-  const userId = user?.id;
   const setAuth = useAuthStore((state) => state.setAuth);
   const studentRailRoutes = [
     '/dashboard',
@@ -72,9 +71,13 @@ export default function DashboardLayout({
 
         if (!isCancelled && response.success) {
           setAuth(response.data);
+        } else if (!isCancelled) {
+          window.location.replace('/login');
         }
       } catch {
-        return;
+        if (!isCancelled) {
+          window.location.replace('/login');
+        }
       }
     };
 
@@ -83,7 +86,7 @@ export default function DashboardLayout({
     return () => {
       isCancelled = true;
     };
-  }, [isReady, setAuth, userId]);
+  }, [isReady, setAuth]);
 
   if (!isReady || !user) {
     return (
