@@ -5,7 +5,6 @@ import { useParams, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft,
-  ChevronLeft,
   ChevronRight,
   CheckCircle2,
   Loader2,
@@ -13,6 +12,7 @@ import {
   AlertCircle,
   Trophy,
   XCircle,
+  Clock,
 } from 'lucide-react';
 import { practiceService } from '@/features/practice/services/practice.service';
 import { QuestionLatexRenderer } from '@/components/ui/QuestionLatexRenderer';
@@ -23,12 +23,21 @@ import type {
 } from '@/features/practice/types/practice.types';
 
 type AnswerState = Record<string, string>;
+type TimeSpentState = Record<string, number>;
 
 const DIFFICULTY_COLORS = {
   EASY: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
   MEDIUM: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
   HARD: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
 };
+
+function formatDuration(seconds: number) {
+  if (seconds <= 0) return '0s';
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  if (minutes > 0) return `${minutes}m ${remainingSeconds}s`;
+  return `${remainingSeconds}s`;
+}
 
 export default function PracticeSessionPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -46,14 +55,65 @@ export default function PracticeSessionPage() {
   
   const [streak, setStreak] = useState(0);
   const [showToast, setShowToast] = useState(false);
-  const [countdown, setCountdown] = useState<number | null>(null);
+  const [currentQuestionElapsed, setCurrentQuestionElapsed] = useState(0);
 
   // Track time spent per question
-  const questionStartTime = useRef<number>(Date.now());
-  const timeSpentMap = useRef<Record<string, number>>({});
+  const questionStartTime = useRef<number>(0);
+  const timeSpentMap = useRef<TimeSpentState>({});
+  const hasActiveTiming = useRef(false);
+  const sessionRef = useRef<PracticeSessionDetail | null>(null);
+  const currentIdxRef = useRef(0);
+  const submittedSetRef = useRef<Set<string>>(new Set());
 
   const STORAGE_KEY = `practice_answers_${sessionId}`;
+  const TIME_STORAGE_KEY = `${STORAGE_KEY}_times`;
   const questionCount = session?.questions.length ?? 1;
+
+  useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
+
+  useEffect(() => {
+    currentIdxRef.current = currentIdx;
+  }, [currentIdx]);
+
+  useEffect(() => {
+    submittedSetRef.current = submittedSet;
+  }, [submittedSet]);
+
+  const persistTimes = useCallback(() => {
+    try {
+      localStorage.setItem(TIME_STORAGE_KEY, JSON.stringify(timeSpentMap.current));
+    } catch {}
+  }, [TIME_STORAGE_KEY]);
+
+  const startCurrentQuestionTimer = useCallback(() => {
+    const activeSession = sessionRef.current;
+    const currentQuestion = activeSession?.questions[currentIdxRef.current];
+    questionStartTime.current = Date.now();
+    hasActiveTiming.current = Boolean(
+      currentQuestion && !submittedSetRef.current.has(currentQuestion.questionId)
+    );
+    setCurrentQuestionElapsed(currentQuestion ? timeSpentMap.current[currentQuestion.questionId] ?? 0 : 0);
+  }, []);
+
+  const recordCurrentQuestionTime = useCallback(() => {
+    const activeSession = sessionRef.current;
+    const currentQuestion = activeSession?.questions[currentIdxRef.current];
+    if (!currentQuestion || submittedSetRef.current.has(currentQuestion.questionId) || !hasActiveTiming.current) {
+      return;
+    }
+
+    const elapsed = Math.max(0, Math.floor((Date.now() - questionStartTime.current) / 1000));
+    if (elapsed > 0) {
+      timeSpentMap.current[currentQuestion.questionId] =
+        (timeSpentMap.current[currentQuestion.questionId] ?? 0) + elapsed;
+      persistTimes();
+    }
+    questionStartTime.current = Date.now();
+    hasActiveTiming.current = false;
+    setCurrentQuestionElapsed(timeSpentMap.current[currentQuestion.questionId] ?? 0);
+  }, [persistTimes]);
 
   const loadSession = useCallback(async () => {
     try {
@@ -85,6 +145,10 @@ export default function PracticeSessionPage() {
             setCurrentIdx(firstUnanswered);
           }
         }
+        const storedTimes = localStorage.getItem(TIME_STORAGE_KEY);
+        if (storedTimes) {
+          timeSpentMap.current = JSON.parse(storedTimes) as TimeSpentState;
+        }
       } catch {
         // ignore parse errors
       }
@@ -93,45 +157,53 @@ export default function PracticeSessionPage() {
     } finally {
       setIsLoading(false);
     }
-  }, [sessionId, router, STORAGE_KEY]);
+  }, [sessionId, router, STORAGE_KEY, TIME_STORAGE_KEY]);
 
   useEffect(() => {
     loadSession();
   }, [loadSession]);
 
-  // Track time when question changes
   useEffect(() => {
     if (!session) return;
-    const prevQuestion = session.questions[currentIdx - 1];
-    if (prevQuestion) {
-      const elapsed = Math.floor((Date.now() - questionStartTime.current) / 1000);
-      timeSpentMap.current[prevQuestion.questionId] =
-        (timeSpentMap.current[prevQuestion.questionId] ?? 0) + elapsed;
-    }
-    questionStartTime.current = Date.now();
-  }, [currentIdx, session]);
-
-  const handleNextQuestion = useCallback(() => {
-    setCountdown(null);
-    setCurrentIdx((i) => Math.min(questionCount - 1, i + 1));
-  }, [questionCount]);
+    startCurrentQuestionTimer();
+  }, [currentIdx, session, submittedSet, startCurrentQuestionTimer]);
 
   useEffect(() => {
-    let timer: NodeJS.Timeout;
-    if (countdown !== null && countdown > 0) {
-      timer = setTimeout(() => {
-        setCountdown((prev) => (prev !== null ? prev - 1 : null));
-      }, 1000);
-    } else if (countdown === 0) {
-      setCountdown(null);
-      if (currentIdx < questionCount - 1) {
-        handleNextQuestion();
-      } else {
-        setShowConfirm(true);
-      }
-    }
-    return () => clearTimeout(timer);
-  }, [countdown, currentIdx, handleNextQuestion, questionCount]);
+    if (!session) return;
+
+    const timer = window.setInterval(() => {
+      const currentQuestion = sessionRef.current?.questions[currentIdxRef.current];
+      if (!currentQuestion || !hasActiveTiming.current) return;
+      const stored = timeSpentMap.current[currentQuestion.questionId] ?? 0;
+      const activeElapsed = Math.max(0, Math.floor((Date.now() - questionStartTime.current) / 1000));
+      setCurrentQuestionElapsed(stored + activeElapsed);
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [session]);
+
+  useEffect(() => {
+    const pauseTimer = () => recordCurrentQuestionTime();
+    const resumeTimer = () => {
+      if (document.visibilityState === 'visible') startCurrentQuestionTimer();
+    };
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') pauseTimer();
+      else resumeTimer();
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('beforeunload', pauseTimer);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('beforeunload', pauseTimer);
+    };
+  }, [recordCurrentQuestionTime, startCurrentQuestionTimer]);
+
+  const handleNextQuestion = useCallback(() => {
+    setCurrentIdx((i) => Math.min(questionCount - 1, i + 1));
+  }, [questionCount]);
 
   const handleAnswer = (questionId: string, optionKey: string) => {
     if (submittedSet.has(questionId)) return;
@@ -146,15 +218,14 @@ export default function PracticeSessionPage() {
     const q = session?.questions[currentIdx];
     if (!q || !answers[q.questionId]) return;
 
-    const elapsed = Math.floor((Date.now() - questionStartTime.current) / 1000);
-    timeSpentMap.current[q.questionId] = (timeSpentMap.current[q.questionId] ?? 0) + elapsed;
+    recordCurrentQuestionTime();
 
     const nextSubmitted = new Set(submittedSet);
     nextSubmitted.add(q.questionId);
     setSubmittedSet(nextSubmitted);
 
     const isCorrect = answers[q.questionId] === q.correctAnswer;
-    const timeSpent = timeSpentMap.current[q.questionId];
+    const timeSpent = timeSpentMap.current[q.questionId] ?? 0;
 
     if (isCorrect && timeSpent < 30 * 60) {
       const newStreak = streak + 1;
@@ -173,11 +244,6 @@ export default function PracticeSessionPage() {
     try {
       localStorage.setItem(`${STORAGE_KEY}_submitted`, JSON.stringify(Array.from(nextSubmitted)));
     } catch {}
-
-    // UX Improvement: Start 3s countdown for auto-advance (only if not the last question)
-    if (currentIdx < (session?.questions.length ?? 1) - 1) {
-      setCountdown(3);
-    }
   };
 
   const handleSubmit = async () => {
@@ -188,9 +254,7 @@ export default function PracticeSessionPage() {
     // Record time for current question if not yet submitted
     const currentQuestion = session.questions[currentIdx];
     if (currentQuestion && !submittedSet.has(currentQuestion.questionId)) {
-      const elapsed = Math.floor((Date.now() - questionStartTime.current) / 1000);
-      timeSpentMap.current[currentQuestion.questionId] =
-        (timeSpentMap.current[currentQuestion.questionId] ?? 0) + elapsed;
+      recordCurrentQuestionTime();
     }
 
     const submittedAnswers: AnswerPayload[] = session.questions.map((q) => ({
@@ -208,6 +272,8 @@ export default function PracticeSessionPage() {
       const res = await practiceService.submit(sessionId, { answers: submittedAnswers });
       if (res.success) {
         localStorage.removeItem(STORAGE_KEY);
+        localStorage.removeItem(`${STORAGE_KEY}_submitted`);
+        localStorage.removeItem(TIME_STORAGE_KEY);
         router.push(`/dashboard/practice/sessions/${sessionId}/result`);
       }
     } catch {
@@ -261,6 +327,10 @@ export default function PracticeSessionPage() {
             Exit
           </button>
           <div className="flex items-center gap-3">
+            <span className="inline-flex items-center gap-1 text-xs font-bold text-slate-500">
+              <Clock size={13} />
+              {formatDuration(currentQuestionElapsed)}
+            </span>
             <span className="text-xs font-bold text-slate-500">
               {answeredCount} / {totalQuestions} answered
             </span>
@@ -478,21 +548,20 @@ export default function PracticeSessionPage() {
               onClick={handleNextQuestion}
               className="flex items-center gap-1.5 px-6 py-3 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-sm font-bold transition-colors dark:bg-slate-100 dark:text-slate-900 dark:hover:bg-white"
             >
-              Next Question {countdown !== null && `(Auto in ${countdown}s)`}
+              Next Question
               <ChevronRight size={16} />
             </button>
           ) : (
             <button
               type="button"
               onClick={() => {
-                setCountdown(null);
                 setShowConfirm(true);
               }}
               disabled={isSubmitting}
               className="flex items-center gap-1.5 px-6 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white text-sm font-black disabled:opacity-60 transition-colors shadow-lg shadow-emerald-500/30"
             >
               {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
-              {isSubmitting ? 'Finishing…' : `Finish Practice ${countdown !== null ? `(Auto in ${countdown}s)` : ''}`}
+              {isSubmitting ? 'Finishing…' : 'Finish Practice'}
             </button>
           )}
         </div>

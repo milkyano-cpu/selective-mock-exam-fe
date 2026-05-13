@@ -47,10 +47,7 @@ export function StudentPathwayView() {
     try {
       const res = await pathwaysService.startPractice(pathwayId, nodeId);
       if (res.success) {
-        sessionStorage.setItem(`practice_node_${res.data.sessionId}`, nodeId);
-        sessionStorage.setItem(`practice_pathway_${res.data.sessionId}`, pathwayId);
-        sessionStorage.setItem(`practice_topic_${res.data.sessionId}`, res.data.topicId);
-        router.push(`/dashboard/pathways/practice/${res.data.sessionId}`);
+        router.push(`/dashboard/practice/sessions/${res.data.sessionId}`);
       }
     } finally {
       setStartingNode(null);

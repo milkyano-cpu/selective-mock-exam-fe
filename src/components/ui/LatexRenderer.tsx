@@ -111,11 +111,19 @@ function processTextContent(text: string) {
 export function LatexRenderer({ latex, displayMode = false, className = '' }: LatexRendererProps) {
   if (!latex?.trim()) return null;
 
-  const segments = parseLatexSegments(latex, displayMode);
+  // Strip TikZ/PGF blocks that KaTeX cannot render (they should be provided as images)
+  const stripped = latex
+    .replace(/\\begin\{center\}\s*\\begin\{tikzpicture\}[\s\S]*?\\end\{tikzpicture\}\s*\\end\{center\}/g, '')
+    .replace(/\\begin\{tikzpicture\}[\s\S]*?\\end\{tikzpicture\}/g, '')
+    .trim();
+
+  if (!stripped) return null;
+
+  const segments = parseLatexSegments(stripped, displayMode);
   const hasDelimitedMath = segments.some((segment) => segment.type === 'math');
 
   if (!hasDelimitedMath) {
-    return <span className={className} style={{ whiteSpace: 'pre-wrap', overflowWrap: 'break-word' }}>{processTextContent(latex)}</span>;
+    return <span className={className} style={{ whiteSpace: 'pre-wrap', overflowWrap: 'break-word' }}>{processTextContent(stripped)}</span>;
   }
 
   return (

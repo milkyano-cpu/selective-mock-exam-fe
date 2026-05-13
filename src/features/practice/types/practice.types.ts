@@ -2,7 +2,7 @@ export type PracticeStatus = 'IN_PROGRESS' | 'COMPLETED';
 export type DifficultyFilter = 'ALL' | 'EASY' | 'MEDIUM' | 'HARD';
 export type Difficulty = 'EASY' | 'MEDIUM' | 'HARD';
 export type QuestionCount = 5 | 10 | 15 | 20;
-export type PracticeSourceType = 'SELF_SELECTED' | 'TUTOR_ASSIGNED' | 'RECOMMENDATION';
+export type PracticeSourceType = 'SELF_SELECTED' | 'TUTOR_ASSIGNED' | 'PATHWAY' | 'RECOMMENDATION';
 export type MembershipTier = 'BASIC' | 'STANDARD' | 'PREMIUM';
 
 export interface McqOption {
@@ -41,6 +41,7 @@ export interface PracticeSessionDetail {
   status: PracticeStatus;
   startedAt: string;
   endedAt: string | null;
+  totalTimeSeconds: number | null;
   questions: PracticeQuestion[];
   answers: PracticeResultAnswer[] | null;
 }
@@ -59,6 +60,7 @@ export interface PracticeSessionSummary {
   correctCount: number | null;
   startedAt: string;
   endedAt: string | null;
+  totalTimeSeconds: number | null;
 }
 
 export interface WeakTopic {
@@ -183,6 +185,7 @@ export interface SubmitPracticeResponse {
     correctCount: number;
     scorePercent: number;
     endedAt: string;
+    totalTimeSeconds: number;
     answers: PracticeResultAnswer[];
   };
 }

@@ -72,6 +72,7 @@ function formatDateTime(iso: string) {
 
 function formatSourceType(sourceType: PracticeSessionSummary['sourceType']) {
   if (sourceType === 'TUTOR_ASSIGNED') return 'Tutor assigned';
+  if (sourceType === 'PATHWAY') return 'Pathway';
   if (sourceType === 'RECOMMENDATION') return 'Recommendation';
   return 'Self selected';
 }
