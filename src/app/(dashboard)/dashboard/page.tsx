@@ -22,6 +22,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const RANKING_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   SUPERIOR: { label: 'Superior', color: 'text-yellow-700 dark:text-yellow-400', bg: 'bg-yellow-100 dark:bg-yellow-900/30' },
@@ -39,6 +40,7 @@ function StudentPerformanceAnalytics() {
   const [selectedExamId, setSelectedExamId] = useState<string>('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const currentUser = useAuthStore((state) => state.user);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -101,7 +103,6 @@ function StudentPerformanceAnalytics() {
 
   const { totalExams, overallAvg, totalTimeSeconds, examHistory, topicPerformance } = analytics;
   const chrono = [...examHistory].sort((a, b) => new Date(a.takenAt).getTime() - new Date(b.takenAt).getTime());
-  const recentScores = chrono.slice(-7);
 
   // Strength and Weakness
   const sortedTopics = [...topicPerformance].sort((a, b) => b.scoreAvg - a.scoreAvg);
@@ -118,7 +119,7 @@ function StudentPerformanceAnalytics() {
   };
 
   return (
-    <div className="grid w-full min-w-0 grid-cols-1 gap-6 lg:grid-cols-[1fr_1fr] xl:grid-cols-[minmax(350px,400px)_minmax(0,1fr)]">
+    <div className="grid w-full min-w-0 grid-cols-1 gap-6 lg:grid-cols-2">
       
       {/* Analytics Card */}
       <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-8 flex flex-col gap-6">
@@ -186,31 +187,64 @@ function StudentPerformanceAnalytics() {
           
         {/* Score Trend */}
         <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/50 mt-auto">
-          <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wide text-slate-400">Score Trend (Last 7 Exams)</p>
-          <div className="mt-6 flex h-20 items-end gap-2 px-2">
-            {recentScores.map((s, i) => {
-              const height = Math.max(5, s.finalScore ?? 0);
-              return (
-                <div key={i} className="group relative flex flex-1 flex-col items-center justify-end h-full">
-                  <div 
-                    className="w-full max-w-[1.5rem] rounded-t-md bg-gradient-to-t from-[#0A9AE2]/20 to-[#0A9AE2] transition-all group-hover:to-[#0A9AE2]/80 dark:from-[#0A9AE2]/20 dark:to-[#0A9AE2]"
-                    style={{ height: `${height}%` }}
-                  />
-                  <div className="absolute -top-8 hidden whitespace-nowrap rounded-lg bg-slate-900 px-2.5 py-1 text-xs font-bold text-white shadow-xl group-hover:block dark:bg-white dark:text-slate-900">
-                    {s.finalScore?.toFixed(0)}
-                  </div>
-                </div>
-              );
-            })}
-            {Array.from({ length: Math.max(0, 7 - recentScores.length) }).map((_, i) => (
-              <div key={`empty-${i}`} className="flex-1 flex flex-col items-center justify-end h-full">
-                  <div className="w-full max-w-[1.5rem] rounded-t-md bg-slate-100 dark:bg-slate-800/50" style={{ height: '10%' }} />
-              </div>
-            ))}
-          </div>
-          <div className="mt-2 border-t border-dashed border-slate-200 pt-2 text-center text-[10px] font-bold text-slate-400 dark:border-slate-700">
-            Oldest → Newest
-          </div>
+          <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wide text-slate-400 mb-4">Mock Exam Scores</p>
+          {chrono.length > 0 ? (
+            <ResponsiveContainer width="100%" height={140}>
+              <AreaChart
+                data={chrono.map((s) => ({
+                  name: s.examTitle.length > 12 ? s.examTitle.slice(0, 12) + '…' : s.examTitle,
+                  score: s.finalScore ?? 0,
+                  fullName: s.examTitle,
+                }))}
+                margin={{ top: 5, right: 5, left: -20, bottom: 0 }}
+              >
+                <defs>
+                  <linearGradient id="scoreGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#0A9AE2" stopOpacity={0.3} />
+                    <stop offset="95%" stopColor="#0A9AE2" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                <XAxis
+                  dataKey="name"
+                  tick={{ fontSize: 10, fill: '#94a3b8' }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  domain={[0, 100]}
+                  tick={{ fontSize: 10, fill: '#94a3b8' }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#0f172a',
+                    border: 'none',
+                    borderRadius: '0.75rem',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    color: '#fff',
+                  }}
+                  formatter={(value) => [`${value}%`, 'Score']}
+                  labelFormatter={(_, payload) => payload?.[0]?.payload?.fullName ?? ''}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="score"
+                  stroke="#0A9AE2"
+                  strokeWidth={2}
+                  fill="url(#scoreGradient)"
+                  dot={{ r: 3, fill: '#0A9AE2', strokeWidth: 0 }}
+                  activeDot={{ r: 5, fill: '#0A9AE2', stroke: '#fff', strokeWidth: 2 }}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex h-[140px] items-center justify-center">
+              <p className="text-xs font-medium text-slate-400">No exams completed yet</p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -284,44 +318,97 @@ function StudentPerformanceAnalytics() {
               No data yet
             </div>
           ) : (
-            leaderboard.entries.map((entry, index) => {
-              const rankConfig = entry.rankingLevel ? RANKING_CONFIG[entry.rankingLevel] : null;
-              const isFirst = index === 0;
-              const isSecond = index === 1;
-              const isThird = index === 2;
-              
+            (() => {
+              const myRank = leaderboard.myRank?.rank;
+              const isInTop5 = myRank != null && myRank <= 5;
+              const top5 = leaderboard.entries.slice(0, 5);
+              const myEntry = !isInTop5 && myRank != null
+                ? leaderboard.entries.find((e) => e.studentId === currentUser?.id)
+                : null;
+              // Show top 4 + student's entry if student is outside top 5
+              const displayEntries = isInTop5 ? top5 : leaderboard.entries.slice(0, 4);
+
               return (
-                <div
-                  key={entry.studentId}
-                  className={`flex items-center gap-4 rounded-2xl border p-4 transition-all ${isFirst ? 'border-yellow-200 bg-gradient-to-r from-yellow-50 to-white dark:border-yellow-900/50 dark:from-yellow-900/20 dark:to-slate-900' : 'border-slate-100 bg-white dark:border-slate-800 dark:bg-slate-900'}`}
-                >
-                  <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full font-black text-lg ${isFirst ? 'bg-yellow-400 text-yellow-950 shadow-sm shadow-yellow-200 dark:bg-yellow-500 dark:shadow-none' : isSecond ? 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300' : isThird ? 'bg-orange-200 text-orange-800 dark:bg-orange-900/40 dark:text-orange-400' : 'bg-slate-100 text-slate-400 dark:bg-slate-800/80 dark:text-slate-500'}`}>
-                    {entry.rank}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <h3 className={`truncate font-bold ${isFirst ? 'text-yellow-900 dark:text-yellow-400' : 'text-slate-900 dark:text-slate-100'}`}>
-                      {entry.studentName}
-                    </h3>
-                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
-                      {rankConfig && (
-                        <span className={`rounded-md px-1.5 py-0.5 font-bold ${rankConfig.bg} ${rankConfig.color}`}>
-                          {rankConfig.label}
-                        </span>
-                      )}
-                      <span className="hidden text-slate-300 dark:text-slate-600 sm:inline">·</span>
-                      <span className="font-medium text-slate-500 dark:text-slate-400">
-                        {entry.totalExams} Exams
-                      </span>
-                    </div>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <div className={`text-2xl font-black tracking-tight ${isFirst ? 'text-yellow-600 dark:text-yellow-500' : 'text-slate-900 dark:text-slate-100'}`}>
-                      {entry.score.toFixed(0)}
-                    </div>
-                  </div>
-                </div>
+                <>
+                  {displayEntries.map((entry, index) => {
+                    const rankConfig = entry.rankingLevel ? RANKING_CONFIG[entry.rankingLevel] : null;
+                    const isFirst = index === 0;
+                    const isSecond = index === 1;
+                    const isThird = index === 2;
+                    const isMe = entry.studentId === currentUser?.id;
+
+                    return (
+                      <div
+                        key={entry.studentId}
+                        className={`flex items-center gap-4 rounded-2xl border p-4 transition-all ${isFirst ? 'border-yellow-200 bg-gradient-to-r from-yellow-50 to-white dark:border-yellow-900/50 dark:from-yellow-900/20 dark:to-slate-900' : isMe ? 'border-[#0A9AE2]/30 bg-[#0A9AE2]/5 dark:border-[#0A9AE2]/40 dark:bg-[#0A9AE2]/10' : 'border-slate-100 bg-white dark:border-slate-800 dark:bg-slate-900'}`}
+                      >
+                        <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full font-black text-lg ${isFirst ? 'bg-yellow-400 text-yellow-950 shadow-sm shadow-yellow-200 dark:bg-yellow-500 dark:shadow-none' : isSecond ? 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300' : isThird ? 'bg-orange-200 text-orange-800 dark:bg-orange-900/40 dark:text-orange-400' : 'bg-slate-100 text-slate-400 dark:bg-slate-800/80 dark:text-slate-500'}`}>
+                          {entry.rank}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h3 className={`truncate font-bold ${isFirst ? 'text-yellow-900 dark:text-yellow-400' : 'text-slate-900 dark:text-slate-100'}`}>
+                            {entry.studentName}{isMe && ' (You)'}
+                          </h3>
+                          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+                            {rankConfig && (
+                              <span className={`rounded-md px-1.5 py-0.5 font-bold ${rankConfig.bg} ${rankConfig.color}`}>
+                                {rankConfig.label}
+                              </span>
+                            )}
+                            <span className="hidden text-slate-300 dark:text-slate-600 sm:inline">·</span>
+                            <span className="font-medium text-slate-500 dark:text-slate-400">
+                              {entry.totalExams} Exams
+                            </span>
+                          </div>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <div className={`text-2xl font-black tracking-tight ${isFirst ? 'text-yellow-600 dark:text-yellow-500' : 'text-slate-900 dark:text-slate-100'}`}>
+                            {entry.score.toFixed(0)}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Show current student's position if outside top 5 */}
+                  {!isInTop5 && myEntry && (
+                    <>
+                      <div className="flex items-center justify-center py-1">
+                        <span className="text-xs font-bold text-slate-300 dark:text-slate-600">• • •</span>
+                      </div>
+                      <div
+                        className="flex items-center gap-4 rounded-2xl border border-[#0A9AE2]/30 bg-[#0A9AE2]/5 p-4 dark:border-[#0A9AE2]/40 dark:bg-[#0A9AE2]/10"
+                      >
+                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#0A9AE2]/10 font-black text-lg text-[#0A9AE2]">
+                          {myEntry.rank}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h3 className="truncate font-bold text-[#0A9AE2] dark:text-[#0A9AE2]">
+                            {myEntry.studentName} (You)
+                          </h3>
+                          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
+                            {myEntry.rankingLevel && RANKING_CONFIG[myEntry.rankingLevel] && (
+                              <span className={`rounded-md px-1.5 py-0.5 font-bold ${RANKING_CONFIG[myEntry.rankingLevel]!.bg} ${RANKING_CONFIG[myEntry.rankingLevel]!.color}`}>
+                                {RANKING_CONFIG[myEntry.rankingLevel]!.label}
+                              </span>
+                            )}
+                            <span className="hidden text-slate-300 dark:text-slate-600 sm:inline">·</span>
+                            <span className="font-medium text-slate-500 dark:text-slate-400">
+                              {myEntry.totalExams} Exams
+                            </span>
+                          </div>
+                        </div>
+                        <div className="shrink-0 text-right">
+                          <div className="text-2xl font-black tracking-tight text-[#0A9AE2]">
+                            {myEntry.score.toFixed(0)}
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </>
               );
-            })
+            })()
           )}
         </div>
       </div>
