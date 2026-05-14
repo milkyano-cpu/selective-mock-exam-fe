@@ -31,7 +31,7 @@ const LS_ANSWERS_KEY = (sessionId: string) => `exam_answers_${sessionId}`;
 const LS_TIMES_KEY = (sessionId: string) => `exam_times_${sessionId}`;
 
 function QuestionContent({ question }: { question: SessionQuestion }) {
-  const imageUrls = question.imageUrls?.length ? question.imageUrls : (question.imageUrl ? [question.imageUrl] : []);
+  const legacyImageUrls = question.image?.url ? [] : (question.imageUrls?.length ? question.imageUrls : (question.imageUrl ? [question.imageUrl] : []));
 
   return (
     <div className="space-y-3">
@@ -42,9 +42,29 @@ function QuestionContent({ question }: { question: SessionQuestion }) {
               {question.passage.title}
             </p>
           )}
-          <p className="whitespace-pre-wrap text-sm font-medium leading-relaxed text-slate-700 dark:text-slate-300">
-            {question.passage.content}
-          </p>
+          {question.passage.content && (
+            <div className="text-sm font-medium leading-relaxed text-slate-700 dark:text-slate-300">
+              <QuestionLatexRenderer
+                text={question.passage.content}
+                latexEnabled={question.latexEnabled}
+                fallbackClassName="whitespace-pre-wrap"
+              />
+            </div>
+          )}
+          {question.passage.image?.url && (
+            <figure className="mt-3">
+              <img
+                src={question.passage.image.url}
+                alt={question.passage.image.altText || question.passage.image.fileName}
+                className="max-h-64 rounded-xl border border-blue-100 object-contain dark:border-blue-900/40"
+              />
+              {question.passage.image.caption && (
+                <figcaption className="mt-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                  {question.passage.image.caption}
+                </figcaption>
+              )}
+            </figure>
+          )}
         </div>
       )}
       <div className="text-base font-medium leading-relaxed text-slate-900 dark:text-slate-100 overflow-wrap-anywhere" style={{ overflowWrap: 'anywhere' }}>
@@ -54,9 +74,23 @@ function QuestionContent({ question }: { question: SessionQuestion }) {
           fallbackClassName="whitespace-pre-wrap"
         />
       </div>
-      {imageUrls.length > 0 && (
+      {question.image?.url && (
+        <figure className="inline-block">
+          <img
+            src={question.image.url}
+            alt={question.image.altText || question.image.fileName}
+            className="max-h-48 rounded-2xl border border-slate-200 object-contain dark:border-slate-700"
+          />
+          {question.image.caption && (
+            <figcaption className="mt-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+              {question.image.caption}
+            </figcaption>
+          )}
+        </figure>
+      )}
+      {legacyImageUrls.length > 0 && (
         <div className="flex flex-wrap gap-3">
-          {imageUrls.map((imageUrl, index) => (
+          {legacyImageUrls.map((imageUrl, index) => (
             <img
               key={`${imageUrl}-${index}`}
               src={imageUrl}
@@ -669,13 +703,23 @@ export default function ExamSessionPage() {
             </div>
           </div>
 
-          {/* Question number + saving indicator */}
+          {/* Question number + subject/topic */}
           <div className="mb-4 lg:pr-[19.5rem] xl:pr-[23.5rem]">
             <div className="flex items-center justify-between">
               <p className="text-sm font-bold text-slate-500 dark:text-slate-400">
                 Question {currentIndex + 1} of {totalQuestions}
               </p>
             </div>
+            {currentQuestion && (
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center rounded-lg bg-blue-50 px-2 py-0.5 text-xs font-semibold text-blue-700 dark:bg-blue-900/20 dark:text-blue-400">
+                  {currentQuestion.subjectName}
+                </span>
+                <span className="inline-flex items-center rounded-lg bg-purple-50 px-2 py-0.5 text-xs font-semibold text-purple-700 dark:bg-purple-900/20 dark:text-purple-400">
+                  {currentQuestion.topicName}
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="grid min-h-0 flex-1 gap-6 lg:grid-cols-[minmax(0,1fr)_18rem] xl:grid-cols-[minmax(0,1fr)_22rem]">

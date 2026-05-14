@@ -27,6 +27,7 @@ export const studentMenuItems = [
   { icon: FileText, label: 'Mock Test', href: '/dashboard/exams' },
   { icon: BookMarked, label: 'Practice', href: '/dashboard/practice' },
   { icon: Map, label: 'Pathways', href: '/dashboard/pathways' },
+  { icon: FolderOpen, label: 'Resources', href: '/dashboard/resources' },
   { icon: BookOpen, label: 'Flash Cards', href: '/dashboard/flashcards' },
   { icon: MessageSquare, label: 'Forum', href: '/dashboard/forum' },
   { icon: CreditCard, label: 'Billing', href: '/dashboard/billing' },
@@ -58,6 +59,7 @@ export const adminMenuGroups = [
     group: 'Content',
     items: [
       { icon: ClipboardCheck, label: 'AI Rubrics', href: '/dashboard/ai-rubrics' },
+      { icon: Image, label: 'Images', href: '/dashboard/images' },
       { icon: LibraryBig, label: 'Passages', href: '/dashboard/passages' },
       { icon: BookOpen, label: 'Subjects', href: '/dashboard/subjects' },
       { icon: Trophy, label: 'Question Bank', href: '/dashboard/questions' },
@@ -115,6 +117,7 @@ export const tutorMenuGroups = [
     group: 'Content',
     items: [
       { icon: ClipboardCheck, label: 'AI Rubrics', href: '/dashboard/ai-rubrics' },
+      { icon: Image, label: 'Images', href: '/dashboard/images' },
       { icon: LibraryBig, label: 'Passages', href: '/dashboard/passages' },
       { icon: BookOpen, label: 'Subjects', href: '/dashboard/subjects' },
       { icon: Trophy, label: 'Question Bank', href: '/dashboard/questions' },

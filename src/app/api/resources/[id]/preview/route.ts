@@ -7,7 +7,15 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const backendRes = await fetchFromBackend(req, `/resources/${id}/preview`);
+
+    // Forward Range header for video streaming support
+    const rangeHeader = req.headers.get('range');
+    const fetchOptions: RequestInit = {};
+    if (rangeHeader) {
+      fetchOptions.headers = { Range: rangeHeader };
+    }
+
+    const backendRes = await fetchFromBackend(req, `/resources/${id}/preview`, fetchOptions);
 
     if (!backendRes.ok || !backendRes.body) {
       const message = await backendRes.text().catch(() => 'Failed to fetch resource file');
@@ -17,20 +25,24 @@ export async function GET(
       );
     }
 
-    const buffer = new Uint8Array(await backendRes.arrayBuffer());
-
+    // Stream the response body directly without buffering
     const contentType = backendRes.headers.get('content-type') || 'application/octet-stream';
     const contentDisposition = backendRes.headers.get('content-disposition');
+    const contentLength = backendRes.headers.get('content-length');
+    const contentRange = backendRes.headers.get('content-range');
+    const acceptRanges = backendRes.headers.get('accept-ranges');
 
     const headers = new Headers();
     headers.set('Content-Type', contentType);
-    headers.set('Content-Length', String(buffer.byteLength));
-    headers.set('Accept-Ranges', 'bytes');
     headers.set('Cache-Control', 'private, max-age=300');
+    headers.set('Accept-Ranges', acceptRanges || 'bytes');
+    if (contentLength) headers.set('Content-Length', contentLength);
     if (contentDisposition) headers.set('Content-Disposition', contentDisposition);
+    if (contentRange) headers.set('Content-Range', contentRange);
 
-    return new Response(buffer, {
-      status: 200,
+    // Use the backend status (206 for partial content, 200 for full)
+    return new Response(backendRes.body, {
+      status: backendRes.status,
       headers,
     });
   } catch (err) {

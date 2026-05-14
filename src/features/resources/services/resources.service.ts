@@ -47,6 +47,11 @@ export const resourceService = {
     return response.data;
   },
 
+  getStreamUrl: async (id: string): Promise<{ success: boolean; data: { url: string; fileName: string; mimeType: string } | null }> => {
+    const response = await mdwClient.get(`/resources/${id}/stream-url`);
+    return response.data;
+  },
+
   remove: async (id: string): Promise<ActionResponse> => {
     const response = await mdwClient.delete(`/resources/${id}`);
     return response.data;

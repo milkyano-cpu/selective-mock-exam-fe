@@ -13,6 +13,9 @@ import {
   Trophy,
   XCircle,
   Clock,
+  Zap,
+  Star,
+  Crown,
 } from 'lucide-react';
 import { practiceService } from '@/features/practice/services/practice.service';
 import { QuestionLatexRenderer } from '@/components/ui/QuestionLatexRenderer';
@@ -30,6 +33,46 @@ const DIFFICULTY_COLORS = {
   MEDIUM: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400',
   HARD: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
 };
+
+// Speed thresholds per difficulty (seconds) — answer must be correct AND under this time
+const SPEED_THRESHOLD: Record<string, number> = {
+  EASY: 15,
+  MEDIUM: 30,
+  HARD: 45,
+};
+
+interface StreakTier {
+  threshold: number;
+  icon: 'flame' | 'zap' | 'star' | 'crown';
+  label: string;
+  message: string;
+  gradient: string;
+  iconBg: string;
+}
+
+const STREAK_TIERS: StreakTier[] = [
+  { threshold: 3, icon: 'flame', label: 'Nice streak!', message: '3 fast & correct in a row', gradient: 'from-amber-500 to-orange-500', iconBg: 'bg-white/20' },
+  { threshold: 5, icon: 'zap', label: "You're on fire!", message: '5 fast & correct in a row', gradient: 'from-orange-500 to-red-500', iconBg: 'bg-white/20' },
+  { threshold: 8, icon: 'star', label: 'Unstoppable!', message: '8 fast & correct in a row', gradient: 'from-red-500 to-pink-600', iconBg: 'bg-white/25' },
+  { threshold: 12, icon: 'crown', label: 'Legendary!', message: '12 fast & correct in a row', gradient: 'from-purple-500 to-indigo-600', iconBg: 'bg-white/25' },
+];
+
+function getStreakTier(count: number): StreakTier | null {
+  for (let i = STREAK_TIERS.length - 1; i >= 0; i--) {
+    if (count >= STREAK_TIERS[i].threshold) return STREAK_TIERS[i];
+  }
+  return null;
+}
+
+function StreakIcon({ icon, size = 20 }: { icon: StreakTier['icon']; size?: number }) {
+  const cls = 'text-white';
+  switch (icon) {
+    case 'flame': return <Trophy size={size} className={cls} />;
+    case 'zap': return <Zap size={size} className={cls} />;
+    case 'star': return <Star size={size} className={cls} />;
+    case 'crown': return <Crown size={size} className={cls} />;
+  }
+}
 
 function formatDuration(seconds: number) {
   if (seconds <= 0) return '0s';
@@ -54,7 +97,8 @@ export default function PracticeSessionPage() {
   const [showConfirm, setShowConfirm] = useState(false);
   
   const [streak, setStreak] = useState(0);
-  const [showToast, setShowToast] = useState(false);
+  const [activeToast, setActiveToast] = useState<StreakTier | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [currentQuestionElapsed, setCurrentQuestionElapsed] = useState(0);
 
   // Track time spent per question
@@ -226,16 +270,22 @@ export default function PracticeSessionPage() {
 
     const isCorrect = answers[q.questionId] === q.correctAnswer;
     const timeSpent = timeSpentMap.current[q.questionId] ?? 0;
+    const speedLimit = SPEED_THRESHOLD[q.difficulty] ?? 30;
 
-    if (isCorrect && timeSpent < 30 * 60) {
+    if (isCorrect && timeSpent <= speedLimit) {
       const newStreak = streak + 1;
       setStreak(newStreak);
-      if (newStreak === 3) {
-        setShowToast(true);
-        setTimeout(() => {
-          setShowToast(false);
-          setStreak(0);
-        }, 4000);
+
+      // Check if we hit a new tier milestone
+      const tier = getStreakTier(newStreak);
+      if (tier && tier.threshold === newStreak) {
+        // Clear previous toast timer
+        if (toastTimer.current) clearTimeout(toastTimer.current);
+        setActiveToast(tier);
+        toastTimer.current = setTimeout(() => {
+          setActiveToast(null);
+          toastTimer.current = null;
+        }, 3000);
       }
     } else {
       setStreak(0);
@@ -327,6 +377,12 @@ export default function PracticeSessionPage() {
             Exit
           </button>
           <div className="flex items-center gap-3">
+            {streak >= 2 && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-100 to-orange-100 px-2.5 py-1 text-xs font-black text-orange-600 dark:from-amber-900/30 dark:to-orange-900/30 dark:text-orange-400">
+                <Zap size={12} />
+                {streak}x
+              </span>
+            )}
             <span className="inline-flex items-center gap-1 text-xs font-bold text-slate-500">
               <Clock size={13} />
               {formatDuration(currentQuestionElapsed)}
@@ -403,14 +459,28 @@ export default function PracticeSessionPage() {
             </div>
 
             {/* Images */}
-            {currentQuestion.imageUrl && (
+            {currentQuestion.image?.url && (
+              <figure className="mb-4">
+                <img
+                  src={currentQuestion.image.url}
+                  alt={currentQuestion.image.altText || currentQuestion.image.fileName}
+                  className="w-full rounded-xl border border-slate-100 object-contain dark:border-slate-700"
+                />
+                {currentQuestion.image.caption && (
+                  <figcaption className="mt-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                    {currentQuestion.image.caption}
+                  </figcaption>
+                )}
+              </figure>
+            )}
+            {!currentQuestion.image?.url && currentQuestion.imageUrl && (
               <img
                 src={currentQuestion.imageUrl}
                 alt="Question"
-                className="w-full rounded-xl mb-4 border border-slate-100 dark:border-slate-700"
+                className="mb-4 w-full rounded-xl border border-slate-100 dark:border-slate-700"
               />
             )}
-            {currentQuestion.imageUrls.length > 0 && (
+            {!currentQuestion.image?.url && currentQuestion.imageUrls.length > 0 && (
               <div className="space-y-2 mb-4">
                 {currentQuestion.imageUrls.map((url, i) => (
                   <img
@@ -619,17 +689,22 @@ export default function PracticeSessionPage() {
 
       {/* Streak Gamification Toast */}
       <AnimatePresence>
-        {showToast && (
+        {activeToast && (
           <motion.div
-            initial={{ opacity: 0, y: 50, scale: 0.9 }}
+            key={activeToast.threshold}
+            initial={{ opacity: 0, y: 60, scale: 0.85 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 50, scale: 0.9 }}
-            className="fixed bottom-10 left-1/2 -translate-x-1/2 z-50 bg-gradient-to-r from-amber-500 to-orange-500 text-white px-6 py-4 rounded-3xl shadow-2xl flex items-center gap-3 font-black text-sm border border-white/20"
+            exit={{ opacity: 0, y: 40, scale: 0.9 }}
+            transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+            className={`fixed bottom-10 left-1/2 -translate-x-1/2 z-50 bg-gradient-to-r ${activeToast.gradient} text-white px-6 py-4 rounded-3xl shadow-2xl flex items-center gap-3 font-black text-sm border border-white/20`}
           >
-            <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center shrink-0">
-              <Trophy size={20} className="text-amber-100" />
+            <div className={`w-10 h-10 ${activeToast.iconBg} rounded-full flex items-center justify-center shrink-0`}>
+              <StreakIcon icon={activeToast.icon} />
             </div>
-            <span>Incredible! 3 correct answers in under 30 minutes!</span>
+            <div className="flex flex-col">
+              <span className="text-base font-black leading-tight">{activeToast.label}</span>
+              <span className="text-xs font-semibold text-white/80">{activeToast.message}</span>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

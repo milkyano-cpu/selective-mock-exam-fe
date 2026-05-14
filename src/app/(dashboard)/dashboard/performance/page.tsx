@@ -393,14 +393,24 @@ export default function PerformancePage() {
             )}
 
             {/* My rank callout if not in top 10 */}
-            {leaderboard && leaderboard.myRank.rank !== null && leaderboard.myRank.rank > 10 && (
-              <div className="border-t border-slate-100 px-4 py-2.5 dark:border-slate-800">
-                <div className="flex items-center gap-2.5 rounded-xl bg-orange-50 px-3 py-2 dark:bg-orange-900/10">
-                  <span className="text-xs font-bold text-slate-400">#{leaderboard.myRank.rank}</span>
-                  <p className="flex-1 text-xs font-bold text-[#FF6900]">Your rank</p>
-                  <span className="text-sm font-black text-[#FF6900]">{leaderboard.myRank.score?.toFixed(0)}</span>
+            {leaderboard && leaderboard.myRank.rank !== null && leaderboard.myRank.rank > 10 && leaderboard.myRank.studentName && (
+              <>
+                <div className="flex items-center justify-center py-1">
+                  <span className="text-[10px] font-bold text-slate-300 dark:text-slate-600">• • •</span>
                 </div>
-              </div>
+                <div className="border-t border-slate-100 dark:border-slate-800">
+                  <div className="flex items-center gap-2.5 bg-orange-50 px-4 py-2.5 dark:bg-orange-900/10">
+                    <div className="flex h-6 w-6 shrink-0 items-center justify-center">
+                      <span className="text-xs font-bold text-[#FF6900]">{leaderboard.myRank.rank}</span>
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xs font-bold text-[#FF6900]">You</p>
+                      <p className="text-[10px] text-slate-400">{leaderboard.myRank.totalExams} exam{leaderboard.myRank.totalExams !== 1 ? 's' : ''}</p>
+                    </div>
+                    <span className="shrink-0 text-sm font-black text-[#FF6900]">{leaderboard.myRank.score?.toFixed(0)}</span>
+                  </div>
+                </div>
+              </>
             )}
 
             {leaderboard && leaderboard.myRank.rank === null && (

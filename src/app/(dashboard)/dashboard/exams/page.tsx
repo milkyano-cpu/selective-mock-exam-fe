@@ -5,12 +5,13 @@ import { useRouter } from 'next/navigation';
 import { isAxiosError } from 'axios';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { examService } from '@/features/exams/services/exams.service';
-import type { ExamItem, GradingType, PaginationMeta, SessionSummary } from '@/features/exams/types/exams.types';
+import type { ExamItem, GradingType, PaginationMeta, SessionSummary, ExamAttemptSummary } from '@/features/exams/types/exams.types';
 import {
   Plus,
   Loader2,
   Clock,
   FileText,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Trash2,
@@ -25,6 +26,10 @@ import {
   ArrowRight,
   Globe,
   EyeOff,
+  RotateCcw,
+  Trophy,
+  Hash,
+  RefreshCw,
 } from 'lucide-react';
 
 const PAGE_LIMIT = 20;
@@ -695,6 +700,11 @@ function StudentExamView() {
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [retakeExamId, setRetakeExamId] = useState<string | null>(null);
+  const [attemptSummary, setAttemptSummary] = useState<ExamAttemptSummary | null>(null);
+  const [isLoadingSummary, setIsLoadingSummary] = useState(false);
+  const [isStartingRetake, setIsStartingRetake] = useState(false);
+  const [viewResultsExamId, setViewResultsExamId] = useState<string | null>(null);
 
   useEffect(() => {
     const loadData = async () => {
@@ -716,23 +726,76 @@ function StudentExamView() {
     loadData();
   }, []);
 
-  const sessionMap = sessions.reduce((map, session) => {
-    if (!map.has(session.examId)) {
-      map.set(session.examId, session);
-    }
-
+  // Group all sessions by examId — keep best, latest, in-progress, etc.
+  const examSessionsMap = sessions.reduce((map, session) => {
+    const list = map.get(session.examId) ?? [];
+    list.push(session);
+    map.set(session.examId, list);
     return map;
-  }, new Map<string, SessionSummary>());
+  }, new Map<string, SessionSummary[]>());
 
   const getExamStatus = (examId: string) => {
-    const s = sessionMap.get(examId);
-    if (!s) return 'not_started';
-    if (s.status === 'IN_PROGRESS') return 'in_progress';
-    if (s.status === 'SUBMITTED') return 'awaiting_review';
+    const list = examSessionsMap.get(examId);
+    if (!list || list.length === 0) return 'not_started';
+    const inProgress = list.find((s) => s.status === 'IN_PROGRESS');
+    if (inProgress) return 'in_progress';
+    const submitted = list.find((s) => s.status === 'SUBMITTED');
+    if (submitted) return 'awaiting_review';
     return 'completed';
   };
 
-  const getSessionForExam = (examId: string) => sessionMap.get(examId);
+  const getLatestSession = (examId: string) => {
+    const list = examSessionsMap.get(examId);
+    if (!list || list.length === 0) return null;
+    // In-progress first, then latest by start time
+    const inProgress = list.find((s) => s.status === 'IN_PROGRESS');
+    if (inProgress) return inProgress;
+    return list.reduce((latest, s) => (new Date(s.startTime) > new Date(latest.startTime) ? s : latest));
+  };
+
+  const getBestSession = (examId: string) => {
+    const list = examSessionsMap.get(examId);
+    if (!list) return null;
+    const graded = list.filter((s) => s.finalScore !== null);
+    if (graded.length === 0) return null;
+    return graded.reduce((best, s) => (s.finalScore! > best.finalScore! ? s : best));
+  };
+
+  const getAttemptCount = (examId: string) => {
+    const list = examSessionsMap.get(examId);
+    if (!list) return 0;
+    return list.filter((s) => s.status !== 'IN_PROGRESS').length;
+  };
+
+  const handleOpenRetake = async (examId: string) => {
+    setRetakeExamId(examId);
+    setAttemptSummary(null);
+    setIsLoadingSummary(true);
+    try {
+      const res = await examService.getAttemptSummary(examId);
+      if (res.success) setAttemptSummary(res.data);
+    } catch (err) {
+      console.error('Failed to load attempt summary', err);
+    } finally {
+      setIsLoadingSummary(false);
+    }
+  };
+
+  const handleStartRetake = async (examId: string, mode: 'FULL' | 'INCORRECT_ONLY' | 'SUBJECT_ONLY', opts?: { sourceSessionId?: string; subjectId?: string }) => {
+    setIsStartingRetake(true);
+    try {
+      const res = await examService.startRetake(examId, { mode, ...opts });
+      if (res.success) {
+        setRetakeExamId(null);
+        router.push(`/dashboard/exams/${examId}/session`);
+      }
+    } catch (err) {
+      const msg = isAxiosError(err) ? err.response?.data?.message || 'Failed to start retake' : 'Failed to start retake';
+      alert(msg);
+    } finally {
+      setIsStartingRetake(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -752,13 +815,6 @@ function StudentExamView() {
 
   return (
     <div className="w-full max-w-5xl space-y-6">
-      <header>
-        <p className="text-sm font-bold uppercase tracking-[0.24em] text-[#FF6900]">Mock Tests</p>
-        <h1 className="mt-1 text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100">Available Exams</h1>
-        <p className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400">
-          {exams.filter((e) => e.questionCount > 0).length} exam{exams.filter((e) => e.questionCount > 0).length !== 1 ? 's' : ''} available
-        </p>
-      </header>
 
       {exams.filter((e) => e.questionCount > 0).length === 0 ? (
         <div className="rounded-[2rem] border border-slate-200 bg-white p-12 text-center dark:border-slate-800 dark:bg-slate-900">
@@ -771,7 +827,9 @@ function StudentExamView() {
             .filter((exam) => exam.questionCount > 0)
             .map((exam) => {
               const status = getExamStatus(exam.id);
-              const session = getSessionForExam(exam.id);
+              const latestSession = getLatestSession(exam.id);
+              const bestSession = getBestSession(exam.id);
+              const attemptCount = getAttemptCount(exam.id);
               return (
                 <div
                   key={exam.id}
@@ -806,17 +864,27 @@ function StudentExamView() {
                     <span>{GRADING_TYPE_LABELS[exam.gradingType]}</span>
                   </div>
 
-                  {session?.status === 'GRADED' && session.finalScore !== null && (
+                  {/* Score section — show best score if multiple attempts */}
+                  {bestSession && bestSession.finalScore !== null && (
                     <div className="mt-3 rounded-xl bg-slate-50 px-3 py-2 dark:bg-slate-800">
-                      <p className="text-xs font-bold text-slate-500 dark:text-slate-400">Your score</p>
-                      <p className="text-xl font-black text-slate-900 dark:text-slate-100">{session.finalScore.toFixed(1)}<span className="text-sm text-slate-400">/100</span></p>
-                      {session.rankingLevel && (
-                        <p className="text-xs font-semibold text-[#FF6900]">{RANKING_LABELS[session.rankingLevel]}</p>
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                          {attemptCount > 1 ? 'Best score' : 'Your score'}
+                        </p>
+                        {attemptCount > 1 && (
+                          <span className="flex items-center gap-1 text-xs font-semibold text-slate-400">
+                            <Hash size={10} />{attemptCount} attempts
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xl font-black text-slate-900 dark:text-slate-100">{bestSession.finalScore.toFixed(1)}<span className="text-sm text-slate-400">/100</span></p>
+                      {bestSession.rankingLevel && (
+                        <p className="text-xs font-semibold text-[#FF6900]">{RANKING_LABELS[bestSession.rankingLevel]}</p>
                       )}
                     </div>
                   )}
 
-                  <div className="mt-4 flex-1 flex items-end">
+                  <div className="mt-4 flex-1 flex flex-col items-end justify-end gap-2">
                     {status === 'not_started' && (
                       <button
                         onClick={() => router.push(`/dashboard/exams/${exam.id}`)}
@@ -833,26 +901,204 @@ function StudentExamView() {
                         Resume Exam
                       </button>
                     )}
-                    {status === 'awaiting_review' && session && (
-                      <button
-                        onClick={() => router.push(`/dashboard/exams/sessions/${session.sessionId}/result`)}
-                        className="w-full rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm font-bold text-amber-700 transition-colors hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300 dark:hover:bg-amber-900/30"
-                      >
-                        View Review Status
-                      </button>
+                    {status === 'awaiting_review' && latestSession && (
+                      attemptCount > 1 ? (
+                        <button
+                          onClick={() => setViewResultsExamId(viewResultsExamId === exam.id ? null : exam.id)}
+                          className="w-full rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm font-bold text-amber-700 transition-colors hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300 dark:hover:bg-amber-900/30 flex items-center justify-center gap-2"
+                        >
+                          View Results <ChevronDown size={14} />
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => router.push(`/dashboard/exams/sessions/${latestSession.sessionId}/result`)}
+                          className="w-full rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm font-bold text-amber-700 transition-colors hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300 dark:hover:bg-amber-900/30"
+                        >
+                          View Review Status
+                        </button>
+                      )
                     )}
-                    {status === 'completed' && session && (
-                      <button
-                        onClick={() => router.push(`/dashboard/exams/sessions/${session.sessionId}/result`)}
-                        className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-                      >
-                        View Results
-                      </button>
+                    {status === 'completed' && latestSession && (
+                      <>
+                        {attemptCount > 1 ? (
+                          <button
+                            onClick={() => setViewResultsExamId(viewResultsExamId === exam.id ? null : exam.id)}
+                            className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 flex items-center justify-center gap-2"
+                          >
+                            View Results <ChevronDown size={14} />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => router.push(`/dashboard/exams/sessions/${latestSession.sessionId}/result`)}
+                            className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                          >
+                            View Results
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleOpenRetake(exam.id)}
+                          className="w-full rounded-xl border border-[#FF6900]/30 bg-[#FF6900]/5 px-4 py-2.5 text-sm font-bold text-[#FF6900] transition-colors hover:bg-[#FF6900]/10 flex items-center justify-center gap-2"
+                        >
+                          <RotateCcw size={14} /> Retake Exam
+                        </button>
+                      </>
                     )}
+
+                    {/* Attempt list dropdown */}
+                    {viewResultsExamId === exam.id && (() => {
+                      const examSessions = (examSessionsMap.get(exam.id) ?? [])
+                        .filter((s) => s.status !== 'IN_PROGRESS')
+                        .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+                      return (
+                        <div className="w-full rounded-xl border border-slate-200 bg-slate-50 p-2 space-y-1 dark:border-slate-700 dark:bg-slate-800">
+                          {examSessions.map((s, idx) => {
+                            const attemptNum = examSessions.length - idx;
+                            const isBest = bestSession?.sessionId === s.sessionId;
+                            return (
+                              <button
+                                key={s.sessionId}
+                                onClick={() => {
+                                  setViewResultsExamId(null);
+                                  router.push(`/dashboard/exams/sessions/${s.sessionId}/result`);
+                                }}
+                                className="w-full flex items-center justify-between rounded-lg px-3 py-2 text-left transition-colors hover:bg-white dark:hover:bg-slate-700"
+                              >
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400">#{attemptNum}</span>
+                                  <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
+                                    {s.finalScore !== null ? `${s.finalScore.toFixed(1)}/100` : s.status === 'SUBMITTED' ? 'Grading...' : '—'}
+                                  </span>
+                                  {isBest && (
+                                    <span className="inline-flex items-center gap-0.5 rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-bold text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                                      <Trophy size={9} /> Best
+                                    </span>
+                                  )}
+                                  {s.retakeMode && (
+                                    <span className="inline-flex rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                                      {s.retakeMode === 'FULL' ? 'Full' : s.retakeMode === 'INCORRECT_ONLY' ? 'Incorrect' : 'Subject'}
+                                    </span>
+                                  )}
+                                </div>
+                                <ArrowRight size={12} className="text-slate-400" />
+                              </button>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               );
             })}
+        </div>
+      )}
+
+      {/* ── Retake Modal ─────────────────────────────────────────────────── */}
+      {retakeExamId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4" onClick={() => setRetakeExamId(null)}>
+          <div className="w-full max-w-lg rounded-[2rem] border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-black text-slate-900 dark:text-slate-100">Retake Exam</h2>
+              <button onClick={() => setRetakeExamId(null)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">
+                <X size={18} />
+              </button>
+            </div>
+
+            {isLoadingSummary ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 size={28} className="animate-spin text-[#FF6900]" />
+              </div>
+            ) : attemptSummary ? (
+              <div className="space-y-5">
+                {/* Attempt Stats */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-800">
+                    <p className="text-xs font-bold uppercase text-slate-400">Attempts</p>
+                    <p className="mt-1 text-xl font-black text-slate-900 dark:text-slate-100">{attemptSummary.totalAttempts}</p>
+                  </div>
+                  <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-800">
+                    <p className="text-xs font-bold uppercase text-slate-400">Best</p>
+                    <p className="mt-1 text-xl font-black text-green-600 dark:text-green-400">
+                      {attemptSummary.bestScore?.finalScore !== null && attemptSummary.bestScore?.finalScore !== undefined
+                        ? <>{attemptSummary.bestScore.finalScore.toFixed(1)}<span className="text-sm text-slate-400">/100</span></>
+                        : '—'}
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-800">
+                    <p className="text-xs font-bold uppercase text-slate-400">Latest</p>
+                    <p className="mt-1 text-xl font-black text-slate-900 dark:text-slate-100">
+                      {attemptSummary.latestAttempt?.finalScore !== null && attemptSummary.latestAttempt?.finalScore !== undefined
+                        ? <>{attemptSummary.latestAttempt.finalScore.toFixed(1)}<span className="text-sm text-slate-400">/100</span></>
+                        : '—'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Incorrect count */}
+                {attemptSummary.incorrectQuestions.length > 0 && (
+                  <div className="rounded-xl border border-red-100 bg-red-50/50 px-3 py-2.5 dark:border-red-900/30 dark:bg-red-900/10">
+                    <p className="text-xs font-bold text-red-600 dark:text-red-400">
+                      {attemptSummary.incorrectQuestions.length} incorrect question{attemptSummary.incorrectQuestions.length !== 1 ? 's' : ''} from latest attempt
+                    </p>
+                  </div>
+                )}
+
+                {/* Retake Options */}
+                <div className="space-y-2">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Choose retake mode</p>
+
+                  <button
+                    onClick={() => handleStartRetake(retakeExamId, 'FULL')}
+                    disabled={isStartingRetake}
+                    className="w-full flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 text-left transition-colors hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:hover:bg-slate-800"
+                  >
+                    <div className="rounded-lg bg-[#FF6900]/10 p-2 text-[#FF6900]"><RefreshCw size={18} /></div>
+                    <div>
+                      <p className="text-sm font-bold text-slate-900 dark:text-slate-100">Full Retake</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Redo the entire exam with all questions</p>
+                    </div>
+                  </button>
+
+                  {attemptSummary.incorrectQuestions.length > 0 && attemptSummary.latestAttempt && (
+                    <button
+                      onClick={() => handleStartRetake(retakeExamId, 'INCORRECT_ONLY', { sourceSessionId: attemptSummary.latestAttempt!.sessionId })}
+                      disabled={isStartingRetake}
+                      className="w-full flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 text-left transition-colors hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:hover:bg-slate-800"
+                    >
+                      <div className="rounded-lg bg-red-100 p-2 text-red-600 dark:bg-red-900/30 dark:text-red-400"><RotateCcw size={18} /></div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-900 dark:text-slate-100">Incorrect Only</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Redo only the {attemptSummary.incorrectQuestions.length} question{attemptSummary.incorrectQuestions.length !== 1 ? 's' : ''} you got wrong</p>
+                      </div>
+                    </button>
+                  )}
+
+                  {attemptSummary.subjects.length > 1 && attemptSummary.subjects.map((subj) => (
+                    <button
+                      key={subj.subjectId}
+                      onClick={() => handleStartRetake(retakeExamId, 'SUBJECT_ONLY', { subjectId: subj.subjectId })}
+                      disabled={isStartingRetake}
+                      className="w-full flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 text-left transition-colors hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:hover:bg-slate-800"
+                    >
+                      <div className="rounded-lg bg-blue-100 p-2 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"><BookOpen size={18} /></div>
+                      <div className="flex-1">
+                        <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{subj.subjectName}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{subj.correctCount}/{subj.totalQuestions} correct · {subj.totalQuestions} questions</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                {isStartingRetake && (
+                  <div className="flex items-center justify-center gap-2 py-2 text-sm font-medium text-slate-500">
+                    <Loader2 size={16} className="animate-spin" /> Starting retake...
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="py-8 text-center text-sm text-slate-500">Failed to load attempt summary.</p>
+            )}
+          </div>
         </div>
       )}
     </div>

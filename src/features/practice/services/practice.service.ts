@@ -59,6 +59,9 @@ export const practiceService = {
   submit: (sessionId: string, payload: SubmitPracticePayload): Promise<SubmitPracticeResponse> =>
     mdwClient.patch(`/practice/sessions/${sessionId}/submit`, payload).then((r) => r.data),
 
+  retake: (sessionId: string): Promise<StartPracticeResponse> =>
+    mdwClient.post(`/practice/sessions/${sessionId}/retake`).then((r) => r.data),
+
   list: (params?: ListPracticeSessionsParams): Promise<ListPracticeSessionsResponse> =>
     mdwClient.get('/practice/sessions', { params }).then((r) => r.data),
 

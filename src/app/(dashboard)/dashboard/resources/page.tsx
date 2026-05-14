@@ -153,6 +153,14 @@ export default function ResourcesPage() {
     setPreviewError('');
     setIsPreviewLoading(true);
 
+    // For videos, use the public file URL directly (MinIO supports Range requests natively)
+    if (viewingResource.type === 'VIDEO' && viewingResource.fileUrl) {
+      setPreviewObjectUrl(viewingResource.fileUrl);
+      setIsPreviewLoading(false);
+      return () => { abortController.abort(); };
+    }
+
+    // For PDF and other files, fetch blob via proxy (avoids IDM interception)
     fetch(`/api/resources/${viewingResource.id}/preview`, {
       credentials: 'include',
       signal: abortController.signal,
@@ -172,16 +180,12 @@ export default function ResourcesPage() {
         setPreviewError(isBlocked ? 'blocked' : 'error');
       })
       .finally(() => {
-        if (!abortController.signal.aborted) {
-          setIsPreviewLoading(false);
-        }
+        if (!abortController.signal.aborted) setIsPreviewLoading(false);
       });
 
     return () => {
       abortController.abort();
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
-      }
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
   }, [viewingResource]);
 
@@ -289,17 +293,17 @@ export default function ResourcesPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100 sm:text-3xl">
-            Resources
-          </h1>
-          <p className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400">
-            Manage learning materials — files and videos for students.
-          </p>
-        </div>
-        {canManage && (
+    <div className={canManage ? 'space-y-6' : 'space-y-4'}>
+      {canManage && (
+        <header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100 sm:text-3xl">
+              Resources
+            </h1>
+            <p className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400">
+              Manage learning materials — files and videos for students.
+            </p>
+          </div>
           <button
             onClick={() => setIsModalOpen(true)}
             className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#0A9AE2] px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-[#0889c9]"
@@ -307,8 +311,8 @@ export default function ResourcesPage() {
             <Plus size={18} />
             Add Resource
           </button>
-        )}
-      </header>
+        </header>
+      )}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
@@ -373,11 +377,13 @@ export default function ResourcesPage() {
                     </button>
                     <p className="truncate text-xs text-slate-500 dark:text-slate-400">{resource.description || 'No description'}</p>
                     <p className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
-                      {resource.type}{resource.fileSize ? ` · ${formatFileSize(resource.fileSize)}` : ''} · {new Date(resource.createdAt).toLocaleDateString()}
+                      {resource.type}{canManage && resource.fileSize ? ` · ${formatFileSize(resource.fileSize)}` : ''} · {new Date(resource.createdAt).toLocaleDateString()}
                     </p>
-                    <p className="mt-1 text-[10px] font-bold text-[#0A9AE2]">
-                      Min. {getTierLabel(getMinimumTierFromAllowedTiers(resource.allowedTiers))}
-                    </p>
+                    {canManage && (
+                      <p className="mt-1 text-[10px] font-bold text-[#0A9AE2]">
+                        Min. {getTierLabel(getMinimumTierFromAllowedTiers(resource.allowedTiers))}
+                      </p>
+                    )}
                   </div>
                   {canManage && (
                     <div className="flex shrink-0 gap-1">
@@ -410,10 +416,10 @@ export default function ResourcesPage() {
                   <th className="px-6 py-3.5 text-left text-xs font-black uppercase tracking-wider text-slate-500">Resource</th>
                   <th className="px-6 py-3.5 text-left text-xs font-black uppercase tracking-wider text-slate-500">Description</th>
                   <th className="px-6 py-3.5 text-left text-xs font-black uppercase tracking-wider text-slate-500">Type</th>
-                  <th className="px-6 py-3.5 text-left text-xs font-black uppercase tracking-wider text-slate-500">Minimum Tier</th>
-                  <th className="px-6 py-3.5 text-left text-xs font-black uppercase tracking-wider text-slate-500">Size</th>
+                  {canManage && <th className="px-6 py-3.5 text-left text-xs font-black uppercase tracking-wider text-slate-500">Minimum Tier</th>}
+                  {canManage && <th className="px-6 py-3.5 text-left text-xs font-black uppercase tracking-wider text-slate-500">Size</th>}
                   <th className="px-6 py-3.5 text-left text-xs font-black uppercase tracking-wider text-slate-500">Created</th>
-                  <th className="px-6 py-3.5 text-right text-xs font-black uppercase tracking-wider text-slate-500">Actions</th>
+                  {canManage && <th className="px-6 py-3.5 text-right text-xs font-black uppercase tracking-wider text-slate-500">Actions</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -442,19 +448,23 @@ export default function ResourcesPage() {
                           {resource.type}
                         </span>
                       </td>
-                      <td className="px-6 py-4">
-                        <span className="rounded-full bg-[#0A9AE2]/10 px-2.5 py-1 text-[10px] font-black text-[#0A9AE2]">
-                          {getTierLabel(getMinimumTierFromAllowedTiers(resource.allowedTiers))}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-xs text-slate-500 dark:text-slate-400">
-                        {resource.fileSize ? formatFileSize(resource.fileSize) : '—'}
-                      </td>
+                      {canManage && (
+                        <td className="px-6 py-4">
+                          <span className="rounded-full bg-[#0A9AE2]/10 px-2.5 py-1 text-[10px] font-black text-[#0A9AE2]">
+                            {getTierLabel(getMinimumTierFromAllowedTiers(resource.allowedTiers))}
+                          </span>
+                        </td>
+                      )}
+                      {canManage && (
+                        <td className="px-6 py-4 text-xs text-slate-500 dark:text-slate-400">
+                          {resource.fileSize ? formatFileSize(resource.fileSize) : '—'}
+                        </td>
+                      )}
                       <td className="px-6 py-4 text-xs text-slate-500 dark:text-slate-400">
                         {new Date(resource.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                       </td>
-                      <td className="px-6 py-4 text-right">
-                        {canManage && (
+                      {canManage && (
+                        <td className="px-6 py-4 text-right">
                           <div className="inline-flex items-center gap-1">
                             <button
                               onClick={() => openEditModal(resource)}
@@ -471,8 +481,8 @@ export default function ResourcesPage() {
                               <Trash2 size={15} />
                             </button>
                           </div>
-                        )}
-                      </td>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
@@ -651,6 +661,22 @@ export default function ResourcesPage() {
 
       {viewingResource && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+          {isPreviewLoading ? (
+            /* Full-screen loading overlay while fetching stream URL */
+            <div className="flex flex-col items-center gap-4">
+              <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white shadow-xl dark:bg-slate-900">
+                <Loader2 className="animate-spin text-[#0A9AE2]" size={32} />
+              </div>
+              <p className="text-sm font-bold text-white/80">Loading resource...</p>
+              <button
+                type="button"
+                onClick={() => setViewingResource(null)}
+                className="mt-2 rounded-xl bg-white/10 px-4 py-2 text-xs font-bold text-white/70 backdrop-blur-sm hover:bg-white/20 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
           <div className="flex h-[85vh] w-full max-w-5xl flex-col rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900">
             <div className="flex items-start justify-between gap-4 border-b border-slate-200 p-5 dark:border-slate-800">
               <div>
@@ -674,14 +700,6 @@ export default function ResourcesPage() {
                   return (
                     <div className="flex h-full items-center justify-center rounded-2xl bg-white text-sm font-semibold text-slate-500 dark:bg-slate-900">
                       No preview available.
-                    </div>
-                  );
-                }
-
-                if (viewingResource.fileUrl && isPreviewLoading) {
-                  return (
-                    <div className="flex h-full items-center justify-center rounded-2xl bg-white dark:bg-slate-900">
-                      <Loader2 className="animate-spin text-[#0A9AE2]" size={32} />
                     </div>
                   );
                 }
@@ -750,6 +768,7 @@ export default function ResourcesPage() {
               })()}
             </div>
           </div>
+          )}
         </div>
       )}
 

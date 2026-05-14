@@ -1,3 +1,5 @@
+import type { ImageSummary } from '@/features/images/types/images.types';
+
 export type PracticeStatus = 'IN_PROGRESS' | 'COMPLETED';
 export type DifficultyFilter = 'ALL' | 'EASY' | 'MEDIUM' | 'HARD';
 export type Difficulty = 'EASY' | 'MEDIUM' | 'HARD';
@@ -17,6 +19,8 @@ export interface PracticeQuestion {
   latexEnabled: boolean;
   difficulty: Difficulty;
   options: McqOption[] | null;
+  imageRef: string | null;
+  image: ImageSummary | null;
   imageUrl: string | null;
   imageUrls: string[];
   correctAnswer: string;

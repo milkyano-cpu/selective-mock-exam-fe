@@ -19,6 +19,8 @@ export const BottomNav = () => {
   if (user?.role === 'TUTOR') menuItems = tutorMenuItems;
 
   const isStudent = user?.role === 'STUDENT' || !user?.role;
+  const isParent = user?.role === 'PARENT';
+  const useStudentStyle = isStudent || isParent;
   const isItemActive = (href: string) => href === '/dashboard'
     ? pathname === '/dashboard'
     : pathname.startsWith(href);
@@ -40,7 +42,7 @@ export const BottomNav = () => {
     }
   }, [isMoreOpen, handleKeyDown]);
 
-  if (isStudent) {
+  if (useStudentStyle) {
     // Show first 4 items + More
     const primaryItems = menuItems.slice(0, 4);
     const moreItems = menuItems.slice(4);

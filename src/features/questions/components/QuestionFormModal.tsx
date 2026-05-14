@@ -36,6 +36,7 @@ const formSchema = z
     essayAnswer:      z.string().optional(),
     explanation:      z.string().max(5000).optional(),
     timeLimitSeconds: z.string().min(1, 'Time limit is required'),
+    imageRef:         z.string().optional(),
     imageUrl:         z.string().optional(),
     subtopicsRaw:     z.string().optional(),
     notes:            z.string().max(2000).optional(),
@@ -107,7 +108,7 @@ function buildDefaultValues(q: Question | null | undefined): FormInput {
       subjectId: '', topicId: '', passageId: '', aiRubricId: '', type: 'MCQ', difficulty: 'MEDIUM',
       questionText: '', optionA: '', optionB: '', optionC: '', optionD: '',
       optionE: '', correctAnswer: '', essayAnswer: '', explanation: '',
-      timeLimitSeconds: '', imageUrl: '', subtopicsRaw: '', notes: '', questionId: '',
+      timeLimitSeconds: '', imageRef: '', imageUrl: '', subtopicsRaw: '', notes: '', questionId: '',
       adaptiveTags: '', skillTags: '',
       latexEnabled: false, markingType: 'AUTO', maxMarks: '1',
     };
@@ -131,11 +132,12 @@ function buildDefaultValues(q: Question | null | undefined): FormInput {
     essayAnswer:      q.type === 'ESSAY' ? q.correctAnswer : '',
     explanation:      q.explanation ?? '',
     timeLimitSeconds: q.timeLimitSeconds != null ? String(q.timeLimitSeconds) : '',
+    imageRef:         q.imageRef ?? '',
     imageUrl:         q.imageUrls?.length ? q.imageUrls.join(' | ') : (q.imageUrl ?? ''),
     subtopicsRaw:     (q.subtopics ?? []).join(', '),
     notes:            q.notes ?? '',
-    adaptiveTags:     q.adaptiveTags ?? '',
-    skillTags:        q.skillTags ?? '',
+    adaptiveTags:     (q.adaptiveTags ?? []).join(', '),
+    skillTags:        (q.skillTags ?? []).join(', '),
     questionId:       q.questionId ?? '',
     latexEnabled:    q.latexEnabled ?? false,
     markingType:      q.markingType ?? (q.type === 'ESSAY' ? 'AI_RUBRIC' : 'AUTO'),
@@ -312,14 +314,19 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
       maxMarks:         parseInt(values.maxMarks, 10),
       explanation:      values.explanation?.trim() || undefined,
       timeLimitSeconds,
+      imageRef:         values.imageRef?.trim() || (initialData ? null : undefined),
       imageUrl:         values.imageUrl?.trim() || undefined,
       imageUrls:        values.imageUrl?.trim()
                           ? values.imageUrl.split('|').map((item) => item.trim()).filter(Boolean)
                           : undefined,
       subtopics:        subtopics.length ? subtopics : undefined,
       notes:            values.notes?.trim() || undefined,
-      adaptiveTags:     values.adaptiveTags?.trim() || null,
-      skillTags:        values.skillTags?.trim() || null,
+      adaptiveTags:     values.adaptiveTags?.trim()
+                          ? values.adaptiveTags.split(',').map((s) => s.trim()).filter(Boolean)
+                          : [],
+      skillTags:        values.skillTags?.trim()
+                          ? values.skillTags.split(',').map((s) => s.trim()).filter(Boolean)
+                          : [],
       questionId:       values.questionId?.trim() || undefined,
     };
 
@@ -726,9 +733,19 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
             </div>
           )}
 
+          {/* Image Reference */}
+          <div className="space-y-1.5">
+            <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Image Ref</label>
+            <input
+              {...register('imageRef')}
+              placeholder="file-name.png"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 font-medium text-slate-900 transition-all focus:border-[#0A9AE2] focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+            />
+          </div>
+
           {/* Image URL */}
           <div className="space-y-1.5">
-            <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Image URL(s)</label>
+            <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Legacy Image URL(s)</label>
             <input
               {...register('imageUrl')}
               placeholder="https://... or q1-a.png | q1-b.png"

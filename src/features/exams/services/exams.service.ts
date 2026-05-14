@@ -27,6 +27,8 @@ import type {
   ExamStatus,
   PublishExamPayload,
   SessionInsightsResponse,
+  StartRetakePayload,
+  ExamAttemptSummaryResponse,
 } from '../types/exams.types';
 
 export interface ListExamsParams {
@@ -145,6 +147,18 @@ export const examService = {
 
   listSessions: async (params?: { page?: number; limit?: number }): Promise<SessionsListResponse> => {
     const response = await mdwClient.get('/exams/sessions', { params });
+    return response.data;
+  },
+
+  // ── Retake & Attempts ──────────────────────────────────────────────────────
+
+  startRetake: async (examId: string, payload: StartRetakePayload): Promise<SessionResponse> => {
+    const response = await mdwClient.post(`/exams/${examId}/retake`, payload);
+    return response.data;
+  },
+
+  getAttemptSummary: async (examId: string): Promise<ExamAttemptSummaryResponse> => {
+    const response = await mdwClient.get(`/exams/${examId}/attempts`);
     return response.data;
   },
 };

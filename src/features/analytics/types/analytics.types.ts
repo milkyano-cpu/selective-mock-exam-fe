@@ -50,7 +50,15 @@ export interface LeaderboardEntry {
 export interface Leaderboard {
   period: LeaderboardPeriod;
   entries: LeaderboardEntry[];
-  myRank: { rank: number | null; score: number | null };
+  myRank: {
+    rank: number | null;
+    studentId: string;
+    studentName: string | null;
+    avatarUrl: string | null;
+    score: number | null;
+    rankingLevel: RankingLevel | null;
+    totalExams: number | null;
+  };
 }
 
 export interface StudentAnalytics extends MyAnalytics {

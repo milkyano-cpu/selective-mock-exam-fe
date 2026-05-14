@@ -1,9 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
-  ChevronRight,
   Edit2,
   FileText,
   Filter,
@@ -18,9 +17,10 @@ import { PassageModal } from '@/features/passages/components/PassageModal';
 import { ImportPassageModal } from '@/features/passages/components/ImportPassageModal';
 import { DeleteConfirmModal } from '@/features/subjects/components/DeleteConfirmModal';
 import { passagesService } from '@/features/passages/services/passages.service';
-import type { PassageDetail, PassageListItem, ImportPassagesResult } from '@/features/passages/types/passages.types';
+import type { CreatePassagePayload, PassageDetail, PassageListItem, ImportPassagesResult, UpdatePassagePayload } from '@/features/passages/types/passages.types';
 
 export default function PassagesPage() {
+  const router = useRouter();
   const {
     passages,
     meta,
@@ -81,16 +81,47 @@ export default function PassagesPage() {
     }
   };
 
-  const onSubmit = async (payload: { externalId?: string; title?: string; content: string }) => {
-    const normalizedPayload = {
-      externalId: payload.externalId?.trim() || undefined,
+  const onSubmit = async (payload: CreatePassagePayload) => {
+    const isImageType = payload.passageType === 'IMAGE' || payload.passageType === 'TEXT_IMAGE';
+    const isTextType = payload.passageType === 'TEXT' || payload.passageType === 'TEXT_IMAGE';
+
+    if (selectedPassage) {
+      // Update: explicitly clear fields that are not relevant to chosen type
+      const updatePayload: UpdatePassagePayload = {
+        title: payload.title?.trim() || null,
+        content: isTextType ? (payload.content?.trim() || null) : null,
+        passageFormat: 'Plain',
+        passageType: payload.passageType || null,
+        imageRef: isImageType ? (payload.imageRef?.trim() || null) : null,
+        latexEnabled: isTextType ? (payload.latexEnabled ?? false) : false,
+        section: payload.section?.trim() || null,
+        difficulty: payload.difficulty?.trim() || null,
+        topic: payload.topic?.trim() || null,
+        notes: payload.notes?.trim() || null,
+      };
+      const result = await updatePassage(selectedPassage.id, updatePayload);
+      if (result) {
+        setIsModalOpen(false);
+        setSelectedPassage(null);
+        load();
+      }
+      return;
+    }
+
+    const normalizedPayload: CreatePassagePayload = {
       title: payload.title?.trim() || undefined,
-      content: payload.content.trim(),
+      content: isTextType ? (payload.content?.trim() || undefined) : undefined,
+      passageFormat: 'Plain',
+      passageType: payload.passageType || undefined,
+      imageRef: isImageType ? (payload.imageRef?.trim() || undefined) : undefined,
+      latexEnabled: isTextType ? (payload.latexEnabled ?? false) : false,
+      section: payload.section?.trim() || undefined,
+      difficulty: payload.difficulty?.trim() || undefined,
+      topic: payload.topic?.trim() || undefined,
+      notes: payload.notes?.trim() || undefined,
     };
 
-    const result = selectedPassage
-      ? await updatePassage(selectedPassage.id, normalizedPayload)
-      : await createPassage(normalizedPayload);
+    const result = await createPassage(normalizedPayload);
 
     if (result) {
       setIsModalOpen(false);
@@ -168,27 +199,34 @@ export default function PassagesPage() {
             <thead className="bg-slate-50 dark:bg-slate-800/60">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-black uppercase tracking-wide text-slate-500">Passage</th>
-                <th className="hidden md:table-cell px-6 py-3 text-left text-xs font-black uppercase tracking-wide text-slate-500">External ID</th>
+                <th className="hidden lg:table-cell px-6 py-3 text-left text-xs font-black uppercase tracking-wide text-slate-500">Type</th>
+                <th className="hidden xl:table-cell px-6 py-3 text-left text-xs font-black uppercase tracking-wide text-slate-500">Subject / Topic</th>
+                <th className="hidden lg:table-cell px-6 py-3 text-center text-xs font-black uppercase tracking-wide text-slate-500">Difficulty</th>
                 <th className="hidden md:table-cell px-6 py-3 text-center text-xs font-black uppercase tracking-wide text-slate-500">Questions</th>
+                <th className="hidden xl:table-cell px-6 py-3 text-left text-xs font-black uppercase tracking-wide text-slate-500">Created</th>
                 <th className="px-6 py-3 text-right text-xs font-black uppercase tracking-wide text-slate-500">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {isLoading && passages.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-6 py-12 text-center">
+                  <td colSpan={7} className="px-6 py-12 text-center">
                     <Loader2 className="mx-auto animate-spin text-[#0A9AE2]" />
                   </td>
                 </tr>
               ) : passages.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-6 py-16 text-center text-sm font-bold text-slate-400">
+                  <td colSpan={7} className="px-6 py-16 text-center text-sm font-bold text-slate-400">
                     No passages found.
                   </td>
                 </tr>
               ) : (
                 passages.map((passage) => (
-                  <tr key={passage.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
+                  <tr
+                    key={passage.id}
+                    onClick={() => router.push(`/dashboard/passages/${passage.id}`)}
+                    className="cursor-pointer hover:bg-slate-50/70 dark:hover:bg-slate-800/40"
+                  >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[#0A9AE2] dark:bg-blue-500/10">
@@ -206,37 +244,74 @@ export default function PassagesPage() {
                             )}
                           </div>
                           <p className="line-clamp-1 text-xs text-slate-400 dark:text-slate-500">
-                            {passage.content}
+                            {passage.content || <span className="italic">No text content</span>}
                           </p>
                         </div>
                       </div>
                     </td>
-                    <td className="hidden md:table-cell px-6 py-4 text-slate-600 dark:text-slate-400">
-                      {passage.externalId || <span className="italic text-slate-300 dark:text-slate-700">—</span>}
+                    <td className="hidden lg:table-cell px-6 py-4">
+                      {passage.passageType ? (
+                        <span className={`inline-flex items-center rounded-lg px-2 py-1 text-[11px] font-bold ${
+                          passage.passageType === 'TEXT' ? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300' :
+                          passage.passageType === 'IMAGE' ? 'bg-violet-50 text-violet-600 dark:bg-violet-500/10 dark:text-violet-400' :
+                          'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400'
+                        }`}>
+                          {passage.passageType === 'TEXT' ? 'Text' : passage.passageType === 'IMAGE' ? 'Image' : 'Text + Image'}
+                        </span>
+                      ) : (
+                        <span className="text-slate-300 dark:text-slate-700">—</span>
+                      )}
+                    </td>
+                    <td className="hidden xl:table-cell px-6 py-4">
+                      {passage.section || passage.topic ? (
+                        <div className="min-w-0">
+                          {passage.section && (
+                            <span className="block text-xs font-bold text-slate-700 dark:text-slate-300 truncate max-w-[160px]">
+                              {passage.section}
+                            </span>
+                          )}
+                          {passage.topic && (
+                            <span className="block text-[11px] text-slate-400 dark:text-slate-500 truncate max-w-[160px]">
+                              {passage.topic}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-slate-300 dark:text-slate-700">—</span>
+                      )}
+                    </td>
+                    <td className="hidden lg:table-cell px-6 py-4 text-center">
+                      {passage.difficulty ? (
+                        <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-black ${
+                          passage.difficulty === 'EASY' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400' :
+                          passage.difficulty === 'MEDIUM' ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400' :
+                          'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400'
+                        }`}>
+                          {passage.difficulty}
+                        </span>
+                      ) : (
+                        <span className="text-slate-300 dark:text-slate-700">—</span>
+                      )}
                     </td>
                     <td className="hidden md:table-cell px-6 py-4 text-center">
                       <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-black text-blue-600 dark:bg-blue-500/10 dark:text-blue-400">
                         {passage._count.questions}
                       </span>
                     </td>
+                    <td className="hidden xl:table-cell px-6 py-4 text-xs text-slate-500 dark:text-slate-400">
+                      {new Date(passage.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })}
+                    </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <Link
-                          href={`/dashboard/passages/${passage.id}`}
-                          className="rounded-lg p-2 text-slate-400 hover:bg-blue-50 hover:text-[#0A9AE2] dark:hover:bg-blue-500/10"
-                          title="View linked questions"
-                        >
-                          <ChevronRight size={16} />
-                        </Link>
                         <button
-                          onClick={() => handleEdit(passage)}
+                          onClick={(e) => { e.stopPropagation(); handleEdit(passage); }}
                           className="rounded-lg p-2 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-500/10"
                           title="Edit passage"
                         >
                           <Edit2 size={16} />
                         </button>
                         <button
-                          onClick={() => handleDelete(passage)}
+                          onClick={(e) => { e.stopPropagation(); handleDelete(passage); }}
                           disabled={actionLoading === passage.id}
                           className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 disabled:opacity-50 dark:hover:bg-red-500/10"
                           title="Delete passage"

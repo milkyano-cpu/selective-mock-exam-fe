@@ -55,6 +55,10 @@ function isPending(answer: ReviewSessionAnswer) {
   return answer.reviewStatus === 'PENDING_REVIEW';
 }
 
+function isAiGraded(answer: ReviewSessionAnswer) {
+  return answer.reviewStatus === 'AI_GRADED' || (answer.aiFeedback && !answer.aiFeedback.pendingReview);
+}
+
 function EssayReviewCard({
   answer,
   index,
@@ -72,16 +76,23 @@ function EssayReviewCard({
 }) {
   const [expanded, setExpanded] = useState(index === 0);
   const pending = isPending(answer);
+  const aiGraded = isAiGraded(answer);
+  const hasScoreOverride = scoreValue.trim() !== '' && aiGraded;
+  const feedbackRequired = hasScoreOverride && !feedbackValue.trim();
   const cardBorderClass = pending
     ? 'border-amber-200 dark:border-amber-800/50'
     : answer.manualScore !== null
       ? 'border-green-200 dark:border-green-800/50'
-      : 'border-slate-200 dark:border-slate-800';
+      : aiGraded
+        ? 'border-emerald-200 dark:border-emerald-800/50'
+        : 'border-slate-200 dark:border-slate-800';
   const badgeClass = pending
     ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
     : answer.manualScore !== null
       ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-      : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300';
+      : aiGraded
+        ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+        : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300';
 
   return (
     <div className={`rounded-2xl border-2 ${cardBorderClass}`}>
@@ -97,8 +108,8 @@ function EssayReviewCard({
             <QuestionLatexRenderer text={answer.questionText} latexEnabled={answer.latexEnabled} />
           </div>
           <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
-            <span className={`font-semibold ${pending ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500 dark:text-slate-400'}`}>
-              {pending ? 'Pending review' : answer.manualScore !== null ? 'Manually graded' : 'Ready to review'}
+            <span className={`font-semibold ${pending ? 'text-amber-600 dark:text-amber-400' : answer.manualScore !== null ? 'text-green-600 dark:text-green-400' : aiGraded ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400'}`}>
+              {pending ? 'Pending review' : answer.manualScore !== null ? 'Manually graded' : aiGraded ? 'AI Graded' : 'Ready to review'}
             </span>
             <span className="text-slate-300 dark:text-slate-600">·</span>
             <span className="flex items-center gap-1 text-slate-400"><Clock size={10} />{formatSeconds(answer.timeSpentSeconds)}</span>
@@ -124,7 +135,19 @@ function EssayReviewCard({
 
           {answer.aiFeedback?.feedback && (
             <div className="mt-3 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2.5 dark:border-emerald-900/30 dark:bg-emerald-900/10">
-              <p className="text-xs font-bold uppercase text-emerald-600 dark:text-emerald-400">AI Review</p>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-bold uppercase text-emerald-600 dark:text-emerald-400">AI Review</p>
+                {answer.aiFeedback.scorePercent !== null && (
+                  <span className="text-sm font-black text-emerald-700 dark:text-emerald-300">
+                    AI Score: {answer.aiFeedback.scorePercent.toFixed(0)}%
+                    {answer.aiFeedback.isCorrect !== null && (
+                      <span className={`ml-2 text-xs ${answer.aiFeedback.isCorrect ? 'text-green-600' : 'text-red-500'}`}>
+                        ({answer.aiFeedback.isCorrect ? 'Correct' : 'Incorrect'})
+                      </span>
+                    )}
+                  </span>
+                )}
+              </div>
               <p className="mt-1 text-sm font-medium text-emerald-800 dark:text-emerald-300">{answer.aiFeedback.feedback}</p>
               {(answer.aiFeedback.confidence || answer.aiFeedback.gradedAt) && (
                 <p className="mt-2 text-xs font-medium text-emerald-600/80 dark:text-emerald-400/80">
@@ -163,6 +186,15 @@ function EssayReviewCard({
             </div>
           )}
 
+          {hasScoreOverride && (
+            <div className="mt-3 flex items-start gap-2 rounded-xl border border-blue-200 bg-blue-50 px-3 py-2.5 dark:border-blue-900/30 dark:bg-blue-900/10">
+              <AlertCircle size={14} className="mt-0.5 shrink-0 text-blue-600 dark:text-blue-400" />
+              <p className="text-xs font-medium text-blue-700 dark:text-blue-300">
+                You are overriding the AI-graded score. Tutor feedback is <span className="font-bold">required</span> to explain the reason for the change.
+              </p>
+            </div>
+          )}
+
           <div className="mt-4 grid gap-4 lg:grid-cols-[180px_minmax(0,1fr)]">
             <div>
               <label className="text-xs font-bold uppercase text-slate-400">Manual Score</label>
@@ -177,19 +209,27 @@ function EssayReviewCard({
               />
               <p className="mt-2 text-xs font-medium text-slate-400">Max marks: {answer.maxMarks}</p>
               {answer.awardedMarks !== null && (
-                <p className="mt-1 text-xs font-medium text-slate-400">Current awarded marks: {answer.awardedMarks}/{answer.maxMarks}</p>
+                <p className="mt-1 text-xs font-medium text-slate-400">Current awarded: {answer.awardedMarks}/{answer.maxMarks}</p>
+              )}
+              {aiGraded && answer.aiFeedback?.scorePercent !== null && (
+                <p className="mt-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">AI score: {answer.aiFeedback?.scorePercent?.toFixed(0)}%</p>
               )}
             </div>
 
             <div>
-              <label className="text-xs font-bold uppercase text-slate-400">Tutor Feedback</label>
+              <label className={`text-xs font-bold uppercase ${feedbackRequired ? 'text-red-500' : 'text-slate-400'}`}>
+                Tutor Feedback {hasScoreOverride && <span className="text-red-500">*</span>}
+              </label>
               <textarea
                 value={feedbackValue}
                 onChange={(event) => onFeedbackChange(event.target.value)}
                 rows={4}
-                placeholder="Share guidance, corrections, or strengths shown in this answer..."
-                className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-900 focus:border-[#FF6900] focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                placeholder={hasScoreOverride ? 'Required: explain why you are overriding the AI grade...' : 'Share guidance, corrections, or strengths shown in this answer...'}
+                className={`mt-1 w-full rounded-xl border bg-slate-50 px-3 py-3 text-sm text-slate-900 focus:border-[#FF6900] focus:outline-none dark:bg-slate-800 dark:text-slate-100 ${feedbackRequired ? 'border-red-300 dark:border-red-700' : 'border-slate-200 dark:border-slate-700'}`}
               />
+              {feedbackRequired && (
+                <p className="mt-1 text-xs font-medium text-red-500">Feedback is required when overriding AI-graded answers</p>
+              )}
             </div>
           </div>
         </div>
@@ -311,6 +351,7 @@ export default function SessionReviewPage() {
 
   const essayAnswers = useMemo(() => review?.answers.filter(isEssay) ?? [], [review]);
   const pendingEssayCount = useMemo(() => essayAnswers.filter(isPending).length, [essayAnswers]);
+  const aiGradedEssayCount = useMemo(() => essayAnswers.filter((a) => isAiGraded(a) && a.manualScore === null).length, [essayAnswers]);
   const gradedEssayCount = useMemo(() => essayAnswers.filter((answer) => answer.manualScore !== null).length, [essayAnswers]);
 
   const handleSave = async () => {
@@ -325,10 +366,17 @@ export default function SessionReviewPage() {
         throw new Error(`Manual score for question ${answer.order} must be between 0 and ${answer.maxMarks}.`);
       }
 
+      // Validate feedback required when overriding AI-graded answers
+      const aiGradedAnswer = isAiGraded(answer);
+      const feedback = (feedbackDrafts[answer.questionId] ?? '').trim();
+      if (aiGradedAnswer && !feedback) {
+        throw new Error(`Tutor feedback is required for question ${answer.order} because you are overriding the AI grade.`);
+      }
+
       return [{
         questionId: answer.questionId,
         manualScore: numericScore,
-        tutorFeedback: (feedbackDrafts[answer.questionId] ?? '').trim() || null,
+        tutorFeedback: feedback || null,
       }];
     });
 
@@ -434,11 +482,13 @@ export default function SessionReviewPage() {
               <p className="mt-1 text-sm font-black text-slate-900 dark:text-slate-100">{review.status}</p>
             </div>
             <div className="rounded-2xl bg-slate-50 p-3 dark:bg-slate-800">
-              <p className="text-xs font-bold uppercase text-slate-400">Pending Essay</p>
-              <p className="mt-1 text-sm font-black text-amber-600 dark:text-amber-400">{pendingEssayCount}</p>
+              <p className="text-xs font-bold uppercase text-slate-400">{pendingEssayCount > 0 ? 'Pending' : 'AI Graded'}</p>
+              <p className={`mt-1 text-sm font-black ${pendingEssayCount > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400'}`}>
+                {pendingEssayCount > 0 ? pendingEssayCount : aiGradedEssayCount}
+              </p>
             </div>
             <div className="rounded-2xl bg-slate-50 p-3 dark:bg-slate-800">
-              <p className="text-xs font-bold uppercase text-slate-400">Reviewed Essay</p>
+              <p className="text-xs font-bold uppercase text-slate-400">Tutor Reviewed</p>
               <p className="mt-1 text-sm font-black text-green-600 dark:text-green-400">{gradedEssayCount}</p>
             </div>
             <div className="rounded-2xl bg-slate-50 p-3 dark:bg-slate-800">

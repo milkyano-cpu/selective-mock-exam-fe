@@ -22,7 +22,9 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Label, BarChart, Bar, Legend } from 'recharts';
+
+const SUBJECT_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316', '#6366f1', '#14b8a6', '#e11d48'];
 
 const RANKING_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   SUPERIOR: { label: 'Superior', color: 'text-yellow-700 dark:text-yellow-400', bg: 'bg-yellow-100 dark:bg-yellow-900/30' },
@@ -31,6 +33,116 @@ const RANKING_CONFIG: Record<string, { label: string; color: string; bg: string 
   AVERAGE: { label: 'Average', color: 'text-blue-700 dark:text-blue-400', bg: 'bg-blue-100 dark:bg-blue-900/30' },
   LOW_AVERAGE: { label: 'Low Average', color: 'text-slate-700 dark:text-slate-400', bg: 'bg-slate-100 dark:bg-slate-800' },
 };
+
+function TopicMasteryChart({ strongList, averageList, weakList, total }: {
+  strongList: { topicId: string; topicName: string; subjectName: string; scoreAvg: number }[];
+  averageList: { topicId: string; topicName: string; subjectName: string; scoreAvg: number }[];
+  weakList: { topicId: string; topicName: string; subjectName: string; scoreAvg: number }[];
+  total: number;
+}) {
+  const [expanded, setExpanded] = useState<'strong' | 'average' | 'weak' | null>(null);
+
+  const handleClick = (category: 'strong' | 'average' | 'weak') => {
+    setExpanded(expanded === category ? null : category);
+  };
+
+  const expandedList = expanded === 'strong' ? strongList : expanded === 'average' ? averageList : expanded === 'weak' ? weakList : [];
+  const expandedColor = expanded === 'strong' ? 'emerald' : expanded === 'average' ? 'amber' : 'red';
+  const expandedLabel = expanded === 'strong' ? 'Strong Topics' : expanded === 'average' ? 'Average Topics' : 'Weak Topics';
+
+  return (
+    <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-800/30">
+      <p className="text-[11px] font-black uppercase tracking-wide text-slate-400 mb-2 text-center">Topic Mastery</p>
+      <div className="flex items-center gap-4">
+        <div className="h-[120px] w-[120px] shrink-0">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={[
+                  { name: 'Strong', value: strongList.length },
+                  { name: 'Average', value: averageList.length },
+                  { name: 'Weak', value: weakList.length },
+                ].filter(d => d.value > 0)}
+                cx="50%"
+                cy="50%"
+                innerRadius={32}
+                outerRadius={50}
+                paddingAngle={3}
+                dataKey="value"
+                strokeWidth={0}
+              >
+                {strongList.length > 0 && <Cell fill="#10b981" />}
+                {averageList.length > 0 && <Cell fill="#f59e0b" />}
+                {weakList.length > 0 && <Cell fill="#ef4444" />}
+                <Label
+                  value={total.toString()}
+                  position="center"
+                  style={{ fontSize: '16px', fontWeight: 900 }}
+                  className="fill-slate-900 dark:fill-slate-100"
+                />
+              </Pie>
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="flex-1 space-y-1.5">
+          <button
+            type="button"
+            onClick={() => handleClick('strong')}
+            className={`w-full flex items-center justify-between rounded-lg px-2 py-1.5 transition-colors ${expanded === 'strong' ? 'bg-emerald-100 dark:bg-emerald-900/30' : 'hover:bg-slate-100 dark:hover:bg-slate-700/50'}`}
+          >
+            <div className="flex items-center gap-2">
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Strong (≥70%)</span>
+            </div>
+            <span className="text-xs font-black text-emerald-600">{strongList.length}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => handleClick('average')}
+            className={`w-full flex items-center justify-between rounded-lg px-2 py-1.5 transition-colors ${expanded === 'average' ? 'bg-amber-100 dark:bg-amber-900/30' : 'hover:bg-slate-100 dark:hover:bg-slate-700/50'}`}
+          >
+            <div className="flex items-center gap-2">
+              <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Average (50-69%)</span>
+            </div>
+            <span className="text-xs font-black text-amber-600">{averageList.length}</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => handleClick('weak')}
+            className={`w-full flex items-center justify-between rounded-lg px-2 py-1.5 transition-colors ${expanded === 'weak' ? 'bg-red-100 dark:bg-red-900/30' : 'hover:bg-slate-100 dark:hover:bg-slate-700/50'}`}
+          >
+            <div className="flex items-center gap-2">
+              <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Weak (&lt;50%)</span>
+            </div>
+            <span className="text-xs font-black text-red-600">{weakList.length}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Expanded topic list */}
+      {expanded && expandedList.length > 0 && (
+        <div className="mt-3 border-t border-slate-200 pt-3 dark:border-slate-700">
+          <p className={`text-[10px] font-black uppercase tracking-wide mb-2 text-${expandedColor}-600 dark:text-${expandedColor}-400`}>
+            {expandedLabel}
+          </p>
+          <div className="space-y-1 max-h-[140px] overflow-y-auto scrollbar-hide">
+            {expandedList.sort((a, b) => b.scoreAvg - a.scoreAvg).map((t) => (
+              <div key={t.topicId} className="flex items-center justify-between gap-2 rounded-lg bg-white px-3 py-1.5 dark:bg-slate-900">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] font-bold text-slate-800 dark:text-slate-200 truncate">{t.topicName}</p>
+                  <p className="text-[10px] text-slate-400 truncate">{t.subjectName}</p>
+                </div>
+                <span className={`text-[11px] font-black shrink-0 text-${expandedColor}-600`}>{Math.round(t.scoreAvg)}%</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function StudentPerformanceAnalytics() {
   const [analytics, setAnalytics] = useState<MyAnalytics | null>(null);
@@ -145,6 +257,16 @@ function StudentPerformanceAnalytics() {
             <p className="mt-1 text-xl font-black text-slate-900 dark:text-slate-100">{formatTime(totalTimeSeconds)}</p>
           </div>
         </div>
+
+        {/* Personal Analytics Donut - Strengths vs Weaknesses */}
+        {topicPerformance.length > 0 && (() => {
+          const strongList = topicPerformance.filter(t => t.scoreAvg >= 70);
+          const averageList = topicPerformance.filter(t => t.scoreAvg >= 50 && t.scoreAvg < 70);
+          const weakList = topicPerformance.filter(t => t.scoreAvg < 50);
+          const total = topicPerformance.length;
+
+          return <TopicMasteryChart strongList={strongList} averageList={averageList} weakList={weakList} total={total} />;
+        })()}
 
         {/* Strength & Weakness */}
         <div className="grid grid-cols-2 gap-4">
@@ -320,21 +442,17 @@ function StudentPerformanceAnalytics() {
           ) : (
             (() => {
               const myRank = leaderboard.myRank?.rank;
-              const isInTop5 = myRank != null && myRank <= 5;
-              const top5 = leaderboard.entries.slice(0, 5);
-              const myEntry = !isInTop5 && myRank != null
-                ? leaderboard.entries.find((e) => e.studentId === currentUser?.id)
-                : null;
-              // Show top 4 + student's entry if student is outside top 5
-              const displayEntries = isInTop5 ? top5 : leaderboard.entries.slice(0, 4);
+              const isInTop10 = myRank != null && myRank <= 10;
+              const top10 = leaderboard.entries.slice(0, 10);
+              const showMyEntry = !isInTop10 && myRank != null && leaderboard.myRank.studentName;
 
               return (
                 <>
-                  {displayEntries.map((entry, index) => {
+                  {top10.map((entry) => {
                     const rankConfig = entry.rankingLevel ? RANKING_CONFIG[entry.rankingLevel] : null;
-                    const isFirst = index === 0;
-                    const isSecond = index === 1;
-                    const isThird = index === 2;
+                    const isFirst = entry.rank === 1;
+                    const isSecond = entry.rank === 2;
+                    const isThird = entry.rank === 3;
                     const isMe = entry.studentId === currentUser?.id;
 
                     return (
@@ -370,8 +488,8 @@ function StudentPerformanceAnalytics() {
                     );
                   })}
 
-                  {/* Show current student's position if outside top 5 */}
-                  {!isInTop5 && myEntry && (
+                  {/* Show current student's position if outside top 10 */}
+                  {showMyEntry && (
                     <>
                       <div className="flex items-center justify-center py-1">
                         <span className="text-xs font-bold text-slate-300 dark:text-slate-600">• • •</span>
@@ -380,27 +498,27 @@ function StudentPerformanceAnalytics() {
                         className="flex items-center gap-4 rounded-2xl border border-[#0A9AE2]/30 bg-[#0A9AE2]/5 p-4 dark:border-[#0A9AE2]/40 dark:bg-[#0A9AE2]/10"
                       >
                         <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#0A9AE2]/10 font-black text-lg text-[#0A9AE2]">
-                          {myEntry.rank}
+                          {leaderboard.myRank.rank}
                         </div>
                         <div className="min-w-0 flex-1">
                           <h3 className="truncate font-bold text-[#0A9AE2] dark:text-[#0A9AE2]">
-                            {myEntry.studentName} (You)
+                            {leaderboard.myRank.studentName} (You)
                           </h3>
                           <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
-                            {myEntry.rankingLevel && RANKING_CONFIG[myEntry.rankingLevel] && (
-                              <span className={`rounded-md px-1.5 py-0.5 font-bold ${RANKING_CONFIG[myEntry.rankingLevel]!.bg} ${RANKING_CONFIG[myEntry.rankingLevel]!.color}`}>
-                                {RANKING_CONFIG[myEntry.rankingLevel]!.label}
+                            {leaderboard.myRank.rankingLevel && RANKING_CONFIG[leaderboard.myRank.rankingLevel] && (
+                              <span className={`rounded-md px-1.5 py-0.5 font-bold ${RANKING_CONFIG[leaderboard.myRank.rankingLevel]!.bg} ${RANKING_CONFIG[leaderboard.myRank.rankingLevel]!.color}`}>
+                                {RANKING_CONFIG[leaderboard.myRank.rankingLevel]!.label}
                               </span>
                             )}
                             <span className="hidden text-slate-300 dark:text-slate-600 sm:inline">·</span>
                             <span className="font-medium text-slate-500 dark:text-slate-400">
-                              {myEntry.totalExams} Exams
+                              {leaderboard.myRank.totalExams} Exams
                             </span>
                           </div>
                         </div>
                         <div className="shrink-0 text-right">
                           <div className="text-2xl font-black tracking-tight text-[#0A9AE2]">
-                            {myEntry.score.toFixed(0)}
+                            {leaderboard.myRank.score?.toFixed(0)}
                           </div>
                         </div>
                       </div>
@@ -447,6 +565,30 @@ function RoleMetricCard({
   );
 }
 
+function MiniStatCard({
+  label,
+  value,
+  icon: Icon,
+  color,
+}: {
+  label: string;
+  value: number;
+  icon: LucideIcon;
+  color: string;
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3.5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-800 ${color}`}>
+        <Icon size={16} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-lg font-black text-slate-900 dark:text-slate-100 leading-tight">{value.toLocaleString()}</p>
+        <p className="text-[11px] font-bold text-slate-400 dark:text-slate-500 truncate">{label}</p>
+      </div>
+    </div>
+  );
+}
+
 function QuickActionCard({
   icon: Icon,
   title,
@@ -479,7 +621,150 @@ function QuickActionCard({
   );
 }
 
+function AdminLeaderboardCard() {
+  const [entries, setEntries] = useState<import('@/features/analytics/types/analytics.types').LeaderboardEntry[]>([]);
+  const [exams, setExams] = useState<{ id: string; title: string }[]>([]);
+  const [selectedExamId, setSelectedExamId] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Fetch exams list once
+  useEffect(() => {
+    const loadExams = async () => {
+      try {
+        const { examService } = await import('@/features/exams/services/exams.service');
+        const res = await examService.list({ limit: 50 });
+        if (res.success) {
+          setExams(res.data.map((e) => ({ id: e.id, title: e.title })));
+        }
+      } catch {
+        // silent
+      }
+    };
+    loadExams();
+  }, []);
+
+  // Fetch leaderboard when exam selection changes
+  useEffect(() => {
+    const load = async () => {
+      setIsLoading(true);
+      try {
+        const res = await analyticsService.getLeaderboard('ALL_TIME', selectedExamId || undefined);
+        if (res.success) setEntries(res.data.entries.slice(0, 5));
+      } catch {
+        // silent
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    load();
+  }, [selectedExamId]);
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  return (
+    <div className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <Award size={14} className="text-[#FF6900]" />
+          <p className="text-xs font-black uppercase tracking-wide text-slate-400">Leaderboard</p>
+        </div>
+        {/* Exam selector */}
+        <div className="relative" ref={dropdownRef}>
+          <button
+            type="button"
+            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+            className="flex items-center gap-1 rounded-lg bg-slate-50 px-2 py-1 text-[10px] font-bold text-slate-600 hover:bg-slate-100 dark:bg-slate-800 dark:text-slate-400 dark:hover:bg-slate-700 transition-colors"
+          >
+            <span className="truncate max-w-[70px]">{selectedExamId ? exams.find(e => e.id === selectedExamId)?.title || 'Exam' : 'Global'}</span>
+            <ChevronDown size={10} className={`transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+          </button>
+          {isDropdownOpen && (
+            <div className="absolute right-0 top-full z-50 mt-1 w-44 max-h-48 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900">
+              <button
+                type="button"
+                onClick={() => { setSelectedExamId(''); setIsDropdownOpen(false); }}
+                className={`w-full px-3 py-2 text-left text-[11px] font-bold transition-colors hover:bg-slate-50 dark:hover:bg-slate-800 ${!selectedExamId ? 'text-[#0A9AE2]' : 'text-slate-700 dark:text-slate-300'}`}
+              >
+                Global Ranking
+              </button>
+              {exams.map((exam) => (
+                <button
+                  key={exam.id}
+                  type="button"
+                  onClick={() => { setSelectedExamId(exam.id); setIsDropdownOpen(false); }}
+                  className={`w-full px-3 py-2 text-left text-[11px] font-bold transition-colors hover:bg-slate-50 dark:hover:bg-slate-800 truncate ${selectedExamId === exam.id ? 'text-[#0A9AE2]' : 'text-slate-700 dark:text-slate-300'}`}
+                >
+                  {exam.title}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+      {isLoading ? (
+        <div className="h-[110px] flex items-center justify-center">
+          <span className="text-sm text-slate-400">Loading...</span>
+        </div>
+      ) : entries.length === 0 ? (
+        <div className="h-[110px] flex items-center justify-center">
+          <span className="text-xs text-slate-400">No ranking data yet</span>
+        </div>
+      ) : (
+        <div className="space-y-1.5">
+          {entries.map((entry) => (
+            <div key={entry.studentId} className="flex items-center gap-2">
+              <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-black ${
+                entry.rank === 1 ? 'bg-yellow-100 text-yellow-700' :
+                entry.rank === 2 ? 'bg-slate-100 text-slate-600' :
+                entry.rank === 3 ? 'bg-orange-100 text-orange-700' :
+                'bg-slate-50 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+              }`}>
+                {entry.rank}
+              </span>
+              <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 truncate flex-1">
+                {entry.studentName}
+              </span>
+              <span className="text-[11px] font-black text-[#0A9AE2] shrink-0">
+                {entry.score.toFixed(0)}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AdminDashboard({ firstName }: { firstName: string }) {
+  const [stats, setStats] = useState<import('@/features/admin/services/admin.service').AdminDashboardStats | null>(null);
+  const [isStatsLoading, setIsStatsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const { adminService } = await import('@/features/admin/services/admin.service');
+        const res = await adminService.getStats();
+        if (res.success) setStats(res.data);
+      } catch {
+        // silent
+      } finally {
+        setIsStatsLoading(false);
+      }
+    };
+    fetchStats();
+  }, []);
+
   return (
     <div className="space-y-8">
       <header className="flex flex-col gap-2">
@@ -487,31 +772,236 @@ function AdminDashboard({ firstName }: { firstName: string }) {
         <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100 sm:text-3xl">
           Welcome back, <span className="text-[#0A9AE2]">{firstName}</span>! 👋
         </h1>
-        <p className="max-w-2xl text-sm font-medium text-slate-500 dark:text-slate-400">
+        {/* <p className="max-w-2xl text-sm font-medium text-slate-500 dark:text-slate-400">
           Manage users, exam content, question approvals, practice assignments, and platform communication from one dashboard.
-        </p>
+        </p> */}
       </header>
 
+      {/* Key Metrics */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <RoleMetricCard icon={Users} label="User management" value="Active" tone="bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-300" />
-        <RoleMetricCard icon={FileText} label="Exam workflow" value="Ready" tone="bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-300" />
-        <RoleMetricCard icon={Trophy} label="Question bank" value="Live" tone="bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-300" />
-        <RoleMetricCard icon={TrendingUp} label="Analytics" value="Student" tone="bg-violet-50 text-violet-600 dark:bg-violet-900/20 dark:text-violet-300" />
+        {/* Student Gender Pie Chart */}
+        <div className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-2">Students by Gender</p>
+          {isStatsLoading ? (
+            <div className="h-[130px] flex items-center justify-center">
+              <span className="text-sm text-slate-400">Loading...</span>
+            </div>
+          ) : stats?.studentGender ? (
+            <>
+              <div className="h-[100px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={[
+                        { name: 'Male', value: stats.studentGender.male, fill: '#3b82f6' },
+                        { name: 'Female', value: stats.studentGender.female, fill: '#ec4899' },
+                        ...(stats.studentGender.unspecified > 0 ? [{ name: 'N/A', value: stats.studentGender.unspecified, fill: '#94a3b8' }] : []),
+                      ]}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={30}
+                      outerRadius={45}
+                      paddingAngle={3}
+                      dataKey="value"
+                      strokeWidth={0}
+                    >
+                      <Cell fill="#3b82f6" />
+                      <Cell fill="#ec4899" />
+                      {stats.studentGender.unspecified > 0 && <Cell fill="#94a3b8" />}
+                      <Label
+                        value={stats.totalStudents.toString()}
+                        position="center"
+                        style={{ fontSize: '16px', fontWeight: 900 }}
+                        className="fill-slate-900 dark:fill-slate-100"
+                      />
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex items-center justify-center gap-3 mt-1">
+                <div className="flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-blue-500" />
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">Male {stats.studentGender.male}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-pink-500" />
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">Female {stats.studentGender.female}</span>
+                </div>
+                {stats.studentGender.unspecified > 0 && (
+                  <div className="flex items-center gap-1">
+                    <span className="h-2 w-2 rounded-full bg-slate-400" />
+                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">N/A {stats.studentGender.unspecified}</span>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : null}
+        </div>
+        {/* Students by Tier Pie Chart */}
+        <div className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 overflow-hidden">
+          <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-2">Students by Tier</p>
+          {isStatsLoading ? (
+            <div className="h-[130px] flex items-center justify-center">
+              <span className="text-sm text-slate-400">Loading...</span>
+            </div>
+          ) : stats?.studentTier ? (
+            <>
+              <div className="h-[100px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={[
+                        { name: 'Basic', value: stats.studentTier.basic },
+                        { name: 'Standard', value: stats.studentTier.standard },
+                        { name: 'Premium', value: stats.studentTier.premium },
+                      ].filter(d => d.value > 0)}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={30}
+                      outerRadius={45}
+                      paddingAngle={3}
+                      dataKey="value"
+                      strokeWidth={0}
+                    >
+                      {stats.studentTier.basic > 0 && <Cell fill="#94a3b8" />}
+                      {stats.studentTier.standard > 0 && <Cell fill="#f59e0b" />}
+                      {stats.studentTier.premium > 0 && <Cell fill="#8b5cf6" />}
+                      <Label
+                        value={stats.totalStudents.toString()}
+                        position="center"
+                        style={{ fontSize: '16px', fontWeight: 900 }}
+                        className="fill-slate-900 dark:fill-slate-100"
+                      />
+                    </Pie>
+                    <Tooltip contentStyle={{ borderRadius: '12px', fontSize: '11px', fontWeight: 600 }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex items-center justify-center gap-3 mt-1">
+                <div className="flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-slate-400" />
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">Basic {stats.studentTier.basic}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-amber-500" />
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">Standard {stats.studentTier.standard}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-violet-500" />
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">Premium {stats.studentTier.premium}</span>
+                </div>
+              </div>
+            </>
+          ) : null}
+        </div>
+        {/* Exam Participation Pie Chart */}
+        <div className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 overflow-hidden">
+          <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-2">Exam Participation</p>
+          {isStatsLoading ? (
+            <div className="h-[130px] flex items-center justify-center">
+              <span className="text-sm text-slate-400">Loading...</span>
+            </div>
+          ) : stats?.examParticipation ? (
+            <>
+              <div className="h-[100px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={[
+                        { name: 'Participated', value: stats.examParticipation.participated },
+                        { name: 'Not yet', value: stats.examParticipation.notParticipated },
+                      ].filter(d => d.value > 0)}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={30}
+                      outerRadius={45}
+                      paddingAngle={3}
+                      dataKey="value"
+                      strokeWidth={0}
+                    >
+                      {stats.examParticipation.participated > 0 && <Cell fill="#10b981" />}
+                      {stats.examParticipation.notParticipated > 0 && <Cell fill="#e2e8f0" />}
+                      <Label
+                        value={`${stats.totalStudents > 0 ? Math.round((stats.examParticipation.participated / stats.totalStudents) * 100) : 0}%`}
+                        position="center"
+                        style={{ fontSize: '14px', fontWeight: 900 }}
+                        className="fill-slate-900 dark:fill-slate-100"
+                      />
+                    </Pie>
+                    <Tooltip contentStyle={{ borderRadius: '12px', fontSize: '11px', fontWeight: 600 }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex items-center justify-center gap-3 mt-1">
+                <div className="flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">Joined {stats.examParticipation.participated}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-slate-200" />
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">Not yet {stats.examParticipation.notParticipated}</span>
+                </div>
+              </div>
+            </>
+          ) : null}
+        </div>
+        {/* Top Students Leaderboard Mini */}
+        <AdminLeaderboardCard />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <QuickActionCard icon={Users} title="Manage users" description="Create staff accounts and review registered students or parents." href="/dashboard/users" tone="bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-300" />
-        <QuickActionCard icon={FileText} title="Build exams" description="Create mock exams, attach published questions, and manage submissions." href="/dashboard/exams" tone="bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-300" />
-        <QuickActionCard icon={Trophy} title="Review question bank" description="Import CSV questions, approve submitted items, and publish reusable content." href="/dashboard/questions" tone="bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-300" />
-        <QuickActionCard icon={ClipboardList} title="Assign practice" description="Create targeted practice sessions for students from published MCQ questions." href="/dashboard/practice/assignments" tone="bg-cyan-50 text-cyan-600 dark:bg-cyan-900/20 dark:text-cyan-300" />
-        <QuickActionCard icon={BookOpen} title="Manage subjects" description="Keep subjects and topics ready for practice, analytics, and imports." href="/dashboard/subjects" tone="bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-300" />
-        <QuickActionCard icon={CreditCard} title="Billing overview" description="Open billing tools for subscription and payment related follow-up." href="/dashboard/billing" tone="bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300" />
-      </div>
+      {/* Monthly Student Registrations Bar Chart */}
+      {!isStatsLoading && stats?.monthlyRegistrations && stats.monthlyRegistrations.length > 0 && (
+        <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="mb-4">
+            <h2 className="text-base font-black text-slate-900 dark:text-slate-100">New Students per Month</h2>
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Registration trend by gender (last 6 months)</p>
+          </div>
+          <div className="h-[220px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={stats.monthlyRegistrations.map((m) => ({
+                  month: new Date(m.month + '-01').toLocaleDateString('en-US', { month: 'short' }),
+                  Male: m.male,
+                  Female: m.female,
+                }))}
+                margin={{ top: 5, right: 10, left: -10, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                <XAxis dataKey="month" tick={{ fontSize: 11, fontWeight: 700 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                <Tooltip contentStyle={{ borderRadius: '12px', fontSize: '12px', fontWeight: 600 }} />
+                <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px', fontWeight: 700 }} />
+                <Bar dataKey="Male" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Female" fill="#ec4899" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
 
 function TutorDashboard({ firstName }: { firstName: string }) {
+  const [stats, setStats] = useState<import('@/features/admin/services/admin.service').AdminDashboardStats | null>(null);
+  const [isStatsLoading, setIsStatsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const { adminService } = await import('@/features/admin/services/admin.service');
+        const res = await adminService.getStats();
+        if (res.success) setStats(res.data);
+      } catch {
+        // silent — tutor may not have access to all stats
+      } finally {
+        setIsStatsLoading(false);
+      }
+    };
+    fetchStats();
+  }, []);
+
   return (
     <div className="space-y-8">
       <header className="flex flex-col gap-2">
@@ -519,112 +1009,527 @@ function TutorDashboard({ firstName }: { firstName: string }) {
         <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100 sm:text-3xl">
           Welcome back, <span className="text-[#0A9AE2]">{firstName}</span>! 👋
         </h1>
-        <p className="max-w-2xl text-sm font-medium text-slate-500 dark:text-slate-400">
-          Jump into grading, exam authoring, question creation, and targeted student practice.
-        </p>
+        {/* <p className="max-w-2xl text-sm font-medium text-slate-500 dark:text-slate-400">
+          Monitor student progress, review exam results, and manage question content.
+        </p> */}
       </header>
 
+      {/* Key Metrics */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <RoleMetricCard icon={FileText} label="Mock exams" value="Open" tone="bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-300" />
-        <RoleMetricCard icon={ClipboardList} label="Practice tasks" value="Assign" tone="bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-300" />
-        <RoleMetricCard icon={Trophy} label="Question bank" value="Create" tone="bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-300" />
-        <RoleMetricCard icon={BookOpen} label="AI Rubrics" value="Guide" tone="bg-violet-50 text-violet-600 dark:bg-violet-900/20 dark:text-violet-300" />
+        {/* Student Gender Pie Chart */}
+        <div className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-2">Students by Gender</p>
+          {isStatsLoading ? (
+            <div className="h-[130px] flex items-center justify-center">
+              <span className="text-sm text-slate-400">Loading...</span>
+            </div>
+          ) : stats?.studentGender ? (
+            <>
+              <div className="h-[100px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={[
+                        { name: 'Male', value: stats.studentGender.male, fill: '#3b82f6' },
+                        { name: 'Female', value: stats.studentGender.female, fill: '#ec4899' },
+                      ].filter(d => d.value > 0)}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={30}
+                      outerRadius={45}
+                      paddingAngle={3}
+                      dataKey="value"
+                      strokeWidth={0}
+                    >
+                      {stats.studentGender.male > 0 && <Cell fill="#3b82f6" />}
+                      {stats.studentGender.female > 0 && <Cell fill="#ec4899" />}
+                      <Label
+                        value={stats.totalStudents.toString()}
+                        position="center"
+                        style={{ fontSize: '16px', fontWeight: 900 }}
+                        className="fill-slate-900 dark:fill-slate-100"
+                      />
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex items-center justify-center gap-3 mt-1">
+                <div className="flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-blue-500" />
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">Male {stats.studentGender.male}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-pink-500" />
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">Female {stats.studentGender.female}</span>
+                </div>
+              </div>
+            </>
+          ) : null}
+        </div>
+        {/* Students by Tier */}
+        <div className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 overflow-hidden">
+          <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-2">Students by Tier</p>
+          {isStatsLoading ? (
+            <div className="h-[130px] flex items-center justify-center">
+              <span className="text-sm text-slate-400">Loading...</span>
+            </div>
+          ) : stats?.studentTier ? (
+            <>
+              <div className="h-[100px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={[
+                        { name: 'Basic', value: stats.studentTier.basic },
+                        { name: 'Standard', value: stats.studentTier.standard },
+                        { name: 'Premium', value: stats.studentTier.premium },
+                      ].filter(d => d.value > 0)}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={30}
+                      outerRadius={45}
+                      paddingAngle={3}
+                      dataKey="value"
+                      strokeWidth={0}
+                    >
+                      {stats.studentTier.basic > 0 && <Cell fill="#94a3b8" />}
+                      {stats.studentTier.standard > 0 && <Cell fill="#f59e0b" />}
+                      {stats.studentTier.premium > 0 && <Cell fill="#8b5cf6" />}
+                      <Label
+                        value={stats.totalStudents.toString()}
+                        position="center"
+                        style={{ fontSize: '16px', fontWeight: 900 }}
+                        className="fill-slate-900 dark:fill-slate-100"
+                      />
+                    </Pie>
+                    <Tooltip contentStyle={{ borderRadius: '12px', fontSize: '11px', fontWeight: 600 }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex items-center justify-center gap-3 mt-1">
+                <div className="flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-slate-400" />
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">Basic {stats.studentTier.basic}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-amber-500" />
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">Standard {stats.studentTier.standard}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-violet-500" />
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">Premium {stats.studentTier.premium}</span>
+                </div>
+              </div>
+            </>
+          ) : null}
+        </div>
+        {/* Exam Participation */}
+        <div className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 overflow-hidden">
+          <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-2">Exam Participation</p>
+          {isStatsLoading ? (
+            <div className="h-[130px] flex items-center justify-center">
+              <span className="text-sm text-slate-400">Loading...</span>
+            </div>
+          ) : stats?.examParticipation ? (
+            <>
+              <div className="h-[100px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={[
+                        { name: 'Participated', value: stats.examParticipation.participated },
+                        { name: 'Not yet', value: stats.examParticipation.notParticipated },
+                      ].filter(d => d.value > 0)}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={30}
+                      outerRadius={45}
+                      paddingAngle={3}
+                      dataKey="value"
+                      strokeWidth={0}
+                    >
+                      {stats.examParticipation.participated > 0 && <Cell fill="#10b981" />}
+                      {stats.examParticipation.notParticipated > 0 && <Cell fill="#e2e8f0" />}
+                      <Label
+                        value={`${stats.totalStudents > 0 ? Math.round((stats.examParticipation.participated / stats.totalStudents) * 100) : 0}%`}
+                        position="center"
+                        style={{ fontSize: '14px', fontWeight: 900 }}
+                        className="fill-slate-900 dark:fill-slate-100"
+                      />
+                    </Pie>
+                    <Tooltip contentStyle={{ borderRadius: '12px', fontSize: '11px', fontWeight: 600 }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex items-center justify-center gap-3 mt-1">
+                <div className="flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">Joined {stats.examParticipation.participated}</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-slate-200" />
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400">Not yet {stats.examParticipation.notParticipated}</span>
+                </div>
+              </div>
+            </>
+          ) : null}
+        </div>
+        {/* Leaderboard */}
+        <AdminLeaderboardCard />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <QuickActionCard icon={FileText} title="Exam submissions" description="Open exams and review sessions that need tutor attention." href="/dashboard/exams" tone="bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-300" />
-        <QuickActionCard icon={ClipboardList} title="Practice assignments" description="Assign focused practice from reusable question bank content." href="/dashboard/practice/assignments" tone="bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-300" />
-        <QuickActionCard icon={Trophy} title="Create questions" description="Draft, import, submit, and manage questions for exams or practice." href="/dashboard/questions" tone="bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-300" />
-        <QuickActionCard icon={BookOpen} title="AI Rubrics" description="Maintain essay grading aiRubrics for AI and manual review consistency." href="/dashboard/ai-rubrics" tone="bg-violet-50 text-violet-600 dark:bg-violet-900/20 dark:text-violet-300" />
-        <QuickActionCard icon={LibraryBig} title="Passages" description="Manage reusable passages for reading comprehension questions." href="/dashboard/passages" tone="bg-cyan-50 text-cyan-600 dark:bg-cyan-900/20 dark:text-cyan-300" />
-        <QuickActionCard icon={Users} title="Students" description="View linked student cards and progress snapshots." href="/dashboard/students" tone="bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300" />
-      </div>
+      {/* Monthly Student Registrations Bar Chart */}
+      {!isStatsLoading && stats?.monthlyRegistrations && stats.monthlyRegistrations.length > 0 && (
+        <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="mb-4">
+            <h2 className="text-base font-black text-slate-900 dark:text-slate-100">New Students per Month</h2>
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Registration trend by gender (last 6 months)</p>
+          </div>
+          <div className="h-[220px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={stats.monthlyRegistrations.map((m) => ({
+                  month: new Date(m.month + '-01').toLocaleDateString('en-US', { month: 'short' }),
+                  Male: m.male,
+                  Female: m.female,
+                }))}
+                margin={{ top: 5, right: 10, left: -10, bottom: 5 }}
+              >
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                <XAxis dataKey="month" tick={{ fontSize: 11, fontWeight: 700 }} axisLine={false} tickLine={false} />
+                <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} allowDecimals={false} />
+                <Tooltip contentStyle={{ borderRadius: '12px', fontSize: '12px', fontWeight: 600 }} />
+                <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '11px', fontWeight: 700 }} />
+                <Bar dataKey="Male" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="Female" fill="#ec4899" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 function ParentDashboard({ firstName }: { firstName: string }) {
   const [children, setChildren] = useState<StudentAnalytics[]>([]);
+  const [leaderboard, setLeaderboard] = useState<import('@/features/analytics/types/analytics.types').Leaderboard | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedChildIdx, setSelectedChildIdx] = useState(0);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await analyticsService.getChildrenAnalytics();
-        if (res.success) setChildren(res.data);
+        const [childRes, lbRes] = await Promise.all([
+          analyticsService.getChildrenAnalytics(),
+          analyticsService.getLeaderboard('ALL_TIME'),
+        ]);
+        if (childRes.success) setChildren(childRes.data);
+        if (lbRes.success) setLeaderboard(lbRes.data);
       } catch {
         setChildren([]);
       } finally {
         setIsLoading(false);
       }
     };
-
     load();
   }, []);
 
-  const totalExams = children.reduce((sum, child) => sum + child.totalExams, 0);
-  const totalTime = children.reduce((sum, child) => sum + child.totalTimeSeconds, 0);
-  const scoredChildren = children.filter((child) => child.overallAvg !== null);
-  const familyAverage = scoredChildren.length > 0
-    ? scoredChildren.reduce((sum, child) => sum + (child.overallAvg ?? 0), 0) / scoredChildren.length
-    : null;
-  const latestExam = children.flatMap((child) =>
-    child.examHistory.map((exam) => ({ ...exam, studentName: child.studentName }))
-  ).sort((a, b) => new Date(b.takenAt).getTime() - new Date(a.takenAt).getTime())[0] ?? null;
+  const selectedChild = children[selectedChildIdx] ?? null;
+
+  // Score trend data for selected child
+  const scoreTrendData = selectedChild?.examHistory
+    .slice()
+    .sort((a, b) => new Date(a.takenAt).getTime() - new Date(b.takenAt).getTime())
+    .map((h) => ({
+      exam: h.examTitle.length > 12 ? h.examTitle.slice(0, 12) + '…' : h.examTitle,
+      score: h.finalScore ?? 0,
+      date: new Date(h.takenAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+    })) ?? [];
+
+  // Subject performance for selected child
+  const subjectPerf = selectedChild?.subjectPerformance ?? [];
+
+  // Weak topics (score < 50%)
+  const weakTopics = selectedChild?.topicPerformance.filter((t) => t.scoreAvg < 50) ?? [];
+
+  // Find child's rank in leaderboard
+  const getChildRank = (studentId: string) => {
+    if (!leaderboard) return null;
+    const entry = leaderboard.entries.find((e) => e.studentId === studentId);
+    return entry ?? null;
+  };
+
+  if (isLoading) {
+    return (
+      <div className="space-y-8">
+        <div className="h-8 w-48 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />
+        <div className="h-64 animate-pulse rounded-[2rem] bg-slate-200/50 dark:bg-slate-800/50" />
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <header className="flex flex-col gap-2">
         <p className="text-xs font-black uppercase tracking-[0.24em] text-[#0A9AE2]">Parent dashboard</p>
         <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100 sm:text-3xl">
           Welcome, <span className="text-[#0A9AE2]">{firstName}</span>!
         </h1>
         <p className="max-w-2xl text-sm font-medium text-slate-500 dark:text-slate-400">
-          Monitor linked students, review mock exam results, and identify the next topics that need focus.
+          Monitor your children&apos;s progress, exam scores, and identify areas that need attention.
         </p>
       </header>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <RoleMetricCard icon={Users} label="Linked students" value={isLoading ? '...' : children.length} tone="bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-300" />
-        <RoleMetricCard icon={FileText} label="Completed exams" value={isLoading ? '...' : totalExams} tone="bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-300" />
-        <RoleMetricCard icon={Trophy} label="Family average" value={isLoading ? '...' : familyAverage !== null ? `${familyAverage.toFixed(0)}%` : '-'} tone="bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-300" />
-        <RoleMetricCard icon={Clock} label="Study time" value={isLoading ? '...' : formatRoleTime(totalTime)} tone="bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-300" />
-      </div>
+      {/* Child Selector */}
+      {children.length > 1 && (
+        <div className="flex gap-2 flex-wrap">
+          {children.map((child, idx) => (
+            <button
+              key={child.studentId}
+              onClick={() => setSelectedChildIdx(idx)}
+              className={`rounded-xl px-4 py-2 text-sm font-bold transition-all ${
+                idx === selectedChildIdx
+                  ? 'bg-[#0A9AE2] text-white shadow-md shadow-blue-500/20'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
+              }`}
+            >
+              {child.studentName}
+            </button>
+          ))}
+        </div>
+      )}
 
-      <div className="grid gap-4 lg:grid-cols-[1fr_0.8fr]">
-        <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="mb-5 flex items-center justify-between gap-4">
-            <div>
-              <h2 className="text-lg font-black text-slate-900 dark:text-slate-100">Recent result</h2>
-              <p className="text-sm font-medium text-slate-500 dark:text-slate-400">Latest completed mock exam across linked students.</p>
-            </div>
-            <Link href="/dashboard/results" className="rounded-xl bg-[#0A9AE2] px-3 py-2 text-xs font-black text-white transition-colors hover:bg-[#0864B6]">
-              View all
-            </Link>
-          </div>
-          {latestExam ? (
-            <div className="rounded-2xl border border-slate-100 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-950/50">
-              <p className="text-sm font-black text-slate-900 dark:text-slate-100">{latestExam.examTitle}</p>
-              <p className="mt-1 text-xs font-bold text-slate-400">{latestExam.studentName}</p>
-              <div className="mt-4 flex items-end justify-between gap-4">
-                <div>
-                  <p className="text-xs font-black uppercase tracking-wide text-slate-400">Score</p>
-                  <p className="text-3xl font-black text-[#FF6900]">{latestExam.finalScore !== null ? latestExam.finalScore.toFixed(0) : '-'}</p>
+      {/* Top Metric Cards — per selected child */}
+      {selectedChild && (
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <RoleMetricCard icon={FileText} label="Completed exams" value={selectedChild.totalExams} tone="bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-300" />
+          <RoleMetricCard icon={Trophy} label="Average score" value={selectedChild.overallAvg !== null ? `${selectedChild.overallAvg.toFixed(0)}%` : '-'} tone="bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-300" />
+          <RoleMetricCard icon={Clock} label="Study time" value={formatRoleTime(selectedChild.totalTimeSeconds)} tone="bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-300" />
+          <RoleMetricCard icon={Target} label="Subjects covered" value={selectedChild.subjectPerformance.length} tone="bg-violet-50 text-violet-600 dark:bg-violet-900/20 dark:text-violet-300" />
+        </div>
+      )}
+
+      {children.length === 0 ? (
+        <div className="rounded-[2rem] border border-dashed border-slate-200 bg-white py-16 text-center dark:border-slate-800 dark:bg-slate-900">
+          <Users className="mx-auto mb-3 text-slate-300" size={40} />
+          <p className="font-bold text-slate-500">No linked students yet.</p>
+          <p className="text-sm text-slate-400 mt-1">Students will appear here once linked to your account.</p>
+        </div>
+      ) : selectedChild && (
+        <>
+          {/* Child Comparison Cards + Ranking */}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {/* Child Summary Card */}
+            <div className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-white font-black text-sm">
+                  {selectedChild.studentName.charAt(0)}
                 </div>
-                <p className="text-xs font-bold text-slate-400">{formatRoleTime(latestExam.totalTimeSeconds ?? 0)}</p>
+                <div>
+                  <p className="font-black text-slate-900 dark:text-slate-100">{selectedChild.studentName}</p>
+                  <p className="text-[11px] font-medium text-slate-400">{selectedChild.totalExams} exams · {formatRoleTime(selectedChild.totalTimeSeconds)}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-800">
+                  <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Average</p>
+                  <p className="text-xl font-black text-slate-900 dark:text-slate-100">
+                    {selectedChild.overallAvg !== null ? `${selectedChild.overallAvg.toFixed(0)}%` : '-'}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-800">
+                  <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Ranking</p>
+                  <p className="text-xl font-black text-slate-900 dark:text-slate-100">
+                    {selectedChild.rankingLevel ? RANKING_CONFIG[selectedChild.rankingLevel]?.label ?? '-' : '-'}
+                  </p>
+                </div>
               </div>
             </div>
-          ) : (
-            <div className="rounded-2xl border border-dashed border-slate-200 py-12 text-center text-sm font-bold text-slate-400 dark:border-slate-800">
-              No completed exam results yet.
+
+            {/* Ranking Position */}
+            <div className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <div className="flex items-center gap-2 mb-3">
+                <Award size={16} className="text-[#FF6900]" />
+                <p className="text-xs font-black uppercase tracking-wide text-slate-400">Leaderboard Position</p>
+              </div>
+              {(() => {
+                const rank = getChildRank(selectedChild.studentId);
+                if (!rank) return (
+                  <div className="flex items-center justify-center h-[100px]">
+                    <p className="text-sm text-slate-400">Not ranked yet</p>
+                  </div>
+                );
+                return (
+                  <div className="flex flex-col items-center justify-center h-[100px] gap-2">
+                    <div className={`flex h-14 w-14 items-center justify-center rounded-full text-xl font-black ${
+                      rank.rank === 1 ? 'bg-yellow-100 text-yellow-700' :
+                      rank.rank === 2 ? 'bg-slate-100 text-slate-600' :
+                      rank.rank === 3 ? 'bg-orange-100 text-orange-700' :
+                      'bg-blue-50 text-blue-600'
+                    }`}>
+                      #{rank.rank}
+                    </div>
+                    <p className="text-xs font-bold text-slate-500">Score: <span className="text-[#0A9AE2] font-black">{rank.score.toFixed(0)}</span></p>
+                    {rank.rankingLevel && RANKING_CONFIG[rank.rankingLevel] && (
+                      <span className={`rounded-md px-2 py-0.5 text-[10px] font-black ${RANKING_CONFIG[rank.rankingLevel]!.bg} ${RANKING_CONFIG[rank.rankingLevel]!.color}`}>
+                        {RANKING_CONFIG[rank.rankingLevel]!.label}
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Weak Topics Alert */}
+            <div className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <div className="flex items-center gap-2 mb-3">
+                <AlertTriangle size={16} className="text-amber-500" />
+                <p className="text-xs font-black uppercase tracking-wide text-slate-400">Needs Attention</p>
+              </div>
+              {weakTopics.length === 0 ? (
+                <div className="flex items-center justify-center h-[100px]">
+                  <div className="text-center">
+                    <Target size={24} className="mx-auto text-emerald-400 mb-1" />
+                    <p className="text-xs font-bold text-slate-500">All topics on track!</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-1.5 max-h-[110px] overflow-y-auto scrollbar-hide">
+                  {weakTopics.slice(0, 5).map((t) => (
+                    <div key={t.topicId} className="flex items-center justify-between gap-2 rounded-lg bg-red-50/50 px-3 py-1.5 dark:bg-red-500/5">
+                      <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 truncate">{t.topicName}</span>
+                      <span className="text-[11px] font-black text-red-500 shrink-0">{t.scoreAvg.toFixed(0)}%</span>
+                    </div>
+                  ))}
+                  {weakTopics.length > 5 && (
+                    <p className="text-[10px] font-bold text-slate-400 text-center">+{weakTopics.length - 5} more</p>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Score Trend Chart */}
+          {scoreTrendData.length > 0 && (
+            <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <div className="mb-4">
+                <h2 className="text-base font-black text-slate-900 dark:text-slate-100">Score Trend</h2>
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                  {selectedChild.studentName}&apos;s exam scores over time
+                </p>
+              </div>
+              <div className="h-[200px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={scoreTrendData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+                    <defs>
+                      <linearGradient id="scoreGradient" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#0A9AE2" stopOpacity={0.3} />
+                        <stop offset="95%" stopColor="#0A9AE2" stopOpacity={0} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                    <XAxis dataKey="date" tick={{ fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} domain={[0, 100]} />
+                    <Tooltip contentStyle={{ borderRadius: '12px', fontSize: '12px', fontWeight: 600 }} />
+                    <Area type="monotone" dataKey="score" stroke="#0A9AE2" strokeWidth={2.5} fill="url(#scoreGradient)" dot={{ r: 4, fill: '#0A9AE2', strokeWidth: 0 }} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           )}
-        </div>
 
-        <div className="grid gap-4">
-          <QuickActionCard icon={TrendingUp} title="Exam Results" description="Open detailed score history, strengths, and weak areas." href="/dashboard/results" tone="bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-300" />
-        </div>
-      </div>
+          {/* Subject Performance Bar Chart */}
+          {subjectPerf.length > 0 && (
+            <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <div className="mb-4">
+                <h2 className="text-base font-black text-slate-900 dark:text-slate-100">Subject Performance</h2>
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                  Average score per subject for {selectedChild.studentName}
+                </p>
+              </div>
+              <div className="h-[200px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={subjectPerf.map((s) => ({
+                      subject: s.subjectName.length > 10 ? s.subjectName.slice(0, 10) + '…' : s.subjectName,
+                      score: Math.round(s.scoreAvg),
+                    }))}
+                    margin={{ top: 5, right: 10, left: -10, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                    <XAxis dataKey="subject" tick={{ fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} domain={[0, 100]} />
+                    <Tooltip contentStyle={{ borderRadius: '12px', fontSize: '12px', fontWeight: 600 }} />
+                    <Bar dataKey="score" radius={[6, 6, 0, 0]}>
+                      {subjectPerf.map((s, i) => (
+                        <Cell key={i} fill={s.scoreAvg >= 70 ? '#10b981' : s.scoreAvg >= 50 ? '#f59e0b' : '#ef4444'} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="flex items-center justify-center gap-4 mt-2">
+                <div className="flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                  <span className="text-[10px] font-bold text-slate-400">≥70% Strong</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-amber-500" />
+                  <span className="text-[10px] font-bold text-slate-400">50-69% Average</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span className="h-2 w-2 rounded-full bg-red-500" />
+                  <span className="text-[10px] font-bold text-slate-400">&lt;50% Weak</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Multi-child comparison (if >1 child) */}
+          {children.length > 1 && (
+            <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <div className="mb-4">
+                <h2 className="text-base font-black text-slate-900 dark:text-slate-100">Children Comparison</h2>
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Side-by-side performance overview</p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {children.map((child) => {
+                  const childRank = getChildRank(child.studentId);
+                  return (
+                    <div key={child.studentId} className="rounded-2xl border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/50">
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-white font-black text-xs">
+                          {child.studentName.charAt(0)}
+                        </div>
+                        <p className="font-bold text-sm text-slate-900 dark:text-slate-100 truncate">{child.studentName}</p>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-[11px]">
+                          <span className="text-slate-500">Average</span>
+                          <span className="font-black text-slate-900 dark:text-slate-100">{child.overallAvg !== null ? `${child.overallAvg.toFixed(0)}%` : '-'}</span>
+                        </div>
+                        <div className="flex justify-between text-[11px]">
+                          <span className="text-slate-500">Exams</span>
+                          <span className="font-black text-slate-900 dark:text-slate-100">{child.totalExams}</span>
+                        </div>
+                        <div className="flex justify-between text-[11px]">
+                          <span className="text-slate-500">Rank</span>
+                          <span className="font-black text-[#0A9AE2]">{childRank ? `#${childRank.rank}` : '-'}</span>
+                        </div>
+                        <div className="flex justify-between text-[11px]">
+                          <span className="text-slate-500">Study time</span>
+                          <span className="font-black text-slate-900 dark:text-slate-100">{formatRoleTime(child.totalTimeSeconds)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

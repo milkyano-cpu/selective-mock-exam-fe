@@ -1,3 +1,5 @@
+import type { ImageSummary } from '@/features/images/types/images.types';
+
 export interface PaginationMeta {
   page: number;
   limit: number;
@@ -12,6 +14,7 @@ export type SessionStatus = 'IN_PROGRESS' | 'SUBMITTED' | 'GRADED';
 export type RankingLevel = 'SUPERIOR' | 'ABOVE_AVERAGE' | 'HIGH_AVERAGE' | 'AVERAGE' | 'LOW_AVERAGE';
 export type AnswerReviewStatus = 'NOT_APPLICABLE' | 'AI_GRADED' | 'PENDING_REVIEW' | 'MANUAL_GRADED';
 export type ManualGradingQueueStatus = 'ALL' | 'PENDING_REVIEW' | 'GRADED';
+export type RetakeMode = 'FULL' | 'INCORRECT_ONLY' | 'SUBJECT_ONLY';
 
 export interface EssayAiFeedback {
   isCorrect: boolean | null;
@@ -70,6 +73,8 @@ export interface ExamQuestionItem {
     latexEnabled: boolean;
     options: McqOption[] | null;
     correctAnswer: string;
+    imageRef: string | null;
+    image: ImageSummary | null;
     imageUrl: string | null;
     imageUrls: string[];
     subjectName: string;
@@ -84,9 +89,13 @@ export interface SessionQuestion {
   questionText: string;
   latexEnabled: boolean;
   options: McqOption[] | null;
+  imageRef: string | null;
+  image: ImageSummary | null;
   imageUrl: string | null;
   imageUrls: string[];
-  passage: { id: string; title: string | null; content: string } | null;
+  subjectName: string;
+  topicName: string;
+  passage: { id: string; title: string | null; content: string | null; imageRef: string | null; image: ImageSummary | null } | null;
   existingAnswer: { studentAnswer: string; timeSpentSeconds: number } | null;
 }
 
@@ -121,6 +130,8 @@ export interface SessionSummary {
   idleTimeSeconds: number;
   startTime: string;
   endTime: string | null;
+  attemptNumber: number;
+  retakeMode: RetakeMode | null;
 }
 
 export interface SessionResultAnswer {
@@ -375,6 +386,60 @@ export interface SubmitManualGradesResponse {
     rankingLevel: RankingLevel | null;
     pendingReviewCount: number;
   };
+}
+
+export interface StartRetakePayload {
+  mode: RetakeMode;
+  sourceSessionId?: string;
+  subjectId?: string;
+}
+
+export interface AttemptSummaryItem {
+  sessionId: string;
+  attemptNumber: number;
+  retakeMode: RetakeMode | null;
+  finalScore: number | null;
+  rankingLevel: RankingLevel | null;
+  totalTimeSeconds: number | null;
+  activeTimeSeconds: number;
+  idleTimeSeconds: number;
+  status: SessionStatus;
+  startTime: string;
+  endTime: string | null;
+}
+
+export interface IncorrectQuestionItem {
+  questionId: string;
+  questionText: string;
+  type: 'MCQ' | 'ESSAY';
+  subjectName: string;
+  topicName: string;
+  studentAnswer: string;
+  correctAnswer: string;
+}
+
+export interface SubjectBreakdown {
+  subjectId: string;
+  subjectName: string;
+  totalQuestions: number;
+  correctCount: number;
+}
+
+export interface ExamAttemptSummary {
+  examId: string;
+  examTitle: string;
+  totalAttempts: number;
+  firstAttempt: AttemptSummaryItem | null;
+  latestAttempt: AttemptSummaryItem | null;
+  bestScore: AttemptSummaryItem | null;
+  incorrectQuestions: IncorrectQuestionItem[];
+  subjects: SubjectBreakdown[];
+}
+
+export interface ExamAttemptSummaryResponse {
+  success: boolean;
+  message: string;
+  data: ExamAttemptSummary;
 }
 
 export interface SessionInsightsResponse {

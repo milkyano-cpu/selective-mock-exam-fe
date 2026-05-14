@@ -1,3 +1,5 @@
+import type { ImageSummary } from '@/features/images/types/images.types';
+
 export type QuestionType       = 'MCQ' | 'ESSAY';
 export type QuestionDifficulty = 'EASY' | 'MEDIUM' | 'HARD';
 export type QuestionStatus     = 'DRAFT' | 'PENDING_APPROVAL' | 'PUBLISHED';
@@ -34,12 +36,14 @@ export type Question = {
   correctAnswer:    string;
   explanation:      string | null;
   timeLimitSeconds: number | null;
+  imageRef:         string | null;
+  image:            ImageSummary | null;
   imageUrl:         string | null;
   imageUrls:        string[];
   subtopics:        string[];
   notes:            string | null;
-  adaptiveTags:     string | null;
-  skillTags:        string | null;
+  adaptiveTags:     string[];
+  skillTags:        string[];
   status:           QuestionStatus;
   rejectionNote:    string | null;
   createdAt:        string;
@@ -88,6 +92,7 @@ export type UnresolvedRowData = {
   correctAnswer:     string;
   explanation:       string | null;
   timeLimitSeconds:  number | null;
+  imageRef:          string | null;
   imageUrl:          string | null;
   imageUrls:         string[];
   passageExternalId: string | null;
@@ -95,8 +100,8 @@ export type UnresolvedRowData = {
   subtopics:         string[];
   notes:             string | null;
   latexEnabled?:    boolean;
-  adaptiveTags?:     string | null;
-  skillTags?:        string | null;
+  adaptiveTags?:     string[];
+  skillTags?:        string[];
   markingType:       QuestionMarkingType;
   maxMarks:          number;
 };
@@ -160,12 +165,13 @@ export type CreateQuestionPayload = {
   correctAnswer?:    string;
   explanation?:      string;
   timeLimitSeconds?: number;
+  imageRef?:         string | null;
   imageUrl?:         string;
   imageUrls?:        string[];
   subtopics?:        string[];
   notes?:            string;
-  adaptiveTags?:     string | null;
-  skillTags?:        string | null;
+  adaptiveTags?:     string[];
+  skillTags?:        string[];
   questionId?:       string;
 };
 

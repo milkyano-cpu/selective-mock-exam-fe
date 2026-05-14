@@ -6,6 +6,7 @@ import { isAxiosError } from 'axios';
 import { examService } from '@/features/exams/services/exams.service';
 import { QuestionLatexRenderer } from '@/components/ui/QuestionLatexRenderer';
 import type { SessionResult, SessionResultAnswer, SessionInsightsResponse } from '@/features/exams/types/exams.types';
+import type { ExamAttemptSummary } from '@/features/exams/types/exams.types';
 import {
   AlertCircle,
   ArrowLeft,
@@ -21,6 +22,10 @@ import {
   Lightbulb,
   TrendingUp,
   TrendingDown,
+  RotateCcw,
+  RefreshCw,
+  BookOpen,
+  Hash,
 } from 'lucide-react';
 
 const RANKING_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
@@ -225,6 +230,38 @@ export default function ExamResultPage() {
   const [insights, setInsights] = useState<SessionInsightsResponse['data'] | null>(null);
   const [isGeneratingInsights, setIsGeneratingInsights] = useState(false);
 
+  const [attemptSummary, setAttemptSummary] = useState<ExamAttemptSummary | null>(null);
+  const [isLoadingSummary, setIsLoadingSummary] = useState(false);
+  const [isStartingRetake, setIsStartingRetake] = useState(false);
+
+  const loadAttemptSummary = async (examId: string) => {
+    if (attemptSummary) return;
+    setIsLoadingSummary(true);
+    try {
+      const res = await examService.getAttemptSummary(examId);
+      if (res.success) setAttemptSummary(res.data);
+    } catch {
+      // silently fail — section just won't show
+    } finally {
+      setIsLoadingSummary(false);
+    }
+  };
+
+  const handleStartRetake = async (examId: string, mode: 'FULL' | 'INCORRECT_ONLY' | 'SUBJECT_ONLY', opts?: { sourceSessionId?: string; subjectId?: string }) => {
+    setIsStartingRetake(true);
+    try {
+      const res = await examService.startRetake(examId, { mode, ...opts });
+      if (res.success) {
+        router.push(`/dashboard/exams/${examId}/session`);
+      }
+    } catch (err) {
+      const msg = isAxiosError(err) ? err.response?.data?.message || 'Failed to start retake' : 'Failed to start retake';
+      alert(msg);
+    } finally {
+      setIsStartingRetake(false);
+    }
+  };
+
   const handleGenerateInsights = async () => {
     setIsGeneratingInsights(true);
     try {
@@ -246,13 +283,17 @@ export default function ExamResultPage() {
         if (res.success) {
           setResult(res.data);
           setIsLoading(false);
+          // Auto-poll while grading is still in progress (status SUBMITTED)
+          if (res.data.status === 'SUBMITTED' && pollCount < 15) {
+            setTimeout(() => setPollCount((c) => c + 1), 3000);
+          }
         } else {
           setError(res.message);
           setIsLoading(false);
         }
       } catch (err) {
         if (isAxiosError(err) && err.response?.data?.message?.includes('in progress')) {
-          if (pollCount < 10) {
+          if (pollCount < 15) {
             setTimeout(() => setPollCount((c) => c + 1), 2000);
           } else {
             setError('Grading is taking longer than expected. Please check back later.');
@@ -294,8 +335,10 @@ export default function ExamResultPage() {
 
   const rankConfig = result.rankingLevel ? RANKING_CONFIG[result.rankingLevel] : null;
   const pendingReviewCount = result.answers.filter(isPendingReview).length;
-  const incorrectCount = Math.max(0, result.totalQuestions - result.correctCount - pendingReviewCount);
-  const reviewedQuestionCount = Math.max(0, result.totalQuestions - pendingReviewCount);
+  // When status is SUBMITTED with no pending reviews, grading hasn't completed yet — counts are meaningless
+  const isGradingPending = result.status === 'SUBMITTED' && pendingReviewCount === 0;
+  const incorrectCount = isGradingPending ? 0 : Math.max(0, result.totalQuestions - result.correctCount - pendingReviewCount);
+  const reviewedQuestionCount = isGradingPending ? 0 : Math.max(0, result.totalQuestions - pendingReviewCount);
   const percentage = reviewedQuestionCount > 0 ? (result.correctCount / reviewedQuestionCount) * 100 : 0;
 
   return (
@@ -325,6 +368,11 @@ export default function ExamResultPage() {
                     </p>
                     <p className="text-xs font-bold text-slate-400">/100</p>
                   </>
+                ) : isGradingPending ? (
+                  <div className="flex flex-col items-center gap-1">
+                    <Loader2 size={20} className="animate-spin text-[#FF6900]" />
+                    <p className="text-xs font-bold text-slate-400">Grading</p>
+                  </div>
                 ) : (
                   <p className="text-xs font-bold text-slate-400">Pending</p>
                 )}
@@ -340,18 +388,18 @@ export default function ExamResultPage() {
           <div className="flex-1 grid grid-cols-2 gap-4 sm:grid-cols-4">
             <div className="rounded-2xl bg-slate-50 p-3 dark:bg-slate-800">
               <p className="text-xs font-bold uppercase text-slate-400">Correct</p>
-              <p className="mt-1 text-xl font-black text-green-600 dark:text-green-400">{result.correctCount}</p>
-              <p className="text-xs text-slate-400">of {reviewedQuestionCount || result.totalQuestions}</p>
+              <p className="mt-1 text-xl font-black text-green-600 dark:text-green-400">{isGradingPending ? '—' : result.correctCount}</p>
+              <p className="text-xs text-slate-400">of {result.totalQuestions}</p>
             </div>
             <div className="rounded-2xl bg-slate-50 p-3 dark:bg-slate-800">
               <p className="text-xs font-bold uppercase text-slate-400">Incorrect</p>
-              <p className="mt-1 text-xl font-black text-red-600 dark:text-red-400">{incorrectCount}</p>
-              <p className="text-xs text-slate-400">of {reviewedQuestionCount || result.totalQuestions}</p>
+              <p className="mt-1 text-xl font-black text-red-600 dark:text-red-400">{isGradingPending ? '—' : incorrectCount}</p>
+              <p className="text-xs text-slate-400">of {result.totalQuestions}</p>
             </div>
             <div className="rounded-2xl bg-slate-50 p-3 dark:bg-slate-800">
-              <p className="text-xs font-bold uppercase text-slate-400">Pending Review</p>
-              <p className="mt-1 text-xl font-black text-amber-600 dark:text-amber-400">{pendingReviewCount}</p>
-              <p className="text-xs text-slate-400">answers</p>
+              <p className="text-xs font-bold uppercase text-slate-400">{isGradingPending ? 'Status' : 'Pending Review'}</p>
+              <p className="mt-1 text-xl font-black text-amber-600 dark:text-amber-400">{isGradingPending ? 'Grading...' : pendingReviewCount}</p>
+              <p className="text-xs text-slate-400">{isGradingPending ? 'auto-refreshing' : 'answers'}</p>
             </div>
             <div className="rounded-2xl bg-slate-50 p-3 dark:bg-slate-800">
               <p className="text-xs font-bold uppercase text-slate-400">Time Used</p>
@@ -370,7 +418,7 @@ export default function ExamResultPage() {
             />
           </div>
           <p className="mt-1.5 text-right text-xs font-bold text-slate-400">
-            {reviewedQuestionCount > 0 ? `${percentage.toFixed(1)}% accuracy` : 'Awaiting manual review'}
+            {isGradingPending ? 'Grading in progress...' : reviewedQuestionCount > 0 ? `${percentage.toFixed(1)}% accuracy` : 'Awaiting manual review'}
           </p>
         </div>
       </div>
@@ -451,7 +499,121 @@ export default function ExamResultPage() {
         )}
       </div>
 
-      {result.answers.some(a => a.studentAnswer && a.studentAnswer.trim() !== '') && (
+      {/* ── Retake Section ──────────────────────────────────────────────── */}
+      {(result.status === 'GRADED' || result.status === 'SUBMITTED') && (
+        <div className="rounded-[2rem] border border-[#FF6900]/20 bg-white p-6 shadow-sm dark:border-[#FF6900]/10 dark:bg-slate-900">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4">
+            <div>
+              <h2 className="flex items-center gap-2 text-lg font-black text-slate-900 dark:text-slate-100">
+                <RotateCcw className="text-[#FF6900]" size={20} /> Retake & Revision
+              </h2>
+              <p className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400">
+                Practice again to improve your score.
+              </p>
+            </div>
+          </div>
+
+          {!attemptSummary && !isLoadingSummary && (
+            <button
+              onClick={() => loadAttemptSummary(result.examId)}
+              className="inline-flex items-center gap-2 rounded-xl bg-[#FF6900] px-5 py-2.5 text-sm font-bold text-white transition-all hover:bg-[#e05e00]"
+            >
+              <RotateCcw size={16} /> Show Retake Options
+            </button>
+          )}
+
+          {isLoadingSummary && (
+            <div className="flex items-center justify-center py-6">
+              <Loader2 size={24} className="animate-spin text-[#FF6900]" />
+            </div>
+          )}
+
+          {attemptSummary && (
+            <div className="space-y-4">
+              {/* Stats row */}
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-800">
+                  <p className="text-xs font-bold uppercase text-slate-400">Attempts</p>
+                  <p className="mt-1 text-lg font-black text-slate-900 dark:text-slate-100 flex items-center gap-1">
+                    <Hash size={14} className="text-slate-400" />{attemptSummary.totalAttempts}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-800">
+                  <p className="text-xs font-bold uppercase text-slate-400">Best Score</p>
+                  <p className="mt-1 text-lg font-black text-green-600 dark:text-green-400 flex items-center gap-1">
+                    <Trophy size={14} />
+                    {attemptSummary.bestScore?.finalScore != null ? <>{attemptSummary.bestScore.finalScore.toFixed(1)}<span className="text-sm text-slate-400">/100</span></> : '—'}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-800">
+                  <p className="text-xs font-bold uppercase text-slate-400">First Score</p>
+                  <p className="mt-1 text-lg font-black text-slate-900 dark:text-slate-100">
+                    {attemptSummary.firstAttempt?.finalScore != null ? <>{attemptSummary.firstAttempt.finalScore.toFixed(1)}<span className="text-sm text-slate-400">/100</span></> : '—'}
+                  </p>
+                </div>
+                <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-800">
+                  <p className="text-xs font-bold uppercase text-slate-400">Incorrect</p>
+                  <p className="mt-1 text-lg font-black text-red-600 dark:text-red-400">
+                    {attemptSummary.incorrectQuestions.length}
+                  </p>
+                </div>
+              </div>
+
+              {/* Retake buttons */}
+              <div className="grid gap-2 sm:grid-cols-2">
+                <button
+                  onClick={() => handleStartRetake(result.examId, 'FULL')}
+                  disabled={isStartingRetake}
+                  className="flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 text-left transition-colors hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:hover:bg-slate-800"
+                >
+                  <div className="rounded-lg bg-[#FF6900]/10 p-2 text-[#FF6900]"><RefreshCw size={18} /></div>
+                  <div>
+                    <p className="text-sm font-bold text-slate-900 dark:text-slate-100">Full Retake</p>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">All questions, fresh start</p>
+                  </div>
+                </button>
+
+                {attemptSummary.incorrectQuestions.length > 0 && attemptSummary.latestAttempt && (
+                  <button
+                    onClick={() => handleStartRetake(result.examId, 'INCORRECT_ONLY', { sourceSessionId: attemptSummary.latestAttempt!.sessionId })}
+                    disabled={isStartingRetake}
+                    className="flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 text-left transition-colors hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:hover:bg-slate-800"
+                  >
+                    <div className="rounded-lg bg-red-100 p-2 text-red-600 dark:bg-red-900/30 dark:text-red-400"><RotateCcw size={18} /></div>
+                    <div>
+                      <p className="text-sm font-bold text-slate-900 dark:text-slate-100">Incorrect Only</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">{attemptSummary.incorrectQuestions.length} question{attemptSummary.incorrectQuestions.length !== 1 ? 's' : ''} to redo</p>
+                    </div>
+                  </button>
+                )}
+
+                {attemptSummary.subjects.length > 1 && attemptSummary.subjects.map((subj) => (
+                  <button
+                    key={subj.subjectId}
+                    onClick={() => handleStartRetake(result.examId, 'SUBJECT_ONLY', { subjectId: subj.subjectId })}
+                    disabled={isStartingRetake}
+                    className="flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 text-left transition-colors hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:hover:bg-slate-800"
+                  >
+                    <div className="rounded-lg bg-blue-100 p-2 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"><BookOpen size={18} /></div>
+                    <div>
+                      <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{subj.subjectName}</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">{subj.correctCount}/{subj.totalQuestions} correct</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+
+              {isStartingRetake && (
+                <div className="flex items-center justify-center gap-2 py-2 text-sm font-medium text-slate-500">
+                  <Loader2 size={16} className="animate-spin" /> Starting retake...
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {!isGradingPending && result.answers.some(a => a.studentAnswer && a.studentAnswer.trim() !== '') && (
         <div className="space-y-3">
           <h2 className="text-base font-black text-slate-900 dark:text-slate-100">Answer Review</h2>
           {result.answers.map((answer, i) => {
@@ -465,12 +627,16 @@ export default function ExamResultPage() {
         <div className="rounded-[2rem] border border-amber-200 bg-amber-50 p-6 dark:border-amber-900/40 dark:bg-amber-900/10">
           <div className="flex items-start gap-3">
             <div className="mt-0.5 rounded-full bg-amber-100 p-2 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400">
-              <AlertCircle size={18} />
+              {pendingReviewCount > 0 ? <AlertCircle size={18} /> : <Loader2 size={18} className="animate-spin" />}
             </div>
             <div>
-              <p className="text-sm font-black text-amber-800 dark:text-amber-300">Manual review is still in progress</p>
+              <p className="text-sm font-black text-amber-800 dark:text-amber-300">
+                {pendingReviewCount > 0 ? 'Manual review is still in progress' : 'Grading in progress...'}
+              </p>
               <p className="mt-1 text-sm font-medium text-amber-700 dark:text-amber-400">
-                Objective questions already appear below. Essay answers marked as pending will update automatically after tutor review is completed.
+                {pendingReviewCount > 0
+                  ? 'Objective questions already appear below. Essay answers marked as pending will update automatically after tutor review is completed.'
+                  : 'Your answers are being graded. This page will update automatically.'}
               </p>
             </div>
           </div>

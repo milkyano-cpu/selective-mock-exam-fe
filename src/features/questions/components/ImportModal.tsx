@@ -53,16 +53,28 @@ const isUploadedImageRef = (value: string) => (
   value.startsWith('http://') || value.startsWith('https://')
 );
 
-const getPendingImageRefs = (q: Question) => (
+const getPendingLegacyImageRefs = (q: Question) => (
   getQuestionImageRefs(q).filter((ref) => !isUploadedImageRef(ref))
 );
+
+const getPendingMasterImageRef = (q: Question) => (
+  q.imageRef && !q.image?.url ? q.imageRef : null
+);
+
+const getPendingImageRefs = (q: Question) => {
+  const masterRef = getPendingMasterImageRef(q);
+  return [
+    ...(masterRef ? [masterRef] : []),
+    ...getPendingLegacyImageRefs(q),
+  ];
+};
 
 const needsImageUpload = (q: Question) => {
   return getPendingImageRefs(q).length > 0;
 };
 
 const getNextExpectedImageName = (q: Question): string | null => {
-  const val = getPendingImageRefs(q)[0];
+  const val = getPendingLegacyImageRefs(q)[0];
   if (!val || val.toLowerCase() === 'true') return null;
   return val;
 };
@@ -282,7 +294,7 @@ export function ImportModal({
     if (selectedFiles.length === 0) return;
 
     const question = reviewQuestions.find((q) => q.id === questionId);
-    const pendingImageCount = question ? getPendingImageRefs(question).length : 0;
+    const pendingImageCount = question ? getPendingLegacyImageRefs(question).length : 0;
     if (pendingImageCount === 0) {
       setCreateError('This question does not need any more images.');
       if (imageInputRefs.current[questionId]) imageInputRefs.current[questionId]!.value = '';
@@ -978,8 +990,10 @@ export function ImportModal({
                           const isThisSubmitting = submittingId === q.id;
                           const isUploadingImage = uploadingImageId === q.id;
                           const hasImageIssue    = needsImageUpload(q);
+                          const pendingMasterImageRef = getPendingMasterImageRef(q);
+                          const pendingLegacyImageRefs = getPendingLegacyImageRefs(q);
                           const pendingImageRefs = getPendingImageRefs(q);
-                          const uploadedImageCount = getQuestionImageRefs(q).length - pendingImageRefs.length;
+                          const uploadedImageCount = getQuestionImageRefs(q).length - pendingLegacyImageRefs.length;
                           const nextExpectedImageName = getNextExpectedImageName(q);
 
                           return (
@@ -1040,7 +1054,7 @@ export function ImportModal({
                                     {pendingImageRefs.length > 0 && (
                                       <span className="text-[10px] text-amber-600 dark:text-amber-400 font-mono truncate max-w-[240px]" title={pendingImageRefs.join(', ')}>
                                         {uploadedImageCount > 0 ? `${uploadedImageCount} uploaded · ` : ''}
-                                        Next: {nextExpectedImageName ?? 'Upload image'}
+                                        {pendingMasterImageRef ? `Master file pending: ${pendingMasterImageRef}` : `Next: ${nextExpectedImageName ?? 'Upload image'}`}
                                       </span>
                                     )}
                                   </div>
@@ -1089,7 +1103,7 @@ export function ImportModal({
                                     ) : (
                                       <>
                                         {/* Image upload button */}
-                                        {hasImageIssue && (
+                                        {pendingLegacyImageRefs.length > 0 && (
                                           <>
                                             <input
                                               ref={(el) => { imageInputRefs.current[q.id] = el; }}

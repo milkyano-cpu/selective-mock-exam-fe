@@ -35,7 +35,60 @@ export interface PaginatedUsersResponse {
   meta: { page: number; limit: number; total: number; totalPages: number };
 }
 
+export interface StudentGenderBreakdown {
+  male: number;
+  female: number;
+  unspecified: number;
+}
+
+export interface SubjectQuestionCount {
+  subjectId: string;
+  subjectName: string;
+  count: number;
+}
+
+export interface MonthlyRegistration {
+  month: string;
+  male: number;
+  female: number;
+  unspecified: number;
+}
+
+export interface AdminDashboardStats {
+  totalUsers: number;
+  totalStudents: number;
+  totalTutors: number;
+  totalParents: number;
+  studentGender: StudentGenderBreakdown;
+  studentTier: { basic: number; standard: number; premium: number };
+  examParticipation: { participated: number; notParticipated: number };
+  monthlyRegistrations: MonthlyRegistration[];
+  totalQuestions: number;
+  questionsPerSubject: SubjectQuestionCount[];
+  publishedQuestions: number;
+  pendingQuestions: number;
+  draftQuestions: number;
+  totalExams: number;
+  activeExams: number;
+  totalSubjects: number;
+  totalTopics: number;
+  totalPassages: number;
+  totalPracticeAssignments: number;
+  recentRegistrations: number;
+}
+
+export interface AdminStatsResponse {
+  success: boolean;
+  message: string;
+  data: AdminDashboardStats;
+}
+
 export const adminService = {
+  getStats: async (): Promise<AdminStatsResponse> => {
+    const response = await mdwClient.get('/admin/stats');
+    return response.data;
+  },
+
   createStaff: async (payload: CreateStaffPayload) => {
     const response = await mdwClient.post('/admin/users', payload);
     return response.data;

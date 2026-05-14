@@ -75,3 +75,13 @@ input::-ms-clear {
   scrollbar-color: #cbd5e1 transparent;
 }
 
+
+/* Hide scrollbar but keep scroll functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

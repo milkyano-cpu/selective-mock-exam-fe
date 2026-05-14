@@ -192,22 +192,30 @@ export default function PracticeResultPage() {
   }, [loadSession]);
 
   const handlePracticeAgain = async () => {
-    if (isRetrying) return;
-    if (session?.sourceType === 'TUTOR_ASSIGNED' || session?.sourceType === 'PATHWAY') {
+    if (isRetrying || !session) return;
+    if (session.sourceType === 'PATHWAY') {
       router.push('/dashboard/practice');
       return;
     }
-    if (!session?.topicId && !session?.subjectId) return;
     setIsRetrying(true);
     try {
-      const res = await practiceService.start({
-        topicId: session.topicId ?? undefined,
-        subjectId: !session.topicId ? (session.subjectId ?? undefined) : undefined,
-        difficulty: session.difficulty,
-        questionCount: (session.questionCount as QuestionCount) ?? 10,
-      });
-      if (res.success) {
-        router.push(`/dashboard/practice/sessions/${res.data.sessionId}`);
+      if (session.sourceType === 'TUTOR_ASSIGNED') {
+        // Retake with the same questions the tutor assigned
+        const res = await practiceService.retake(session.sessionId);
+        if (res.success) {
+          router.push(`/dashboard/practice/sessions/${res.data.sessionId}`);
+        }
+      } else {
+        if (!session.topicId && !session.subjectId) return;
+        const res = await practiceService.start({
+          topicId: session.topicId ?? undefined,
+          subjectId: !session.topicId ? (session.subjectId ?? undefined) : undefined,
+          difficulty: session.difficulty,
+          questionCount: (session.questionCount as QuestionCount) ?? 10,
+        });
+        if (res.success) {
+          router.push(`/dashboard/practice/sessions/${res.data.sessionId}`);
+        }
       }
     } finally {
       setIsRetrying(false);
@@ -350,11 +358,11 @@ export default function PracticeResultPage() {
               <ArrowLeft size={14} />
               Back to Practice
             </button>
-            {session.sourceType !== 'TUTOR_ASSIGNED' && session.sourceType !== 'PATHWAY' && (
+            {session.sourceType !== 'PATHWAY' && (
               <button
                 type="button"
                 onClick={handlePracticeAgain}
-                disabled={isRetrying || (!session.topicId && !session.subjectId)}
+                disabled={isRetrying || (session.sourceType !== 'TUTOR_ASSIGNED' && !session.topicId && !session.subjectId)}
                 className="flex h-11 flex-1 items-center justify-center gap-2 rounded-2xl bg-cyan-400 text-sm font-black text-slate-950 shadow-lg shadow-cyan-950/30 transition-colors hover:bg-cyan-300 disabled:opacity-60"
               >
                 {isRetrying ? (
