@@ -85,7 +85,9 @@ export type CreatePassagePayload = {
   notes?:        string;
 };
 
-export type UpdatePassagePayload = Partial<CreatePassagePayload> & {
+export type UpdatePassagePayload = {
+  [K in keyof CreatePassagePayload]?: CreatePassagePayload[K] | null;
+} & {
   externalId?: string | null;
 };
 

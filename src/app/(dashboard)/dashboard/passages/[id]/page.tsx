@@ -165,13 +165,13 @@ export default function PassageDetailPage({ params }: { params: Promise<{ id: st
                     <div className="relative bg-[radial-gradient(circle_at_50%_50%,_rgba(148,163,184,0.08),_transparent)] dark:bg-[radial-gradient(circle_at_50%_50%,_rgba(59,130,246,0.08),_transparent)]">
                       <div className="flex items-center justify-center p-5">
                         <a
-                          href={selectedPassage.image!.url}
+                          href={selectedPassage.image!.url ?? undefined}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="group relative inline-block"
                         >
                           <img
-                            src={selectedPassage.image!.url}
+                            src={selectedPassage.image!.url ?? undefined}
                             alt={selectedPassage.image!.altText || selectedPassage.title || 'Passage image'}
                             className="max-w-full max-h-[440px] w-auto h-auto rounded-xl shadow-md ring-1 ring-slate-200 dark:ring-slate-700 transition-all duration-500 group-hover:shadow-xl group-hover:ring-blue-300 dark:group-hover:ring-blue-500/40"
                           />
