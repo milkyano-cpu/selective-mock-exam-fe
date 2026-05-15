@@ -253,7 +253,11 @@ export default function ForumModerationPage() {
       {activeTab === 'flags' && (
         <div className="space-y-3">
           {flagsLoading ? (
-            <div className="flex justify-center py-10"><Loader2 size={28} className="animate-spin text-[#FF6900]" /></div>
+            <div className="space-y-3 animate-pulse">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="h-24 rounded-[1.75rem] border border-slate-200/60 bg-white dark:border-slate-800 dark:bg-slate-900" />
+              ))}
+            </div>
           ) : flagsError ? (
             <div className="flex items-center gap-2 text-sm text-red-500"><AlertCircle size={14} /> {flagsError}</div>
           ) : flags.length === 0 ? (
@@ -302,7 +306,11 @@ export default function ForumModerationPage() {
       {activeTab === 'warnings' && (
         <div className="space-y-3">
           {warningsLoading ? (
-            <div className="flex justify-center py-10"><Loader2 size={28} className="animate-spin text-[#FF6900]" /></div>
+            <div className="space-y-3 animate-pulse">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="h-20 rounded-[1.75rem] border border-slate-200/60 bg-white dark:border-slate-800 dark:bg-slate-900" />
+              ))}
+            </div>
           ) : warnings.length === 0 ? (
             <div className="flex min-h-[20vh] flex-col items-center justify-center gap-3 rounded-[2rem] border border-slate-200 bg-white p-10 dark:border-slate-800 dark:bg-slate-900">
               <CheckCircle size={36} className="text-emerald-400" />

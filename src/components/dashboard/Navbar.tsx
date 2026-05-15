@@ -1,6 +1,6 @@
 'use client';
 
-import { Bell, ChevronDown, ChevronLeft, LogOut, Menu, Moon, MoreHorizontal, Settings, Sun, CheckCheck, FileQuestion, ExternalLink, MessageSquare, Map, ClipboardList } from 'lucide-react';
+import { Bell, ChevronDown, ChevronLeft, LogOut, Menu, Moon, MoreHorizontal, RefreshCw, Settings, Sun, CheckCheck, FileQuestion, ExternalLink, MessageSquare, Map, ClipboardList } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { useSyncExternalStore, useState, useRef, useEffect, useCallback } from 'react';
@@ -309,6 +309,15 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
             </div>
           )}
         </div>
+
+        <button
+          type="button"
+          onClick={() => router.refresh()}
+          aria-label="Refresh page"
+          className="rounded-2xl p-2 text-slate-500 transition-colors hover:bg-white hover:text-[#0A9AE2] hover:shadow-sm active:rotate-180 active:transition-transform dark:text-slate-300 dark:hover:bg-slate-800"
+        >
+          <RefreshCw size={20} />
+        </button>
 
         <button
           type="button"

@@ -310,12 +310,25 @@ export default function ExamResultPage() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <div className="text-center">
-          <Loader2 size={40} className="mx-auto animate-spin text-[#FF6900]" />
-          <p className="mt-3 text-sm font-medium text-slate-500 dark:text-slate-400">
-            {pollCount > 0 ? 'Grading in progress...' : 'Loading results...'}
-          </p>
+      <div className="mx-auto max-w-5xl space-y-6 animate-pulse">
+        <div className="rounded-3xl border border-slate-200/60 bg-white p-8 dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex items-center justify-between">
+            <div className="space-y-2">
+              <div className="h-7 w-40 rounded-lg bg-slate-200/70 dark:bg-slate-800" />
+              <div className="h-4 w-56 rounded bg-slate-100 dark:bg-slate-800/60" />
+            </div>
+            <div className="h-20 w-20 rounded-full bg-slate-200/70 dark:bg-slate-800" />
+          </div>
+          <div className="mt-6 grid grid-cols-3 gap-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="h-16 rounded-xl bg-slate-50 dark:bg-slate-800/30" />
+            ))}
+          </div>
+        </div>
+        <div className="space-y-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-24 rounded-2xl border border-slate-200/60 bg-white dark:border-slate-800 dark:bg-slate-900" />
+          ))}
         </div>
       </div>
     );

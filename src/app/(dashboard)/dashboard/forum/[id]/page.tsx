@@ -254,8 +254,32 @@ export default function ThreadDetailPage() {
   const isReadOnlyStudent = user?.role === 'STUDENT' && !canForumWrite;
 
   if (isLoading) return (
-    <div className="flex min-h-[50vh] items-center justify-center">
-      <Loader2 size={32} className="animate-spin text-[#FF6900]" />
+    <div className="min-h-[50vh] space-y-4 animate-pulse">
+      <div className="rounded-2xl border border-slate-200/60 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex items-start gap-3">
+          <div className="h-10 w-10 shrink-0 rounded-full bg-slate-200/70 dark:bg-slate-800" />
+          <div className="flex-1 space-y-2">
+            <div className="h-5 w-3/4 rounded bg-slate-200/70 dark:bg-slate-700" />
+            <div className="h-3 w-1/3 rounded bg-slate-100 dark:bg-slate-800/60" />
+          </div>
+        </div>
+        <div className="mt-4 space-y-2">
+          <div className="h-3 w-full rounded bg-slate-100 dark:bg-slate-800/60" />
+          <div className="h-3 w-5/6 rounded bg-slate-100 dark:bg-slate-800/60" />
+          <div className="h-3 w-2/3 rounded bg-slate-100 dark:bg-slate-800/60" />
+        </div>
+      </div>
+      {Array.from({ length: 3 }).map((_, i) => (
+        <div key={i} className="rounded-2xl border border-slate-200/60 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex items-start gap-3">
+            <div className="h-8 w-8 shrink-0 rounded-full bg-slate-200/70 dark:bg-slate-800" />
+            <div className="flex-1 space-y-2">
+              <div className="h-3 w-1/4 rounded bg-slate-100 dark:bg-slate-800/60" />
+              <div className="h-3 w-full rounded bg-slate-100 dark:bg-slate-800/60" />
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 

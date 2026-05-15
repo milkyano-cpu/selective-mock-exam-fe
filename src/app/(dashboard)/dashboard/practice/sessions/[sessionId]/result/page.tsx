@@ -224,8 +224,21 @@ export default function PracticeResultPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
-        <Loader2 size={40} className="animate-spin text-[#0A9AE2]" />
+      <div className="mx-auto max-w-5xl space-y-6 animate-pulse p-4">
+        <div className="rounded-3xl border border-slate-200/60 bg-white p-8 dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex items-center justify-between">
+            <div className="space-y-2">
+              <div className="h-7 w-40 rounded-lg bg-slate-200/70 dark:bg-slate-800" />
+              <div className="h-4 w-56 rounded bg-slate-100 dark:bg-slate-800/60" />
+            </div>
+            <div className="h-20 w-20 rounded-full bg-slate-200/70 dark:bg-slate-800" />
+          </div>
+        </div>
+        <div className="space-y-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-24 rounded-2xl border border-slate-200/60 bg-white dark:border-slate-800 dark:bg-slate-900" />
+          ))}
+        </div>
       </div>
     );
   }

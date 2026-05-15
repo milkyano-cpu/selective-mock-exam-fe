@@ -652,10 +652,22 @@ export default function ExamSessionPage() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <div className="text-center">
-          <Loader2 size={40} className="mx-auto animate-spin text-[#FF6900]" />
-          <p className="mt-3 text-sm font-medium text-slate-500 dark:text-slate-400">Loading exam...</p>
+      <div className="mx-auto max-w-4xl space-y-6 animate-pulse">
+        <div className="flex items-center justify-between">
+          <div className="h-6 w-48 rounded-lg bg-slate-200/70 dark:bg-slate-800" />
+          <div className="h-8 w-20 rounded-xl bg-slate-200/70 dark:bg-slate-800" />
+        </div>
+        <div className="rounded-2xl border border-slate-200/60 bg-white p-6 dark:border-slate-800 dark:bg-slate-900 space-y-4">
+          <div className="h-4 w-16 rounded bg-slate-200/70 dark:bg-slate-700" />
+          <div className="space-y-3">
+            <div className="h-4 w-full rounded bg-slate-100 dark:bg-slate-800/60" />
+            <div className="h-4 w-5/6 rounded bg-slate-100 dark:bg-slate-800/60" />
+          </div>
+          <div className="space-y-2 pt-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="h-12 rounded-xl bg-slate-50 dark:bg-slate-800/30" />
+            ))}
+          </div>
         </div>
       </div>
     );

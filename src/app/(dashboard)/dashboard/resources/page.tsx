@@ -139,6 +139,15 @@ export default function ResourcesPage() {
   }, [filter, searchQuery, isAuthorized]);
 
   useEffect(() => {
+    if (viewingResource) {
+      document.documentElement.setAttribute('data-modal-open', '');
+    } else {
+      document.documentElement.removeAttribute('data-modal-open');
+    }
+    return () => document.documentElement.removeAttribute('data-modal-open');
+  }, [viewingResource]);
+
+  useEffect(() => {
     if (!viewingResource?.fileUrl) {
       setPreviewObjectUrl(null);
       setPreviewError('');
@@ -153,10 +162,24 @@ export default function ResourcesPage() {
     setPreviewError('');
     setIsPreviewLoading(true);
 
-    // For videos, use the public file URL directly (MinIO supports Range requests natively)
+    // For videos, get a presigned stream URL from MinIO (supports Range/206 for streaming)
     if (viewingResource.type === 'VIDEO' && viewingResource.fileUrl) {
-      setPreviewObjectUrl(viewingResource.fileUrl);
-      setIsPreviewLoading(false);
+      const proxyFallback = `/api/resources/${viewingResource.id}/preview`;
+      resourceService.getStreamUrl(viewingResource.id)
+        .then((res) => {
+          if (abortController.signal.aborted) return;
+          if (res.success && res.data?.url) {
+            setPreviewObjectUrl(res.data.url);
+          } else {
+            setPreviewObjectUrl(proxyFallback);
+          }
+        })
+        .catch(() => {
+          if (!abortController.signal.aborted) setPreviewObjectUrl(proxyFallback);
+        })
+        .finally(() => {
+          if (!abortController.signal.aborted) setIsPreviewLoading(false);
+        });
       return () => { abortController.abort(); };
     }
 
@@ -344,8 +367,17 @@ export default function ResourcesPage() {
       </div>
 
       {isLoading ? (
-        <div className="flex min-h-[40vh] items-center justify-center">
-          <Loader2 className="animate-spin text-[#0A9AE2]" size={32} />
+        <div className="overflow-hidden rounded-2xl border border-slate-200/60 bg-white dark:border-slate-800 dark:bg-slate-900 animate-pulse">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-4 border-b border-slate-50 px-5 py-4 dark:border-slate-800/50">
+              <div className="h-10 w-10 shrink-0 rounded-xl bg-slate-200/70 dark:bg-slate-800" />
+              <div className="flex-1 space-y-2">
+                <div className="h-4 w-48 rounded bg-slate-200/70 dark:bg-slate-700" />
+                <div className="h-3 w-24 rounded bg-slate-100 dark:bg-slate-800/60" />
+              </div>
+              <div className="h-8 w-16 rounded-lg bg-slate-100 dark:bg-slate-800" />
+            </div>
+          ))}
         </div>
       ) : filteredResources.length === 0 ? (
         <div className="flex min-h-[40vh] flex-col items-center justify-center rounded-3xl border border-slate-200 bg-white p-10 text-center dark:border-slate-800 dark:bg-slate-900">
@@ -660,7 +692,7 @@ export default function ResourcesPage() {
       )}
 
       {viewingResource && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
           {isPreviewLoading ? (
             /* Full-screen loading overlay while fetching stream URL */
             <div className="flex flex-col items-center gap-4">
@@ -677,8 +709,8 @@ export default function ResourcesPage() {
               </button>
             </div>
           ) : (
-          <div className="flex h-[85vh] w-full max-w-5xl flex-col rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex items-start justify-between gap-4 border-b border-slate-200 p-5 dark:border-slate-800">
+          <div className={`flex w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl dark:border-slate-800 dark:bg-slate-900 ${viewingResource.type === 'VIDEO' ? 'max-h-[85vh]' : 'h-[85vh]'}`}>
+            <div className="flex shrink-0 items-start justify-between gap-4 border-b border-slate-200 p-5 dark:border-slate-800">
               <div>
                 <h2 className="line-clamp-1 text-lg font-black text-slate-900 dark:text-slate-100">{viewingResource.title}</h2>
                 <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-slate-400">
@@ -690,7 +722,7 @@ export default function ResourcesPage() {
               </button>
             </div>
 
-            <div className="min-h-0 flex-1 bg-slate-100 p-4 dark:bg-slate-950">
+            <div className={`bg-slate-100 dark:bg-slate-950 ${viewingResource.type === 'VIDEO' ? 'p-0' : 'min-h-0 flex-1 p-4'}`}>
               {(() => {
                 const resourceUrl = getResourceUrl(viewingResource);
                 const previewUrl = getResourcePreviewUrl(viewingResource);
@@ -735,8 +767,18 @@ export default function ResourcesPage() {
                 }
 
                 if (viewingResource.type === 'VIDEO' && (viewingResource.fileUrl || isDirectVideoUrl(resourceUrl))) {
+                  // For uploaded videos, wait for the presigned stream URL before rendering
+                  const videoSrc = viewingResource.fileUrl ? previewObjectUrl : resourceUrl;
+                  if (!videoSrc) {
+                    return (
+                      <div className="flex aspect-video w-full flex-col items-center justify-center bg-black">
+                        <div className="h-8 w-8 animate-spin rounded-full border-3 border-white/20 border-t-white" />
+                        <p className="mt-3 text-sm font-semibold text-white/60">Preparing video...</p>
+                      </div>
+                    );
+                  }
                   return (
-                    <video controls className="h-full w-full rounded-2xl bg-black" src={previewObjectUrl ?? previewUrl ?? resourceUrl}>
+                    <video controls preload="metadata" className="w-full bg-black" src={videoSrc}>
                       Your browser does not support the video tag.
                     </video>
                   );
@@ -747,7 +789,7 @@ export default function ResourcesPage() {
                     <iframe
                       src={embedUrl}
                       title={viewingResource.title}
-                      className="h-full w-full rounded-2xl bg-black"
+                      className="aspect-video w-full bg-black"
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                       allowFullScreen
                     />

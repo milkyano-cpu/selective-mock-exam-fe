@@ -177,8 +177,22 @@ export default function PerformancePage() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <Loader2 size={36} className="animate-spin text-[#FF6900]" />
+      <div className="space-y-6 animate-pulse">
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <div className="h-7 w-40 rounded-lg bg-slate-200/70 dark:bg-slate-800" />
+            <div className="h-4 w-60 rounded bg-slate-100 dark:bg-slate-800/60" />
+          </div>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-24 rounded-2xl border border-slate-200/60 bg-white dark:border-slate-800 dark:bg-slate-900" />
+          ))}
+        </div>
+        <div className="grid gap-6 lg:grid-cols-2">
+          <div className="h-72 rounded-2xl border border-slate-200/60 bg-white dark:border-slate-800 dark:bg-slate-900" />
+          <div className="h-72 rounded-2xl border border-slate-200/60 bg-white dark:border-slate-800 dark:bg-slate-900" />
+        </div>
       </div>
     );
   }

@@ -168,8 +168,18 @@ export default function ParentResultsPage() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <Loader2 size={36} className="animate-spin text-[#0A9AE2]" />
+      <div className="space-y-6 animate-pulse">
+        <div className="h-7 w-44 rounded-lg bg-slate-200/70 dark:bg-slate-800" />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="h-40 rounded-2xl border border-slate-200/60 bg-white dark:border-slate-800 dark:bg-slate-900" />
+          ))}
+        </div>
+        <div className="space-y-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="h-20 rounded-2xl border border-slate-200/60 bg-white dark:border-slate-800 dark:bg-slate-900" />
+          ))}
+        </div>
       </div>
     );
   }

@@ -333,8 +333,23 @@ export default function PracticeSessionPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950">
-        <Loader2 size={40} className="animate-spin text-[#0A9AE2]" />
+      <div className="mx-auto max-w-4xl space-y-6 animate-pulse p-4">
+        <div className="flex items-center justify-between">
+          <div className="h-6 w-48 rounded-lg bg-slate-200/70 dark:bg-slate-800" />
+          <div className="h-8 w-20 rounded-xl bg-slate-200/70 dark:bg-slate-800" />
+        </div>
+        <div className="rounded-2xl border border-slate-200/60 bg-white p-6 dark:border-slate-800 dark:bg-slate-900 space-y-4">
+          <div className="h-4 w-16 rounded bg-slate-200/70 dark:bg-slate-700" />
+          <div className="space-y-3">
+            <div className="h-4 w-full rounded bg-slate-100 dark:bg-slate-800/60" />
+            <div className="h-4 w-5/6 rounded bg-slate-100 dark:bg-slate-800/60" />
+          </div>
+          <div className="space-y-2 pt-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="h-12 rounded-xl bg-slate-50 dark:bg-slate-800/30" />
+            ))}
+          </div>
+        </div>
       </div>
     );
   }

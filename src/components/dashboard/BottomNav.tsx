@@ -49,7 +49,7 @@ export const BottomNav = () => {
     const isMoreActive = moreItems.some((item) => isItemActive(item.href));
 
     return (
-      <>
+      <div data-bottom-nav="">
         {/* More Popover */}
         <AnimatePresence>
           {isMoreOpen && (
@@ -69,7 +69,7 @@ export const BottomNav = () => {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: 12, scale: 0.95 }}
                 transition={{ type: 'spring', bounce: 0.15, duration: 0.35 }}
-                className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] right-4 z-[70] w-52 overflow-hidden rounded-2xl bg-white shadow-[0_8px_32px_rgba(15,23,42,0.14),0_2px_8px_rgba(15,23,42,0.08)] dark:bg-slate-900 dark:shadow-[0_8px_32px_rgba(0,0,0,0.4)] lg:hidden"
+                className="fixed bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] right-4 z-[70] w-52 overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-[0_8px_32px_rgba(15,23,42,0.14),0_2px_8px_rgba(15,23,42,0.08)] dark:border-slate-700/60 dark:bg-slate-800 dark:shadow-[0_8px_32px_rgba(0,0,0,0.5)] lg:hidden"
               >
                 <button
                   type="button"
@@ -104,7 +104,7 @@ export const BottomNav = () => {
 
         {/* Bottom Navigation Bar */}
         <nav className="fixed bottom-[calc(env(safe-area-inset-bottom)+0.75rem)] left-1/2 z-50 w-[calc(100%-1.5rem)] max-w-[430px] -translate-x-1/2 lg:hidden">
-          <div className="flex h-[72px] items-center justify-around rounded-full bg-white px-4 shadow-[0_4px_24px_rgba(15,23,42,0.10),0_1.5px_6px_rgba(15,23,42,0.06)] dark:bg-slate-900 dark:shadow-[0_4px_24px_rgba(0,0,0,0.35)]">
+          <div className="flex h-[72px] items-center justify-around rounded-full border border-slate-200/80 bg-white px-4 shadow-[0_8px_32px_rgba(15,23,42,0.14),0_2px_8px_rgba(15,23,42,0.08)] dark:border-slate-700/60 dark:bg-slate-800 dark:shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
             {primaryItems.map((item) => {
               const isActive = isItemActive(item.href);
               return (
@@ -161,19 +161,19 @@ export const BottomNav = () => {
             </button>
           </div>
         </nav>
-      </>
+      </div>
     );
   }
 
   const displayItems = menuItems.slice(0, 5);
 
   return (
-    <nav className="fixed bottom-[calc(env(safe-area-inset-bottom)+1rem)] left-1/2 z-50 w-[calc(100%-2rem)] max-w-[390px] -translate-x-1/2 lg:hidden">
+    <nav data-bottom-nav="" className="fixed bottom-[calc(env(safe-area-inset-bottom)+1rem)] left-1/2 z-50 w-[calc(100%-2rem)] max-w-[390px] -translate-x-1/2 lg:hidden">
       <div
         className={[
           'relative overflow-hidden border p-1.5 backdrop-blur-2xl backdrop-saturate-150',
           'before:pointer-events-none before:absolute before:inset-x-6 before:top-0 before:h-px before:bg-white/80',
-          'rounded-[28px] border-white/70 bg-white/78 shadow-[0_20px_50px_rgba(14,116,144,0.18)] dark:border-white/10 dark:bg-slate-950/86 dark:shadow-[0_20px_50px_rgba(0,0,0,0.34)]',
+          'rounded-[28px] border-slate-200/80 bg-white/92 shadow-[0_8px_32px_rgba(15,23,42,0.14),0_2px_8px_rgba(15,23,42,0.08)] dark:border-slate-700/60 dark:bg-slate-800/95 dark:shadow-[0_8px_32px_rgba(0,0,0,0.5)]',
         ].join(' ')}
       >
         <div className="relative flex h-16 items-center gap-1">

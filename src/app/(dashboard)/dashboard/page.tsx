@@ -55,7 +55,7 @@ function TopicMasteryChart({ strongList, averageList, weakList, total }: {
       <p className="text-[11px] font-black uppercase tracking-wide text-slate-400 mb-2 text-center">Topic Mastery</p>
       <div className="flex items-center gap-4">
         <div className="h-[120px] w-[120px] shrink-0">
-          <ResponsiveContainer width="100%" height="100%">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
             <PieChart>
               <Pie
                 data={[
@@ -205,12 +205,49 @@ function StudentPerformanceAnalytics() {
     return Array.from(map.values());
   }, [analytics]);
 
-  if (isLoading) {
-    return <div className="h-64 animate-pulse rounded-[2rem] bg-slate-200/50 dark:bg-slate-800/50" />;
-  }
-
-  if (!analytics || !leaderboard) {
-    return null;
+  if (isLoading || !analytics || !leaderboard) {
+    return (
+      <div className="grid w-full min-w-0 grid-cols-1 gap-6 lg:grid-cols-2 animate-pulse">
+        {/* Analytics skeleton */}
+        <div className="rounded-[2rem] border border-slate-200/60 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-8 flex flex-col gap-6">
+          <div>
+            <div className="h-6 w-32 rounded-lg bg-slate-200/70 dark:bg-slate-800" />
+            <div className="mt-2 h-4 w-52 rounded-lg bg-slate-100 dark:bg-slate-800/60" />
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="rounded-2xl bg-slate-50 p-4 dark:bg-slate-800/50">
+                <div className="mx-auto h-3 w-16 rounded bg-slate-200/70 dark:bg-slate-700" />
+                <div className="mx-auto mt-3 h-7 w-10 rounded bg-slate-200/70 dark:bg-slate-700" />
+              </div>
+            ))}
+          </div>
+          <div className="h-[120px] rounded-2xl bg-slate-50 dark:bg-slate-800/30" />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="h-28 rounded-2xl bg-emerald-50/50 dark:bg-emerald-900/10" />
+            <div className="h-28 rounded-2xl bg-rose-50/50 dark:bg-rose-900/10" />
+          </div>
+          <div className="h-[180px] rounded-2xl bg-slate-50 dark:bg-slate-800/30" />
+        </div>
+        {/* Leaderboard skeleton */}
+        <div className="rounded-[2rem] border border-slate-200/60 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-8 flex flex-col gap-3">
+          <div className="mb-3">
+            <div className="h-6 w-44 rounded-lg bg-slate-200/70 dark:bg-slate-800" />
+            <div className="mt-2 h-4 w-56 rounded-lg bg-slate-100 dark:bg-slate-800/60" />
+          </div>
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-4 rounded-2xl border border-slate-100 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+              <div className="h-12 w-12 shrink-0 rounded-full bg-slate-100 dark:bg-slate-800/80" />
+              <div className="flex-1 space-y-2">
+                <div className="h-4 w-28 rounded bg-slate-200/70 dark:bg-slate-700" />
+                <div className="h-3 w-20 rounded bg-slate-100 dark:bg-slate-800/60" />
+              </div>
+              <div className="h-7 w-10 rounded bg-slate-200/70 dark:bg-slate-700" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   }
 
   const { totalExams, overallAvg, totalTimeSeconds, examHistory, topicPerformance } = analytics;
@@ -311,7 +348,7 @@ function StudentPerformanceAnalytics() {
         <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/50 mt-auto">
           <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wide text-slate-400 mb-4">Mock Exam Scores</p>
           {chrono.length > 0 ? (
-            <ResponsiveContainer width="100%" height={140}>
+            <ResponsiveContainer width="100%" height={140} minWidth={0} minHeight={0}>
               <AreaChart
                 data={chrono.map((s) => ({
                   name: s.examTitle.length > 12 ? s.examTitle.slice(0, 12) + '…' : s.examTitle,
@@ -789,7 +826,7 @@ function AdminDashboard({ firstName }: { firstName: string }) {
           ) : stats?.studentGender ? (
             <>
               <div className="h-[100px]">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                   <PieChart>
                     <Pie
                       data={[
@@ -847,7 +884,7 @@ function AdminDashboard({ firstName }: { firstName: string }) {
           ) : stats?.studentTier ? (
             <>
               <div className="h-[100px]">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                   <PieChart>
                     <Pie
                       data={[
@@ -904,7 +941,7 @@ function AdminDashboard({ firstName }: { firstName: string }) {
           ) : stats?.examParticipation ? (
             <>
               <div className="h-[100px]">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                   <PieChart>
                     <Pie
                       data={[
@@ -957,7 +994,7 @@ function AdminDashboard({ firstName }: { firstName: string }) {
             <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Registration trend by gender (last 6 months)</p>
           </div>
           <div className="h-[220px]">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <BarChart
                 data={stats.monthlyRegistrations.map((m) => ({
                   month: new Date(m.month + '-01').toLocaleDateString('en-US', { month: 'short' }),
@@ -1026,7 +1063,7 @@ function TutorDashboard({ firstName }: { firstName: string }) {
           ) : stats?.studentGender ? (
             <>
               <div className="h-[100px]">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                   <PieChart>
                     <Pie
                       data={[
@@ -1076,7 +1113,7 @@ function TutorDashboard({ firstName }: { firstName: string }) {
           ) : stats?.studentTier ? (
             <>
               <div className="h-[100px]">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                   <PieChart>
                     <Pie
                       data={[
@@ -1133,7 +1170,7 @@ function TutorDashboard({ firstName }: { firstName: string }) {
           ) : stats?.examParticipation ? (
             <>
               <div className="h-[100px]">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                   <PieChart>
                     <Pie
                       data={[
@@ -1186,7 +1223,7 @@ function TutorDashboard({ firstName }: { firstName: string }) {
             <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Registration trend by gender (last 6 months)</p>
           </div>
           <div className="h-[220px]">
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
               <BarChart
                 data={stats.monthlyRegistrations.map((m) => ({
                   month: new Date(m.month + '-01').toLocaleDateString('en-US', { month: 'short' }),
@@ -1420,7 +1457,7 @@ function ParentDashboard({ firstName }: { firstName: string }) {
                 </p>
               </div>
               <div className="h-[200px]">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                   <AreaChart data={scoreTrendData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
                     <defs>
                       <linearGradient id="scoreGradient" x1="0" y1="0" x2="0" y2="1">
@@ -1449,7 +1486,7 @@ function ParentDashboard({ firstName }: { firstName: string }) {
                 </p>
               </div>
               <div className="h-[200px]">
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                   <BarChart
                     data={subjectPerf.map((s) => ({
                       subject: s.subjectName.length > 10 ? s.subjectName.slice(0, 10) + '…' : s.subjectName,

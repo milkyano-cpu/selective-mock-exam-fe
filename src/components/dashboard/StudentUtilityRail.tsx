@@ -16,7 +16,7 @@ const LEGACY_REMINDERS_STORAGE_KEY = 'aspire_student_reminders';
 
 type ReminderRecord = Record<string, StudentCalendarReminder[]>;
 
-export function StudentUtilityRail() {
+export function StudentUtilityRail({ mobileVisible = true }: { mobileVisible?: boolean }) {
   const [activeCountdown, setActiveCountdown] = useState<CountdownItem | null>(null);
   const [isCountdownLoading, setIsCountdownLoading] = useState(false);
   const [countdownNowMs, setCountdownNowMs] = useState(() => Date.now());
@@ -85,7 +85,7 @@ export function StudentUtilityRail() {
       : 'Unavailable';
 
   return (
-    <aside className="min-w-0 space-y-4 overflow-visible pb-3">
+    <aside className={`min-w-0 space-y-4 overflow-visible pb-3${!mobileVisible ? ' hidden xl:block' : ''}`}>
       <div className="relative min-w-0 overflow-hidden rounded-[2rem] shadow-[0_18px_50px_rgba(14,116,144,0.12)]">
         <div className="relative overflow-hidden bg-[linear-gradient(135deg,#ecfeff_0%,#eef2ff_48%,#fff7ed_100%)] dark:bg-[linear-gradient(135deg,#082f49_0%,#1e1b4b_52%,#2a1208_100%)]">
           <div className="absolute inset-0 flex items-center justify-center px-6 text-center">

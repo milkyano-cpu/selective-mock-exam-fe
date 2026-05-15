@@ -160,8 +160,17 @@ export default function ForumPage() {
 
       {/* Content */}
       {isLoading ? (
-        <div className="flex min-h-[30vh] items-center justify-center">
-          <Loader2 size={32} className="animate-spin text-[#FF6900]" />
+        <div className="min-h-[30vh] space-y-3 animate-pulse">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="flex items-start gap-4 rounded-2xl border border-slate-200/60 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+              <div className="h-10 w-10 shrink-0 rounded-full bg-slate-200/70 dark:bg-slate-800" />
+              <div className="flex-1 space-y-2">
+                <div className="h-4 w-3/4 rounded bg-slate-200/70 dark:bg-slate-700" />
+                <div className="h-3 w-1/2 rounded bg-slate-100 dark:bg-slate-800/60" />
+                <div className="h-3 w-1/4 rounded bg-slate-100 dark:bg-slate-800/60" />
+              </div>
+            </div>
+          ))}
         </div>
       ) : error ? (
         <div className="flex items-center gap-3 rounded-2xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-medium text-red-700 dark:border-red-800/50 dark:bg-red-900/20 dark:text-red-400">

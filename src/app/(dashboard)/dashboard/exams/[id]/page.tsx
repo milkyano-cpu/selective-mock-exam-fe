@@ -561,8 +561,24 @@ export default function ExamDetailPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-24">
-        <Loader2 size={36} className="animate-spin text-[#FF6900]" />
+      <div className="w-full max-w-5xl space-y-6 animate-pulse">
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <div className="h-4 w-20 rounded bg-slate-200/70 dark:bg-slate-800" />
+            <div className="h-7 w-56 rounded-lg bg-slate-200/70 dark:bg-slate-800" />
+          </div>
+          <div className="h-9 w-28 rounded-xl bg-slate-200/70 dark:bg-slate-800" />
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="h-20 rounded-2xl border border-slate-200/60 bg-white dark:border-slate-800 dark:bg-slate-900" />
+          ))}
+        </div>
+        <div className="space-y-2">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="h-14 rounded-xl border border-slate-200/60 bg-white dark:border-slate-800 dark:bg-slate-900" />
+          ))}
+        </div>
       </div>
     );
   }

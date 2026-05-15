@@ -11,6 +11,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { InstallPrompt } from '@/components/pwa/InstallPrompt';
 import { PushNotificationBanner } from '@/components/pwa/PushNotificationBanner';
 import { NavigationProgress } from '@/components/dashboard/NavigationProgress';
+import { PageTransition } from '@/components/dashboard/PageTransition';
 import { useNotificationSSE } from '@/features/notifications/hooks/useNotificationSSE';
 import { usePathname } from 'next/navigation';
 
@@ -161,14 +162,16 @@ export default function DashboardLayout({
             isStudent && !isFocusedStudentWorkspace ? 'max-w-[1760px] lg:px-8 lg:py-8' : !isStudent ? 'max-w-[1600px] lg:p-8' : '',
           ].join(' ')}
         >
-          {shouldShowStudentRail ? (
-            <div className="grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.42fr)]">
-              <div className="min-w-0">{children}</div>
-              <StudentUtilityRail />
-            </div>
-          ) : (
-            children
-          )}
+          <PageTransition>
+            {shouldShowStudentRail ? (
+              <div className="grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.42fr)]">
+                <div className="min-w-0">{children}</div>
+                <StudentUtilityRail mobileVisible={pathname === '/dashboard'} />
+              </div>
+            ) : (
+              children
+            )}
+          </PageTransition>
         </main>
       </div>
 

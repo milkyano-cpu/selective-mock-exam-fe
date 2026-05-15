@@ -248,8 +248,14 @@ export default function PracticeAssignmentsPage() {
         {/* Table */}
         <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
           {isLoading ? (
-            <div className="flex justify-center py-16">
-              <Loader2 size={32} className="animate-spin text-[#0A9AE2]" />
+            <div className="animate-pulse">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-4 border-b border-slate-50 px-5 py-4 dark:border-slate-800/50">
+                  <div className="h-4 w-40 rounded bg-slate-200/70 dark:bg-slate-700" />
+                  <div className="h-5 w-16 rounded-full bg-slate-100 dark:bg-slate-800" />
+                  <div className="hidden h-4 w-20 rounded bg-slate-100 dark:bg-slate-800 sm:block" />
+                </div>
+              ))}
             </div>
           ) : assignments.length === 0 ? (
             <div className="py-16 text-center space-y-3">
