@@ -464,11 +464,80 @@ export default function PracticeSessionPage() {
               </span>
             </div>
 
+            {/* Passage */}
+            {currentQuestion.passage && (() => {
+              const pos = currentQuestion.passage.imageDisplayPosition ?? 'BELOW';
+              const hasImage = !!currentQuestion.passage.image?.url;
+              const hasText = !!currentQuestion.passage.content;
+
+              const imageBlock = hasImage ? (
+                <figure className={pos === 'BESIDE' ? '' : (pos === 'ABOVE' || pos === 'MAIN' ? 'mb-3' : 'mt-3')}>
+                  <img
+                    src={currentQuestion.passage.image!.url!}
+                    alt={currentQuestion.passage.image!.altText || currentQuestion.passage.image!.fileName}
+                    className="max-h-64 rounded-xl border border-blue-100 object-contain dark:border-blue-900/40"
+                  />
+                  {currentQuestion.passage.image!.caption && (
+                    <figcaption className="mt-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                      {currentQuestion.passage.image!.caption}
+                    </figcaption>
+                  )}
+                </figure>
+              ) : null;
+
+              const textBlock = hasText ? (
+                <div className="text-sm font-medium leading-relaxed text-slate-700 dark:text-slate-300">
+                  <QuestionLatexRenderer
+                    text={currentQuestion.passage.content!}
+                    latexEnabled={currentQuestion.latexEnabled}
+                    fallbackClassName="whitespace-pre-wrap"
+                  />
+                </div>
+              ) : null;
+
+              return (
+                <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 dark:border-blue-900/40 dark:bg-blue-900/10 mb-4">
+                  {currentQuestion.passage.title && (
+                    <p className="mb-2 text-xs font-bold uppercase tracking-wide text-blue-600 dark:text-blue-400">
+                      {currentQuestion.passage.title}
+                    </p>
+                  )}
+                  {pos === 'MAIN' && imageBlock}
+                  {pos === 'MAIN' && textBlock}
+                  {pos === 'ABOVE' && imageBlock}
+                  {pos === 'ABOVE' && textBlock}
+                  {pos === 'BESIDE' && (hasImage && hasText ? (
+                    <div className="flex gap-4">
+                      <div className="shrink-0">{imageBlock}</div>
+                      <div className="flex-1">{textBlock}</div>
+                    </div>
+                  ) : (<>{textBlock}{imageBlock}</>))}
+                  {pos === 'MIDDLE' && (() => {
+                    if (!hasText || !hasImage) return <>{textBlock}{imageBlock}</>;
+                    const lines = currentQuestion.passage.content!.split('\n');
+                    const mid = Math.ceil(lines.length / 2);
+                    return (
+                      <>
+                        <div className="text-sm font-medium leading-relaxed text-slate-700 dark:text-slate-300">
+                          <QuestionLatexRenderer text={lines.slice(0, mid).join('\n')} latexEnabled={currentQuestion.latexEnabled} fallbackClassName="whitespace-pre-wrap" />
+                        </div>
+                        {imageBlock}
+                        <div className="text-sm font-medium leading-relaxed text-slate-700 dark:text-slate-300">
+                          <QuestionLatexRenderer text={lines.slice(mid).join('\n')} latexEnabled={currentQuestion.latexEnabled} fallbackClassName="whitespace-pre-wrap" />
+                        </div>
+                      </>
+                    );
+                  })()}
+                  {pos === 'BELOW' && textBlock}
+                  {pos === 'BELOW' && imageBlock}
+                </div>
+              );
+            })()}
+
             {/* Question text */}
             <div className="text-slate-800 dark:text-slate-100 font-semibold text-base leading-relaxed mb-6">
               <QuestionLatexRenderer
                 text={currentQuestion.questionText}
-
                 latexEnabled={currentQuestion.latexEnabled}
               />
             </div>

@@ -35,7 +35,7 @@ import {
 const PAGE_LIMIT = 20;
 
 const EXAM_TYPE_LABELS: Record<string, string> = { MOCK_EXAM: 'Mock Exam', ASSIGNMENT: 'Assignment' };
-const GRADING_TYPE_LABELS: Record<string, string> = { AUTO: 'Auto (MCQ, Essay)', MANUAL: 'Manual (Essay)' };
+const GRADING_TYPE_LABELS: Record<string, string> = { AUTO: 'Auto', MANUAL: 'Manual' };
 const RANKING_LABELS: Record<string, string> = {
   SUPERIOR: 'Superior',
   ABOVE_AVERAGE: 'Above Average',
@@ -80,7 +80,12 @@ function AdminExamView() {
     examType: 'MOCK_EXAM' as 'MOCK_EXAM' | 'ASSIGNMENT',
     durationMinutes: 90,
     gradingType: 'AUTO' as GradingType,
+    thresholdSuperior: 72,
+    thresholdAboveAverage: 60,
+    thresholdHighAverage: 50,
+    thresholdAverage: 40,
   });
+  const [showThresholds, setShowThresholds] = useState(false);
 
   const loadExams = useCallback(async (p: number) => {
     setIsLoading(true);
@@ -110,7 +115,8 @@ function AdminExamView() {
 
   const openCreate = () => {
     setEditingExam(null);
-    setForm({ title: '', examType: 'MOCK_EXAM', durationMinutes: 90, gradingType: 'AUTO' });
+    setForm({ title: '', examType: 'MOCK_EXAM', durationMinutes: 90, gradingType: 'AUTO', thresholdSuperior: 72, thresholdAboveAverage: 60, thresholdHighAverage: 50, thresholdAverage: 40 });
+    setShowThresholds(false);
     setFormError(null);
     setIsModalOpen(true);
   };
@@ -122,7 +128,13 @@ function AdminExamView() {
       examType: exam.examType,
       durationMinutes: exam.durationMinutes ?? 90,
       gradingType: exam.gradingType,
+      thresholdSuperior: exam.thresholdSuperior,
+      thresholdAboveAverage: exam.thresholdAboveAverage,
+      thresholdHighAverage: exam.thresholdHighAverage,
+      thresholdAverage: exam.thresholdAverage,
     });
+    const isCustom = exam.thresholdSuperior !== 72 || exam.thresholdAboveAverage !== 60 || exam.thresholdHighAverage !== 50 || exam.thresholdAverage !== 40;
+    setShowThresholds(isCustom);
     setFormError(null);
     setIsModalOpen(true);
   };
@@ -131,6 +143,10 @@ function AdminExamView() {
     e.preventDefault();
     if (!form.title.trim()) { setFormError('Title is required'); return; }
     if (form.durationMinutes < 1 || form.durationMinutes > 600) { setFormError('Duration must be between 1 and 600 minutes'); return; }
+    if (form.thresholdSuperior <= form.thresholdAboveAverage || form.thresholdAboveAverage <= form.thresholdHighAverage || form.thresholdHighAverage <= form.thresholdAverage) {
+      setFormError('Ranking thresholds must be in descending order: Superior > Above Average > High Average > Average');
+      return;
+    }
     setIsSubmitting(true);
     setFormError(null);
     try {
@@ -579,8 +595,8 @@ function AdminExamView() {
                     required
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-900 focus:border-[#FF6900] focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                   >
-                    <option value="AUTO">Auto (MCQ, Essay)</option>
-                    <option value="MANUAL">Manual (Essay)</option>
+                    <option value="AUTO">Auto</option>
+                    <option value="MANUAL">Manual</option>
                   </select>
                 </div>
               </div>
@@ -599,6 +615,47 @@ function AdminExamView() {
                   Allowed range: 1-600 minutes.
                 </p>
               </div>
+
+              {/* Ranking Thresholds */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setShowThresholds((v) => !v)}
+                  className="flex items-center gap-1.5 text-xs font-bold text-[#0A9AE2] hover:text-[#0659AA] transition-colors"
+                >
+                  <ChevronDown size={14} className={`transition-transform ${showThresholds ? 'rotate-180' : ''}`} />
+                  Ranking Thresholds
+                </button>
+                {showThresholds && (
+                  <div className="mt-3 space-y-2.5 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/50">
+                    <p className="text-[10px] font-medium leading-tight text-slate-400">
+                      Minimum score (%) for each ranking level. Scores below the lowest threshold are ranked as Low Average.
+                    </p>
+                    {([
+                      { key: 'thresholdSuperior', label: 'Superior' },
+                      { key: 'thresholdAboveAverage', label: 'Above Average' },
+                      { key: 'thresholdHighAverage', label: 'High Average' },
+                      { key: 'thresholdAverage', label: 'Average' },
+                    ] as const).map(({ key, label }) => (
+                      <div key={key} className="flex items-center justify-between gap-3">
+                        <label className="text-xs font-bold text-slate-600 dark:text-slate-300 min-w-[100px]">{label}</label>
+                        <div className="relative w-24">
+                          <input
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={form[key]}
+                            onChange={(e) => setForm((f) => ({ ...f, [key]: parseInt(e.target.value, 10) || 0 }))}
+                            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-900 text-right focus:border-[#FF6900] focus:outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                          />
+                          <span className="absolute right-8 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">%</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {formError && (
                 <p className="text-sm font-medium text-red-600 dark:text-red-400">{formError}</p>
               )}
@@ -667,8 +724,8 @@ function AdminExamView() {
                     onChange={(e) => setPublishExamData(d => d ? { ...d, gradingType: e.target.value as GradingType } : null)}
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-900 focus:border-[#FF6900] focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
                   >
-                    <option value="AUTO">Auto (MCQ, Essay)</option>
-                    <option value="MANUAL">Manual (Essay)</option>
+                    <option value="AUTO">Auto</option>
+                    <option value="MANUAL">Manual</option>
                   </select>
                 </div>
               )}
@@ -1034,8 +1091,20 @@ function StudentExamView() {
             </div>
 
             {isLoadingSummary ? (
-              <div className="flex items-center justify-center py-12">
-                <Loader2 size={28} className="animate-spin text-[#FF6900]" />
+              <div className="space-y-4 py-4 animate-pulse">
+                <div className="grid grid-cols-3 gap-3">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="rounded-xl bg-slate-50 p-3 dark:bg-slate-800">
+                      <div className="h-3 w-14 rounded bg-slate-200/70 dark:bg-slate-700" />
+                      <div className="mt-2 h-6 w-10 rounded bg-slate-200/70 dark:bg-slate-700" />
+                    </div>
+                  ))}
+                </div>
+                <div className="space-y-2">
+                  {Array.from({ length: 2 }).map((_, i) => (
+                    <div key={i} className="h-14 rounded-xl bg-slate-50 dark:bg-slate-800" />
+                  ))}
+                </div>
               </div>
             ) : attemptSummary ? (
               <div className="space-y-5">

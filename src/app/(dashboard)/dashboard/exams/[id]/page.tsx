@@ -28,7 +28,7 @@ import {
   Eye,
 } from 'lucide-react';
 
-const GRADING_TYPE_LABELS: Record<string, string> = { AUTO: 'Auto (MCQ, Essay)', MANUAL: 'Manual (Essay)' };
+const GRADING_TYPE_LABELS: Record<string, string> = { AUTO: 'Auto', MANUAL: 'Manual' };
 const EXAM_TYPE_LABELS: Record<string, string> = { MOCK_EXAM: 'Mock Exam', ASSIGNMENT: 'Assignment' };
 
 function formatDuration(minutes: number | null) {

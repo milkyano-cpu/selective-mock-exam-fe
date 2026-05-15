@@ -13,9 +13,9 @@ export const imagesService = {
     return response.data;
   },
 
-  upload: async (file: File, payload: { fileName?: string; altText?: string; caption?: string }): Promise<ImageResponse> => {
+  upload: async (file: File, payload: { imageType: string; altText?: string; caption?: string }): Promise<ImageResponse> => {
     const form = new FormData();
-    if (payload.fileName) form.append('fileName', payload.fileName);
+    form.append('imageType', payload.imageType);
     if (payload.altText) form.append('altText', payload.altText);
     if (payload.caption) form.append('caption', payload.caption);
     form.append('file', file);

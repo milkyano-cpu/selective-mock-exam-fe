@@ -105,6 +105,12 @@ export default function PassageDetailPage({ params }: { params: Promise<{ id: st
                         {selectedPassage.difficulty}
                       </div>
                     )}
+                    {selectedPassage.imageDisplayPosition && (
+                      <div className="inline-flex items-center gap-1.5 rounded-lg bg-orange-50 border border-orange-100 px-2.5 py-1 text-[11px] font-bold text-orange-600 dark:bg-orange-500/10 dark:border-orange-500/20 dark:text-orange-400">
+                        <ImageIcon size={12} />
+                        Image: {selectedPassage.imageDisplayPosition.charAt(0) + selectedPassage.imageDisplayPosition.slice(1).toLowerCase()}
+                      </div>
+                    )}
                     {selectedPassage.section && (
                       <div className="inline-flex items-center gap-1.5 rounded-lg bg-purple-50 border border-purple-100 px-2.5 py-1 text-[11px] font-bold text-purple-600 dark:bg-purple-500/10 dark:border-purple-500/20 dark:text-purple-400">
                         <Layers size={12} />

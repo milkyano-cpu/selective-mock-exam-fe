@@ -14,16 +14,17 @@ import type { Subject, Topic } from '@/features/subjects/types/subjects.types';
 // ── Schema ────────────────────────────────────────────────────────────────────
 
 const passageSchema = z.object({
-  title:         z.string().min(1, 'Title is required').max(500, 'Maximum 500 characters'),
-  content:       z.string().max(20000, 'Maximum 20000 characters').optional().or(z.literal('')),
-  passageFormat: z.string().max(100).optional().or(z.literal('')),
-  passageType:   z.enum(['TEXT', 'IMAGE', 'TEXT_IMAGE']),
-  imageRef:      z.string().max(255).optional().or(z.literal('')),
-  latexEnabled:  z.boolean().optional(),
-  section:       z.string().max(200).optional().or(z.literal('')),
-  difficulty:    z.string().max(50).optional().or(z.literal('')),
-  topic:         z.string().max(200).optional().or(z.literal('')),
-  notes:         z.string().max(5000).optional().or(z.literal('')),
+  title:                z.string().min(1, 'Title is required').max(500, 'Maximum 500 characters'),
+  content:              z.string().max(20000, 'Maximum 20000 characters').optional().or(z.literal('')),
+  passageFormat:        z.string().max(100).optional().or(z.literal('')),
+  passageType:          z.enum(['TEXT', 'IMAGE', 'TEXT_IMAGE']),
+  imageRef:             z.string().max(255).optional().or(z.literal('')),
+  imageDisplayPosition: z.string().optional().or(z.literal('')),
+  latexEnabled:         z.boolean().optional(),
+  section:              z.string().max(200).optional().or(z.literal('')),
+  difficulty:           z.string().max(50).optional().or(z.literal('')),
+  topic:                z.string().max(200).optional().or(z.literal('')),
+  notes:                z.string().max(5000).optional().or(z.literal('')),
 }).superRefine((data, ctx) => {
   if ((data.passageType === 'IMAGE' || data.passageType === 'TEXT_IMAGE') && !data.imageRef?.trim()) {
     ctx.addIssue({
@@ -41,7 +42,7 @@ const passageSchema = z.object({
   }
 });
 
-type PassageFormValues = z.infer<typeof passageSchema>;
+export type PassageFormValues = z.infer<typeof passageSchema>;
 
 interface PassageModalProps {
   isOpen: boolean;
@@ -79,6 +80,7 @@ export function PassageModal({ isOpen, onClose, onSubmit, initialData, isLoading
       passageFormat: 'Plain',
       passageType: 'TEXT',
       imageRef: '',
+      imageDisplayPosition: '',
       latexEnabled: false,
       section: '',
       difficulty: '',
@@ -189,16 +191,17 @@ export function PassageModal({ isOpen, onClose, onSubmit, initialData, isLoading
   useEffect(() => {
     if (!isOpen) return;
     reset({
-      title:         initialData?.title ?? '',
-      content:       initialData?.content ?? '',
-      passageFormat: initialData?.passageFormat ?? 'Plain',
-      passageType:   initialData?.passageType ?? 'TEXT',
-      imageRef:      initialData?.imageRef ?? '',
-      latexEnabled:  initialData?.latexEnabled ?? false,
-      section:       initialData?.section ?? '',
-      difficulty:    initialData?.difficulty ?? '',
-      topic:         initialData?.topic ?? '',
-      notes:         initialData?.notes ?? '',
+      title:                initialData?.title ?? '',
+      content:              initialData?.content ?? '',
+      passageFormat:        initialData?.passageFormat ?? 'Plain',
+      passageType:          initialData?.passageType ?? 'TEXT',
+      imageRef:             initialData?.imageRef ?? '',
+      imageDisplayPosition: initialData?.imageDisplayPosition ?? '',
+      latexEnabled:         initialData?.latexEnabled ?? false,
+      section:              initialData?.section ?? '',
+      difficulty:           initialData?.difficulty ?? '',
+      topic:                initialData?.topic ?? '',
+      notes:                initialData?.notes ?? '',
     });
     setImageSuggestions([]);
     setShowSuggestions(false);
@@ -372,6 +375,28 @@ export function PassageModal({ isOpen, onClose, onSubmit, initialData, isLoading
                   ))}
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Image Display Position — visible when type has image */}
+          {needsImageRef && (
+            <div className="space-y-1.5">
+              <label htmlFor="imageDisplayPosition" className={labelCls}>Image Display Position</label>
+              <div className="relative">
+                <select
+                  id="imageDisplayPosition"
+                  {...register('imageDisplayPosition')}
+                  className={selectCls}
+                >
+                  <option value="">— Select position —</option>
+                  <option value="ABOVE">Above passage text</option>
+                  <option value="MIDDLE">In the middle of passage</option>
+                  <option value="BELOW">After passage text</option>
+                  <option value="BESIDE">Beside text (side by side)</option>
+                  <option value="MAIN">Main content (image only)</option>
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+              </div>
             </div>
           )}
 

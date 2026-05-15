@@ -1,22 +1,25 @@
 import type { ImageSummary } from '@/features/images/types/images.types';
 
+export type ImageDisplayPosition = 'ABOVE' | 'MIDDLE' | 'BELOW' | 'BESIDE' | 'MAIN';
+
 export type Passage = {
-  id:            string;
-  externalId:    string | null;
-  title:         string | null;
-  content:       string | null;
-  passageFormat: string | null;
-  imageUrl:      string | null;
-  imageRef:      string | null;
-  image:         ImageSummary | null;
-  passageType:   'TEXT' | 'IMAGE' | 'TEXT_IMAGE' | null;
-  section:       string | null;
-  difficulty:    string | null;
-  topic:         string | null;
-  latexEnabled:  boolean;
-  notes:         string | null;
-  createdAt:     string;
-  updatedAt:     string;
+  id:                   string;
+  externalId:           string | null;
+  title:                string | null;
+  content:              string | null;
+  passageFormat:        string | null;
+  imageUrl:             string | null;
+  imageRef:             string | null;
+  image:                ImageSummary | null;
+  passageType:          'TEXT' | 'IMAGE' | 'TEXT_IMAGE' | null;
+  imageDisplayPosition: ImageDisplayPosition | null;
+  section:              string | null;
+  difficulty:           string | null;
+  topic:                string | null;
+  latexEnabled:         boolean;
+  notes:                string | null;
+  createdAt:            string;
+  updatedAt:            string;
 };
 
 export type PassageQuestionSummary = {
@@ -72,17 +75,18 @@ export type ActionResponse = {
 };
 
 export type CreatePassagePayload = {
-  title?:        string;
-  content?:      string;
-  passageFormat?: string;
-  imageUrl?:     string;
-  imageRef?:     string;
-  passageType?:  'TEXT' | 'IMAGE' | 'TEXT_IMAGE';
-  section?:      string;
-  difficulty?:   string;
-  topic?:        string;
-  latexEnabled?: boolean;
-  notes?:        string;
+  title?:                string;
+  content?:              string;
+  passageFormat?:        string;
+  imageUrl?:             string;
+  imageRef?:             string;
+  passageType?:          'TEXT' | 'IMAGE' | 'TEXT_IMAGE';
+  imageDisplayPosition?: ImageDisplayPosition;
+  section?:              string;
+  difficulty?:           string;
+  topic?:                string;
+  latexEnabled?:         boolean;
+  notes?:                string;
 };
 
 export type UpdatePassagePayload = {

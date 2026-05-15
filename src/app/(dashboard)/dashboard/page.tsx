@@ -759,24 +759,32 @@ function AdminLeaderboardCard() {
         </div>
       ) : (
         <div className="space-y-1.5">
-          {entries.map((entry) => (
-            <div key={entry.studentId} className="flex items-center gap-2">
-              <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-black ${
-                entry.rank === 1 ? 'bg-yellow-100 text-yellow-700' :
-                entry.rank === 2 ? 'bg-slate-100 text-slate-600' :
-                entry.rank === 3 ? 'bg-orange-100 text-orange-700' :
-                'bg-slate-50 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
-              }`}>
-                {entry.rank}
-              </span>
-              <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 truncate flex-1">
-                {entry.studentName}
-              </span>
-              <span className="text-[11px] font-black text-[#0A9AE2] shrink-0">
-                {entry.score.toFixed(0)}
-              </span>
-            </div>
-          ))}
+          {entries.map((entry) => {
+            const rankCfg = entry.rankingLevel ? RANKING_CONFIG[entry.rankingLevel] : null;
+            return (
+              <div key={entry.studentId} className="flex items-center gap-2">
+                <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] font-black ${
+                  entry.rank === 1 ? 'bg-yellow-100 text-yellow-700' :
+                  entry.rank === 2 ? 'bg-slate-100 text-slate-600' :
+                  entry.rank === 3 ? 'bg-orange-100 text-orange-700' :
+                  'bg-slate-50 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                }`}>
+                  {entry.rank}
+                </span>
+                <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 truncate flex-1">
+                  {entry.studentName}
+                </span>
+                {rankCfg && (
+                  <span className={`rounded-md px-1.5 py-0.5 text-[9px] font-black shrink-0 ${rankCfg.bg} ${rankCfg.color}`}>
+                    {rankCfg.label}
+                  </span>
+                )}
+                <span className="text-[11px] font-black text-[#0A9AE2] shrink-0">
+                  {entry.score.toFixed(0)}
+                </span>
+              </div>
+            );
+          })}
         </div>
       )}
     </div>

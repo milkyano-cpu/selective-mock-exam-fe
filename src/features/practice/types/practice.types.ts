@@ -25,6 +25,14 @@ export interface PracticeQuestion {
   imageUrls: string[];
   correctAnswer: string;
   explanation: string | null;
+  passage: {
+    id: string;
+    title: string | null;
+    content: string | null;
+    imageRef: string | null;
+    imageDisplayPosition: 'ABOVE' | 'MIDDLE' | 'BELOW' | 'BESIDE' | 'MAIN' | null;
+    image: ImageSummary | null;
+  } | null;
 }
 
 export interface PracticeResultAnswer extends PracticeQuestion {

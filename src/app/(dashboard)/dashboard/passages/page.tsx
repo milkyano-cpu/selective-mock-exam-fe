@@ -13,7 +13,7 @@ import {
   Upload,
 } from 'lucide-react';
 import { usePassages } from '@/features/passages/hooks/usePassages';
-import { PassageModal } from '@/features/passages/components/PassageModal';
+import { PassageModal, type PassageFormValues } from '@/features/passages/components/PassageModal';
 import { ImportPassageModal } from '@/features/passages/components/ImportPassageModal';
 import { DeleteConfirmModal } from '@/features/subjects/components/DeleteConfirmModal';
 import { passagesService } from '@/features/passages/services/passages.service';
@@ -81,18 +81,22 @@ export default function PassagesPage() {
     }
   };
 
-  const onSubmit = async (payload: CreatePassagePayload) => {
+  const onSubmit = async (payload: PassageFormValues) => {
     const isImageType = payload.passageType === 'IMAGE' || payload.passageType === 'TEXT_IMAGE';
     const isTextType = payload.passageType === 'TEXT' || payload.passageType === 'TEXT_IMAGE';
+    const validPositions = ['ABOVE', 'MIDDLE', 'BELOW', 'BESIDE', 'MAIN'] as const;
+    const rawPos = payload.imageDisplayPosition ?? '';
 
     if (selectedPassage) {
       // Update: explicitly clear fields that are not relevant to chosen type
+      const imgPos = isImageType && validPositions.includes(rawPos as typeof validPositions[number]) ? rawPos as typeof validPositions[number] : null;
       const updatePayload: UpdatePassagePayload = {
         title: payload.title?.trim() || null,
         content: isTextType ? (payload.content?.trim() || null) : null,
         passageFormat: 'Plain',
         passageType: payload.passageType || null,
         imageRef: isImageType ? (payload.imageRef?.trim() || null) : null,
+        imageDisplayPosition: imgPos,
         latexEnabled: isTextType ? (payload.latexEnabled ?? false) : false,
         section: payload.section?.trim() || null,
         difficulty: payload.difficulty?.trim() || null,
@@ -114,6 +118,7 @@ export default function PassagesPage() {
       passageFormat: 'Plain',
       passageType: payload.passageType || undefined,
       imageRef: isImageType ? (payload.imageRef?.trim() || undefined) : undefined,
+      imageDisplayPosition: isImageType && validPositions.includes((payload.imageDisplayPosition ?? '') as typeof validPositions[number]) ? payload.imageDisplayPosition as CreatePassagePayload['imageDisplayPosition'] : undefined,
       latexEnabled: isTextType ? (payload.latexEnabled ?? false) : false,
       section: payload.section?.trim() || undefined,
       difficulty: payload.difficulty?.trim() || undefined,

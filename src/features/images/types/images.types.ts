@@ -5,8 +5,12 @@ export type ImageSummary = {
   caption: string | null;
 };
 
+export type ImageType = 'QUESTION' | 'PASSAGE';
+
 export type MasterImage = ImageSummary & {
   uuid: string;
+  imageType: ImageType;
+  refId: string | null;
   expiredDate: string | null;
   createdAt: string;
   updatedAt: string;

@@ -1,13 +1,13 @@
 'use client';
 
 import { FormEvent, useEffect, useRef, useState } from 'react';
-import { AlertTriangle, ImageIcon, Loader2, Pencil, Plus, Save, Search, Trash2, Upload, X } from 'lucide-react';
+import { AlertTriangle, Check, ClipboardCopy, ImageIcon, Loader2, Pencil, Plus, Save, Search, Trash2, Upload, X } from 'lucide-react';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { imagesService } from '@/features/images/services/images.service';
 import type { MasterImage } from '@/features/images/types/images.types';
 
 const initialUploadForm = {
-  fileName: '',
+  imageType: 'QUESTION' as 'QUESTION' | 'PASSAGE',
   altText: '',
   caption: '',
 };
@@ -43,6 +43,7 @@ export default function ImagesPage() {
   const [editForm, setEditForm] = useState({ altText: '', caption: '' });
   const [rowActionId, setRowActionId] = useState<string | null>(null);
   const [message, setMessage] = useState('');
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadImages = async () => {
@@ -201,30 +202,23 @@ export default function ImagesPage() {
             <p className="mt-1 text-sm font-bold text-slate-500">Add a new image to the library.</p>
             <div className="mt-5 space-y-4">
               <div>
+                <label className="text-xs font-black uppercase text-slate-500">Image Type</label>
+                <select
+                  value={uploadForm.imageType}
+                  onChange={(event) => setUploadForm((form) => ({ ...form, imageType: event.target.value as 'QUESTION' | 'PASSAGE' }))}
+                  className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-bold dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                >
+                  <option value="QUESTION">Question</option>
+                  <option value="PASSAGE">Passage</option>
+                </select>
+              </div>
+              <div>
                 <label className="text-xs font-black uppercase text-slate-500">File</label>
                 <input
                   ref={fileInputRef}
                   type="file"
                   accept="image/jpeg,image/png,image/webp,image/gif"
-                  onChange={(event) => {
-                        const file = event.target.files?.[0] ?? null;
-                        setUploadFile(file);
-                        if (file) {
-                          setUploadForm((form) => ({
-                            ...form,
-                            fileName: form.fileName ? form.fileName : file.name,
-                          }));
-                        }
-                      }}
-                  className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-                />
-              </div>
-              <div>
-                <label className="text-xs font-black uppercase text-slate-500">File Name</label>
-                <input
-                  value={uploadForm.fileName}
-                  onChange={(event) => setUploadForm((form) => ({ ...form, fileName: event.target.value }))}
-                  placeholder={uploadFile?.name || 'Use uploaded file name'}
+                  onChange={(event) => setUploadFile(event.target.files?.[0] ?? null)}
                   className="mt-1 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                 />
               </div>
@@ -285,6 +279,7 @@ export default function ImagesPage() {
             <thead className="bg-slate-50 dark:bg-slate-800/60">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-black uppercase tracking-wide text-slate-500">Image</th>
+                <th className="px-6 py-3 text-left text-xs font-black uppercase tracking-wide text-slate-500">Type / Ref</th>
                 <th className="px-6 py-3 text-left text-xs font-black uppercase tracking-wide text-slate-500">Metadata</th>
                 <th className="px-6 py-3 text-left text-xs font-black uppercase tracking-wide text-slate-500">Usage</th>
                 <th className="px-6 py-3 text-left text-xs font-black uppercase tracking-wide text-slate-500">Expiry</th>
@@ -294,7 +289,7 @@ export default function ImagesPage() {
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {isLoading ? (
                 <tr>
-                  <td colSpan={5} className="px-8 py-12 text-center">
+                  <td colSpan={6} className="px-8 py-12 text-center">
                     <div className="flex flex-col items-center gap-3">
                       <Loader2 className="h-8 w-8 animate-spin text-[#0A9AE2]" />
                       <span className="font-medium text-slate-400">Loading images...</span>
@@ -303,7 +298,7 @@ export default function ImagesPage() {
                 </tr>
               ) : images.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-8 py-12 text-center">
+                  <td colSpan={6} className="px-8 py-12 text-center">
                     <div className="flex flex-col items-center gap-2">
                       <ImageIcon className="text-slate-200 dark:text-slate-800" size={48} />
                       <p className="font-medium text-slate-500">No images found.</p>
@@ -326,10 +321,15 @@ export default function ImagesPage() {
                             )}
                           </div>
                           <div className="min-w-0">
-                            <p className="truncate text-sm font-bold text-slate-900 dark:text-slate-100 group-hover:text-[#0A9AE2] transition-colors">{image.fileName}</p>
+                            <p className="truncate text-sm font-bold text-slate-900 dark:text-slate-100 group-hover:text-[#0A9AE2] transition-colors">{image.fileName.split('/').pop()}</p>
                             <p className="mt-1 text-xs font-bold text-slate-400">{image.url ? 'Uploaded' : 'Pending file'}</p>
                           </div>
                         </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-black ${image.imageType === 'PASSAGE' ? 'bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300' : 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300'}`}>
+                          {image.imageType}
+                        </span>
                       </td>
                       <td className="px-6 py-4">
                         <p className="max-w-xs truncate text-sm font-semibold text-slate-700 dark:text-slate-200">{image.altText || 'No alt text'}</p>
@@ -355,6 +355,18 @@ export default function ImagesPage() {
                               />
                             </label>
                           )}
+                          <button
+                            type="button"
+                            title="Copy path"
+                            onClick={() => {
+                              void navigator.clipboard.writeText(image.fileName);
+                              setCopiedId(image.uuid);
+                              setTimeout(() => setCopiedId((prev) => prev === image.uuid ? null : prev), 2000);
+                            }}
+                            className="rounded-lg p-2 text-slate-400 transition-all hover:bg-[#0A9AE2]/10 hover:text-[#0A9AE2]"
+                          >
+                            {copiedId === image.uuid ? <Check size={16} className="text-emerald-500" /> : <ClipboardCopy size={16} />}
+                          </button>
                           <button
                             type="button"
                             onClick={() => openEdit(image)}

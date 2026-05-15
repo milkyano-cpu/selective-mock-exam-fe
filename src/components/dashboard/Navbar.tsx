@@ -312,7 +312,7 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
 
         <button
           type="button"
-          onClick={() => router.refresh()}
+          onClick={() => window.location.reload()}
           aria-label="Refresh page"
           className="rounded-2xl p-2 text-slate-500 transition-colors hover:bg-white hover:text-[#0A9AE2] hover:shadow-sm active:rotate-180 active:transition-transform dark:text-slate-300 dark:hover:bg-slate-800"
         >

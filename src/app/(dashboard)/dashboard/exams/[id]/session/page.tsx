@@ -35,38 +35,74 @@ function QuestionContent({ question }: { question: SessionQuestion }) {
 
   return (
     <div className="space-y-3">
-      {question.passage && (
-        <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 dark:border-blue-900/40 dark:bg-blue-900/10">
-          {question.passage.title && (
-            <p className="mb-2 text-xs font-bold uppercase tracking-wide text-blue-600 dark:text-blue-400">
-              {question.passage.title}
-            </p>
-          )}
-          {question.passage.content && (
-            <div className="text-sm font-medium leading-relaxed text-slate-700 dark:text-slate-300">
-              <QuestionLatexRenderer
-                text={question.passage.content}
-                latexEnabled={question.latexEnabled}
-                fallbackClassName="whitespace-pre-wrap"
-              />
-            </div>
-          )}
-          {question.passage.image?.url && (
-            <figure className="mt-3">
-              <img
-                src={question.passage.image.url}
-                alt={question.passage.image.altText || question.passage.image.fileName}
-                className="max-h-64 rounded-xl border border-blue-100 object-contain dark:border-blue-900/40"
-              />
-              {question.passage.image.caption && (
-                <figcaption className="mt-2 text-xs font-medium text-slate-500 dark:text-slate-400">
-                  {question.passage.image.caption}
-                </figcaption>
-              )}
-            </figure>
-          )}
-        </div>
-      )}
+      {question.passage && (() => {
+        const pos = question.passage.imageDisplayPosition ?? 'BELOW';
+        const hasImage = !!question.passage.image?.url;
+        const hasText = !!question.passage.content;
+
+        const imageBlock = hasImage ? (
+          <figure className={pos === 'BESIDE' ? '' : (pos === 'ABOVE' || pos === 'MAIN' ? 'mb-3' : 'mt-3')}>
+            <img
+              src={question.passage.image!.url!}
+              alt={question.passage.image!.altText || question.passage.image!.fileName}
+              className="max-h-64 rounded-xl border border-blue-100 object-contain dark:border-blue-900/40"
+            />
+            {question.passage.image!.caption && (
+              <figcaption className="mt-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                {question.passage.image!.caption}
+              </figcaption>
+            )}
+          </figure>
+        ) : null;
+
+        const textBlock = hasText ? (
+          <div className="text-sm font-medium leading-relaxed text-slate-700 dark:text-slate-300">
+            <QuestionLatexRenderer
+              text={question.passage.content!}
+              latexEnabled={question.latexEnabled}
+              fallbackClassName="whitespace-pre-wrap"
+            />
+          </div>
+        ) : null;
+
+        return (
+          <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 dark:border-blue-900/40 dark:bg-blue-900/10">
+            {question.passage.title && (
+              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-blue-600 dark:text-blue-400">
+                {question.passage.title}
+              </p>
+            )}
+            {pos === 'MAIN' && imageBlock}
+            {pos === 'MAIN' && textBlock}
+            {pos === 'ABOVE' && imageBlock}
+            {pos === 'ABOVE' && textBlock}
+            {pos === 'BESIDE' && (hasImage && hasText ? (
+              <div className="flex gap-4">
+                <div className="shrink-0">{imageBlock}</div>
+                <div className="flex-1">{textBlock}</div>
+              </div>
+            ) : (<>{textBlock}{imageBlock}</>))}
+            {pos === 'MIDDLE' && (() => {
+              if (!hasText || !hasImage) return <>{textBlock}{imageBlock}</>;
+              const lines = question.passage.content!.split('\n');
+              const mid = Math.ceil(lines.length / 2);
+              return (
+                <>
+                  <div className="text-sm font-medium leading-relaxed text-slate-700 dark:text-slate-300">
+                    <QuestionLatexRenderer text={lines.slice(0, mid).join('\n')} latexEnabled={question.latexEnabled} fallbackClassName="whitespace-pre-wrap" />
+                  </div>
+                  {imageBlock}
+                  <div className="text-sm font-medium leading-relaxed text-slate-700 dark:text-slate-300">
+                    <QuestionLatexRenderer text={lines.slice(mid).join('\n')} latexEnabled={question.latexEnabled} fallbackClassName="whitespace-pre-wrap" />
+                  </div>
+                </>
+              );
+            })()}
+            {pos === 'BELOW' && textBlock}
+            {pos === 'BELOW' && imageBlock}
+          </div>
+        );
+      })()}
       <div className="text-base font-medium leading-relaxed text-slate-900 dark:text-slate-100 overflow-wrap-anywhere" style={{ overflowWrap: 'anywhere' }}>
         <QuestionLatexRenderer
           text={question.questionText}

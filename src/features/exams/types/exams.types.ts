@@ -53,6 +53,10 @@ export interface ExamItem {
   hasSessions: boolean;
   createdAt: string;
   updatedAt: string;
+  thresholdSuperior: number;
+  thresholdAboveAverage: number;
+  thresholdHighAverage: number;
+  thresholdAverage: number;
 }
 
 export interface McqOption {
@@ -95,7 +99,7 @@ export interface SessionQuestion {
   imageUrls: string[];
   subjectName: string;
   topicName: string;
-  passage: { id: string; title: string | null; content: string | null; imageRef: string | null; image: ImageSummary | null } | null;
+  passage: { id: string; title: string | null; content: string | null; imageRef: string | null; imageDisplayPosition: 'ABOVE' | 'MIDDLE' | 'BELOW' | 'BESIDE' | 'MAIN' | null; image: ImageSummary | null } | null;
   existingAnswer: { studentAnswer: string; timeSpentSeconds: number } | null;
 }
 
@@ -141,6 +145,16 @@ export interface SessionResultAnswer {
   latexEnabled: boolean;
   type: 'MCQ' | 'ESSAY';
   options: McqOption[] | null;
+  imageRef: string | null;
+  image: ImageSummary | null;
+  passage: {
+    id: string;
+    title: string | null;
+    content: string | null;
+    imageRef: string | null;
+    imageDisplayPosition: 'ABOVE' | 'MIDDLE' | 'BELOW' | 'BESIDE' | 'MAIN' | null;
+    image: ImageSummary | null;
+  } | null;
   studentAnswer: string;
   correctAnswer: string;
   explanation: string | null;
@@ -223,6 +237,10 @@ export interface CreateExamPayload {
   examType: ExamType;
   durationMinutes: number;
   gradingType: GradingType;
+  thresholdSuperior?: number;
+  thresholdAboveAverage?: number;
+  thresholdHighAverage?: number;
+  thresholdAverage?: number;
 }
 
 export interface UpdateExamPayload {
@@ -230,6 +248,10 @@ export interface UpdateExamPayload {
   examType?: ExamType;
   durationMinutes?: number;
   gradingType?: GradingType;
+  thresholdSuperior?: number;
+  thresholdAboveAverage?: number;
+  thresholdHighAverage?: number;
+  thresholdAverage?: number;
 }
 
 export interface PublishExamPayload {

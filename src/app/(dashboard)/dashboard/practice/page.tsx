@@ -174,6 +174,9 @@ export default function PracticeHubPage() {
     try {
       const res = await subjectsService.listTopics(subjectId, { limit: 100, publishedOnly: true });
       if (res.success) setTopics(res.data);
+      else setTopics([]);
+    } catch {
+      setTopics([]);
     } finally {
       setIsLoadingTopics(false);
     }
@@ -853,8 +856,16 @@ export default function PracticeHubPage() {
             )}
           </div>
           {isLoadingSessions ? (
-            <div className="flex justify-center py-8">
-              <Loader2 size={28} className="animate-spin text-[#0A9AE2]" />
+            <div className="overflow-hidden rounded-3xl border border-slate-100 bg-white dark:border-slate-800 dark:bg-slate-900 animate-pulse">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-4 border-b border-slate-50 px-5 py-4 dark:border-slate-800/50">
+                  <div className="h-4 w-32 rounded bg-slate-200/70 dark:bg-slate-700" />
+                  <div className="h-4 w-20 rounded bg-slate-100 dark:bg-slate-800" />
+                  <div className="hidden h-4 w-16 rounded bg-slate-100 dark:bg-slate-800 sm:block" />
+                  <div className="hidden h-4 w-16 rounded bg-slate-100 dark:bg-slate-800 md:block" />
+                  <div className="ml-auto h-8 w-20 rounded-xl bg-slate-100 dark:bg-slate-800" />
+                </div>
+              ))}
             </div>
           ) : recentSessions.length === 0 ? (
             <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 p-8 text-center text-slate-400 text-sm">
