@@ -10,6 +10,7 @@ import type { BulkImportResult, ImportedQuestionItem, Question, UpdateQuestionPa
 import { questionsService } from '../services/questions.service';
 import { subjectsService } from '@/features/subjects/services/subjects.service';
 import { useAuthStore } from '@/features/auth/store/auth.store';
+import { CsvTemplateDownloadButton } from '@/features/csv-templates/components/CsvTemplateDownloadButton';
 import { QuestionFormModal } from './QuestionFormModal';
 
 type Phase = 'upload' | 'review';
@@ -38,40 +39,13 @@ const DIFFICULTY_BADGE: Record<string, string> = {
   HARD:   'bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400',
 };
 
-const splitImageRefs = (value?: string | null) => (
-  value
-    ? value.split('|').map((item) => item.trim()).filter(Boolean)
-    : []
-);
-
-const getQuestionImageRefs = (q: Question) => {
-  if (q.imageUrls?.length) return q.imageUrls;
-  return splitImageRefs(q.imageUrl);
-};
-
-const isUploadedImageRef = (value: string) => (
-  value.startsWith('http://') || value.startsWith('https://')
-);
-
-const getPendingLegacyImageRefs = (q: Question) => (
-  getQuestionImageRefs(q).filter((ref) => !isUploadedImageRef(ref))
-);
-
-const getPendingMasterImageRef = (q: Question) => (
-  q.imageRef && !q.image?.url ? q.imageRef : null
-);
-
-const getPendingImageRefs = (q: Question) => {
-  const masterRef = getPendingMasterImageRef(q);
-  return [
-    ...(masterRef ? [masterRef] : []),
-    ...getPendingLegacyImageRefs(q),
-  ];
-};
-
-const needsImageUpload = (q: Question) => {
-  return getPendingImageRefs(q).length > 0;
-};
+// All image refs now reference existing files in the master images table.
+// There is no "pending upload" state after CSV import — refs are validated up-front.
+const getQuestionImageRefs = (q: Question) => q.imageRefs ?? [];
+const getPendingLegacyImageRefs = (_q: Question): string[] => [];
+const getPendingMasterImageRef = (_q: Question): string | null => null;
+const getPendingImageRefs = (_q: Question): string[] => [];
+const needsImageUpload = (_q: Question) => false;
 
 const getNextExpectedImageName = (q: Question): string | null => {
   const val = getPendingLegacyImageRefs(q)[0];
@@ -660,6 +634,18 @@ export function ImportModal({
                     </div>
                   </>
                 )}
+              </div>
+
+              <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <p className="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                    CSV Templates
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <CsvTemplateDownloadButton templateType="question-mcq" label="Question MCQ" />
+                    <CsvTemplateDownloadButton templateType="question-essay" label="Question Essay" />
+                  </div>
+                </div>
               </div>
 
               {/* Upload error banner */}

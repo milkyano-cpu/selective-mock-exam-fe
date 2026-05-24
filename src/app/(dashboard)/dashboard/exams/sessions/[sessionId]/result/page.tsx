@@ -143,18 +143,40 @@ function AnswerCard({ answer, index }: { answer: SessionResultAnswer; index: num
                   {answer.studentAnswer || <span className="italic text-slate-400">No answer</span>}
                 </p>
               </div>
-              {isAiGradedEssay && answer.aiFeedback?.feedback && (
+              {isAiGradedEssay && (answer.aiFeedback?.overallFeedback || answer.aiFeedback?.feedback) && (
                 <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2.5 dark:border-emerald-900/30 dark:bg-emerald-900/10">
-                  <p className="text-xs font-bold uppercase text-emerald-600 dark:text-emerald-400">AI Review</p>
+                  <p className="text-xs font-bold uppercase text-emerald-600 dark:text-emerald-400">Review</p>
                   <p className="mt-1 text-sm font-medium text-emerald-800 dark:text-emerald-300">
-                    {answer.aiFeedback.feedback}
+                    {answer.aiFeedback.overallFeedback ?? answer.aiFeedback.feedback}
                   </p>
-                  {(answer.aiFeedback.confidence || answer.aiFeedback.gradedAt) && (
-                    <p className="mt-2 text-xs font-medium text-emerald-600/80 dark:text-emerald-400/80">
-                      {answer.aiFeedback.confidence ? `Confidence: ${answer.aiFeedback.confidence}` : null}
-                      {answer.aiFeedback.confidence && answer.aiFeedback.gradedAt ? ' · ' : null}
-                      {answer.aiFeedback.gradedAt ? `Reviewed at ${new Date(answer.aiFeedback.gradedAt).toLocaleString()}` : null}
+                  {answer.aiFeedback.bandLabel && (
+                    <p className="mt-2 text-xs font-black uppercase text-emerald-700 dark:text-emerald-300">
+                      {answer.aiFeedback.bandLabel}{answer.aiFeedback.bandDescriptor ? ` · ${answer.aiFeedback.bandDescriptor}` : ''}
                     </p>
+                  )}
+                  {(answer.aiFeedback.strengths?.length ?? 0) > 0 && (
+                    <div className="mt-2">
+                      <p className="text-xs font-black uppercase text-emerald-700 dark:text-emerald-300">Strengths</p>
+                      <ul className="mt-1 space-y-0.5">
+                        {answer.aiFeedback.strengths?.map((s: string, i: number) => (
+                          <li key={i} className="flex items-start gap-1.5 text-xs font-medium text-emerald-800 dark:text-emerald-300">
+                            <span className="mt-1 block h-1 w-1 shrink-0 rounded-full bg-emerald-500" />{s}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {(answer.aiFeedback.improvements?.length ?? 0) > 0 && (
+                    <div className="mt-2">
+                      <p className="text-xs font-black uppercase text-amber-700 dark:text-amber-300">Areas to Improve</p>
+                      <ul className="mt-1 space-y-0.5">
+                        {answer.aiFeedback.improvements?.map((s: string, i: number) => (
+                          <li key={i} className="flex items-start gap-1.5 text-xs font-medium text-amber-800 dark:text-amber-300">
+                            <span className="mt-1 block h-1 w-1 shrink-0 rounded-full bg-amber-500" />{s}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   )}
                   {answer.aiFeedback.aiRubric && (
                     <div className="mt-3 rounded-lg bg-white/70 px-3 py-2 dark:bg-slate-900/40">
@@ -170,6 +192,24 @@ function AnswerCard({ answer, index }: { answer: SessionResultAnswer; index: num
                                 <span className="text-xs font-black text-emerald-700 dark:text-emerald-300">{criterion.score}/{criterion.maxScore}</span>
                               </div>
                               {criterion.feedback && <p className="mt-1 text-xs font-medium text-emerald-800 dark:text-emerald-300">{criterion.feedback}</p>}
+                              {(criterion.strengths?.length ?? 0) > 0 && (
+                                <ul className="mt-1 space-y-0.5">
+                                  {criterion.strengths?.map((s: string, si: number) => (
+                                    <li key={si} className="flex items-start gap-1 text-xs text-emerald-700 dark:text-emerald-400">
+                                      <span className="mt-1 block h-1 w-1 shrink-0 rounded-full bg-emerald-400" />{s}
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                              {(criterion.improvements?.length ?? 0) > 0 && (
+                                <ul className="mt-1 space-y-0.5">
+                                  {criterion.improvements?.map((s: string, si: number) => (
+                                    <li key={si} className="flex items-start gap-1 text-xs text-amber-700 dark:text-amber-400">
+                                      <span className="mt-1 block h-1 w-1 shrink-0 rounded-full bg-amber-400" />{s}
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
                             </div>
                           ))}
                         </div>
@@ -190,7 +230,15 @@ function AnswerCard({ answer, index }: { answer: SessionResultAnswer; index: num
             </div>
           )}
           
-          {answer.manualScore !== null && (
+          {answer.isOverridden && answer.overrideScore !== null && (
+            <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2.5 dark:border-blue-900/30 dark:bg-blue-900/10">
+              <p className="text-xs font-bold uppercase text-blue-500">Reviewed Score</p>
+              <p className="mt-1 text-sm font-black text-blue-800 dark:text-blue-100">{answer.overrideScore}/{answer.maxMarks}</p>
+              {answer.overrideNotes && <p className="mt-1 text-sm font-medium text-blue-700 dark:text-blue-300">{answer.overrideNotes}</p>}
+            </div>
+          )}
+
+          {!answer.isOverridden && answer.manualScore !== null && (
             <div className="mt-3 rounded-xl bg-slate-50 px-3 py-2.5 dark:bg-slate-800">
               <p className="text-xs font-bold uppercase text-slate-400">Manual Score</p>
               <p className="mt-1 text-sm font-black text-slate-800 dark:text-slate-100">{answer.awardedMarks ?? answer.manualScore}/{answer.maxMarks}</p>
@@ -391,12 +439,40 @@ export default function ExamResultPage() {
                 )}
               </div>
             </div>
+            <p className="mt-1 text-[10px] font-bold uppercase text-slate-400">Combined</p>
             {rankConfig && (
-              <span className={`mt-2 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black ${rankConfig.color} ${rankConfig.bg}`}>
+              <span className={`mt-1 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-black ${rankConfig.color} ${rankConfig.bg}`}>
                 <Trophy size={11} /> {rankConfig.label}
               </span>
             )}
           </div>
+
+          {(result.mcqScore !== null || result.essayScore !== null) && (
+            <div className="flex gap-3">
+              {result.mcqScore !== null && (
+                <div className="flex flex-col items-center">
+                  <div className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-blue-400">
+                    <div className="text-center">
+                      <p className="text-xl font-black text-blue-700 dark:text-blue-400">{result.mcqScore.toFixed(0)}</p>
+                      <p className="text-[10px] font-bold text-slate-400">/100</p>
+                    </div>
+                  </div>
+                  <p className="mt-1 text-[10px] font-bold uppercase text-slate-400">MCQ</p>
+                </div>
+              )}
+              {result.essayScore !== null && (
+                <div className="flex flex-col items-center">
+                  <div className="flex h-20 w-20 items-center justify-center rounded-full border-2 border-purple-400">
+                    <div className="text-center">
+                      <p className="text-xl font-black text-purple-700 dark:text-purple-400">{result.essayScore.toFixed(0)}</p>
+                      <p className="text-[10px] font-bold text-slate-400">/100</p>
+                    </div>
+                  </div>
+                  <p className="mt-1 text-[10px] font-bold uppercase text-slate-400">Essay</p>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="flex-1 grid grid-cols-2 gap-4 sm:grid-cols-4">
             <div className="rounded-2xl bg-slate-50 p-3 dark:bg-slate-800">
@@ -440,7 +516,7 @@ export default function ExamResultPage() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-6">
           <div>
             <h2 className="flex items-center gap-2 text-xl font-black text-slate-900 dark:text-slate-100">
-              <Sparkles className="text-indigo-500" /> AI Performance Insights
+              <Sparkles className="text-indigo-500" /> Performance Insights
             </h2>
             <p className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400">
               Personalized analytics and advice based on your accuracy and time management.

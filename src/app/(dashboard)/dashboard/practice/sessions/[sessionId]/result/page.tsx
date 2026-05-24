@@ -91,19 +91,25 @@ function getScoreTone(percent: number) {
 
 function AnswerCard({ answer, index }: { answer: PracticeResultAnswer; index: number }) {
   const [expanded, setExpanded] = useState(false);
+  const isEssay = answer.type === 'ESSAY';
+  const feedback = answer.aiFeedback?.overallFeedback ?? answer.aiFeedback?.feedback ?? null;
 
   return (
     <div
       className={[
         'rounded-2xl border p-4 transition-all',
-        answer.isCorrect
+        isEssay
+          ? 'bg-blue-50 dark:bg-blue-900/10 border-blue-200 dark:border-blue-900/30'
+          : answer.isCorrect
           ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-900/30'
           : 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-900/30',
       ].join(' ')}
     >
       <div className="flex items-start gap-3">
         <div className="flex-shrink-0 mt-0.5">
-          {answer.isCorrect ? (
+          {isEssay ? (
+            <BookOpen size={18} className="text-blue-500" />
+          ) : answer.isCorrect ? (
             <CheckCircle2 size={18} className="text-green-500" />
           ) : (
             <XCircle size={18} className="text-red-400" />
@@ -118,13 +124,18 @@ function AnswerCard({ answer, index }: { answer: PracticeResultAnswer; index: nu
           <div className="flex flex-wrap gap-3 mt-2 text-xs font-bold">
             <span className="text-slate-500">
               Your answer:{' '}
-              <span className={answer.isCorrect ? 'text-green-600 dark:text-green-400' : 'text-red-500'}>
+              <span className={answer.isCorrect ? 'text-green-600 dark:text-green-400' : isEssay ? 'text-blue-600 dark:text-blue-400' : 'text-red-500'}>
                 {answer.studentAnswer || <em className="font-normal text-slate-400">skipped</em>}
               </span>
             </span>
-            {!answer.isCorrect && (
+            {!isEssay && !answer.isCorrect && (
               <span className="text-slate-500">
                 Correct: <span className="text-green-600 dark:text-green-400">{answer.correctAnswer}</span>
+              </span>
+            )}
+            {isEssay && answer.awardedMarks !== null && (
+              <span className="text-slate-500">
+                Score: <span className="text-blue-600 dark:text-blue-400">{answer.awardedMarks}/{answer.maxMarks}</span>
               </span>
             )}
             <span className="inline-flex items-center gap-1 text-slate-500">
@@ -132,6 +143,38 @@ function AnswerCard({ answer, index }: { answer: PracticeResultAnswer; index: nu
               {formatDuration(answer.timeSpentSeconds)}
             </span>
           </div>
+
+          {isEssay && (answer.bandLabel || feedback) && (
+            <div className="mt-3 rounded-xl bg-white/70 p-3 text-xs font-medium text-slate-700 dark:bg-slate-800/60 dark:text-slate-300">
+              {answer.bandLabel && <p className="font-black uppercase text-blue-600 dark:text-blue-400">{answer.bandLabel}</p>}
+              {answer.bandDescriptor && <p className="mt-1">{answer.bandDescriptor}</p>}
+              {feedback && <p className="mt-2 whitespace-pre-wrap">{feedback}</p>}
+              {(answer.aiFeedback?.strengths?.length ?? 0) > 0 && (
+                <div className="mt-2">
+                  <p className="text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400">Strengths</p>
+                  <ul className="mt-0.5 space-y-0.5">
+                    {answer.aiFeedback?.strengths?.map((s: string, i: number) => (
+                      <li key={i} className="flex items-start gap-1.5 text-xs text-emerald-700 dark:text-emerald-300">
+                        <span className="mt-1 block h-1 w-1 shrink-0 rounded-full bg-emerald-400" />{s}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {(answer.aiFeedback?.improvements?.length ?? 0) > 0 && (
+                <div className="mt-2">
+                  <p className="text-[10px] font-black uppercase text-amber-600 dark:text-amber-400">Areas to Improve</p>
+                  <ul className="mt-0.5 space-y-0.5">
+                    {answer.aiFeedback?.improvements?.map((s: string, i: number) => (
+                      <li key={i} className="flex items-start gap-1.5 text-xs text-amber-700 dark:text-amber-300">
+                        <span className="mt-1 block h-1 w-1 shrink-0 rounded-full bg-amber-400" />{s}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
 
           {answer.explanation && (
             <button

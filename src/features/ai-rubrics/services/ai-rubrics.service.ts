@@ -1,14 +1,28 @@
 import mdwClient from '@/lib/mdwClient';
 import type {
+  AiCalibrationNote,
+  AiCalibrationNoteInput,
+  AiRubric,
+  AiRubricBandDescriptor,
+  AiRubricBandDescriptorInput,
+  AiRubricCriterion,
+  AiRubricCriterionInput,
+  AiRubricDetail,
   CreateAiRubricPayload,
   ImportAiRubricsResult,
   ListAiRubricsQuery,
   PaginatedResponse,
-  AiRubric,
-  AiRubricDetail,
   SingleResponse,
   UpdateAiRubricPayload,
 } from '../types/ai-rubrics.types';
+
+type ImportResponse = { success: boolean; message: string; data: ImportAiRubricsResult };
+
+function csvFormData(file: File): FormData {
+  const fd = new FormData();
+  fd.append('file', file);
+  return fd;
+}
 
 export const aiRubricsService = {
   list: async (query?: ListAiRubricsQuery): Promise<PaginatedResponse<AiRubric>> => {
@@ -36,10 +50,57 @@ export const aiRubricsService = {
     return response.data;
   },
 
-  importCsv: async (file: File): Promise<{ success: boolean; message: string; data: ImportAiRubricsResult }> => {
-    const formData = new FormData();
-    formData.append('file', file);
-    const response = await mdwClient.post('/ai-rubrics/import', formData);
+  // ── Criteria ──────────────────────────────────────────────────────────────
+  createCriterion: async (rubricId: string, payload: AiRubricCriterionInput): Promise<SingleResponse<AiRubricCriterion>> => {
+    const response = await mdwClient.post(`/ai-rubrics/${rubricId}/criteria`, payload);
+    return response.data;
+  },
+  updateCriterion: async (rubricId: string, criterionId: string, payload: Partial<AiRubricCriterionInput>): Promise<SingleResponse<AiRubricCriterion>> => {
+    const response = await mdwClient.patch(`/ai-rubrics/${rubricId}/criteria/${criterionId}`, payload);
+    return response.data;
+  },
+  deleteCriterion: async (rubricId: string, criterionId: string): Promise<{ success: boolean; message: string }> => {
+    const response = await mdwClient.delete(`/ai-rubrics/${rubricId}/criteria/${criterionId}`);
+    return response.data;
+  },
+  importCriteriaCsv: async (file: File): Promise<ImportResponse> => {
+    const response = await mdwClient.post(`/ai-rubrics/import/criteria`, csvFormData(file));
+    return response.data;
+  },
+
+  // ── Band Descriptors ─────────────────────────────────────────────────────
+  createBand: async (rubricId: string, payload: AiRubricBandDescriptorInput): Promise<SingleResponse<AiRubricBandDescriptor>> => {
+    const response = await mdwClient.post(`/ai-rubrics/${rubricId}/bands`, payload);
+    return response.data;
+  },
+  updateBand: async (rubricId: string, bandId: string, payload: Partial<AiRubricBandDescriptorInput>): Promise<SingleResponse<AiRubricBandDescriptor>> => {
+    const response = await mdwClient.patch(`/ai-rubrics/${rubricId}/bands/${bandId}`, payload);
+    return response.data;
+  },
+  deleteBand: async (rubricId: string, bandId: string): Promise<{ success: boolean; message: string }> => {
+    const response = await mdwClient.delete(`/ai-rubrics/${rubricId}/bands/${bandId}`);
+    return response.data;
+  },
+  importBandsCsv: async (file: File): Promise<ImportResponse> => {
+    const response = await mdwClient.post(`/ai-rubrics/import/bands`, csvFormData(file));
+    return response.data;
+  },
+
+  // ── Calibration Notes ────────────────────────────────────────────────────
+  createCalibrationNote: async (rubricId: string, payload: AiCalibrationNoteInput): Promise<SingleResponse<AiCalibrationNote>> => {
+    const response = await mdwClient.post(`/ai-rubrics/${rubricId}/calibration-notes`, payload);
+    return response.data;
+  },
+  updateCalibrationNote: async (rubricId: string, noteId: string, payload: Partial<AiCalibrationNoteInput>): Promise<SingleResponse<AiCalibrationNote>> => {
+    const response = await mdwClient.patch(`/ai-rubrics/${rubricId}/calibration-notes/${noteId}`, payload);
+    return response.data;
+  },
+  deleteCalibrationNote: async (rubricId: string, noteId: string): Promise<{ success: boolean; message: string }> => {
+    const response = await mdwClient.delete(`/ai-rubrics/${rubricId}/calibration-notes/${noteId}`);
+    return response.data;
+  },
+  importCalibrationNotesCsv: async (file: File): Promise<ImportResponse> => {
+    const response = await mdwClient.post(`/ai-rubrics/import/calibration-notes`, csvFormData(file));
     return response.data;
   },
 };

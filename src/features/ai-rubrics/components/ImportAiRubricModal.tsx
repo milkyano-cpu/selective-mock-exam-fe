@@ -145,6 +145,15 @@ export function ImportAiRubricModal({ isOpen, onClose, onImportCsv }: ImportAiRu
               )}
             </div>
 
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs font-medium text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300">
+              <p className="font-black text-slate-700 dark:text-slate-100">Expected final columns</p>
+              <p className="mt-1 leading-relaxed">
+                AIRubricID, AIRubricName, WritingType, TotalMaxScore, CriterionName, MaxScore,
+                BandLabel, BandScoreMin, BandScoreMax, BandDescriptor, CalibrationNoteType,
+                CalibrationNote, HighScoringIndicators, LowScoringIndicators, AICalibrationNotes.
+              </p>
+            </div>
+
             {importError && (
               <div className="flex items-center gap-2.5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-600 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-400">
                 <XCircle size={16} className="shrink-0" />

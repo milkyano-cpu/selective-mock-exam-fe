@@ -3,7 +3,8 @@ import type { ImageSummary } from '@/features/images/types/images.types';
 export type QuestionType       = 'MCQ' | 'ESSAY';
 export type QuestionDifficulty = 'EASY' | 'MEDIUM' | 'HARD';
 export type QuestionStatus     = 'DRAFT' | 'PENDING_APPROVAL' | 'PUBLISHED';
-export type QuestionMarkingType = 'AUTO' | 'AI_RUBRIC';
+export type QuestionMarkingType = 'AUTO' | 'AI' | 'MANUAL';
+export type EssayWritingType = 'CREATIVE' | 'PERSUASIVE';
 
 export type McqOption = {
   key:  'A' | 'B' | 'C' | 'D' | 'E';
@@ -29,6 +30,9 @@ export type Question = {
   type:             QuestionType;
   difficulty:       QuestionDifficulty;
   questionText:     string;
+  writingType:      EssayWritingType | string | null;
+  promptText:       string | null;
+  markingGuide:     string | null;
   latexEnabled:    boolean;
   markingType:      QuestionMarkingType;
   maxMarks:         number;
@@ -36,10 +40,8 @@ export type Question = {
   correctAnswer:    string;
   explanation:      string | null;
   timeLimitSeconds: number | null;
-  imageRef:         string | null;
-  image:            ImageSummary | null;
-  imageUrl:         string | null;
-  imageUrls:        string[];
+  imageRefs:        string[];
+  images:           ImageSummary[];
   subtopics:        string[];
   notes:            string | null;
   adaptiveTags:     string[];
@@ -77,13 +79,15 @@ export type ActionResponse = {
 
 export type UnresolvedRowData = {
   questionId:        string;
-  testName:          string | null;
   questionNumber:    number | null;
   subjectName:       string;
   topicName:         string;
   type:              string;
   difficulty:        string;
   questionText:      string;
+  writingType:       string | null;
+  promptText:        string | null;
+  markingGuide:      string | null;
   optionA:           string;
   optionB:           string;
   optionC:           string;
@@ -92,9 +96,7 @@ export type UnresolvedRowData = {
   correctAnswer:     string;
   explanation:       string | null;
   timeLimitSeconds:  number | null;
-  imageRef:          string | null;
-  imageUrl:          string | null;
-  imageUrls:         string[];
+  imageRefs:         string[];
   passageExternalId: string | null;
   aiRubricId:          string | null;
   subtopics:         string[];
@@ -158,6 +160,9 @@ export type CreateQuestionPayload = {
   type:              QuestionType;
   difficulty:        QuestionDifficulty;
   questionText:      string;
+  writingType?:      string | null;
+  promptText?:       string | null;
+  markingGuide?:     string | null;
   latexEnabled?:    boolean;
   markingType?:      QuestionMarkingType;
   maxMarks?:         number;
@@ -165,9 +170,7 @@ export type CreateQuestionPayload = {
   correctAnswer?:    string;
   explanation?:      string;
   timeLimitSeconds?: number;
-  imageRef?:         string | null;
-  imageUrl?:         string;
-  imageUrls?:        string[];
+  imageRefs?:        string[];
   subtopics?:        string[];
   notes?:            string;
   adaptiveTags?:     string[];

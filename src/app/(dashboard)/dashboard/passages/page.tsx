@@ -17,7 +17,21 @@ import { PassageModal, type PassageFormValues } from '@/features/passages/compon
 import { ImportPassageModal } from '@/features/passages/components/ImportPassageModal';
 import { DeleteConfirmModal } from '@/features/subjects/components/DeleteConfirmModal';
 import { passagesService } from '@/features/passages/services/passages.service';
-import type { CreatePassagePayload, PassageDetail, PassageListItem, ImportPassagesResult, UpdatePassagePayload } from '@/features/passages/types/passages.types';
+import type { CreatePassagePayload, Difficulty, PassageDetail, PassageFormat, PassageListItem, PassageType, ImportPassagesResult, UpdatePassagePayload } from '@/features/passages/types/passages.types';
+
+const PASSAGE_TYPE_LABELS: Record<PassageType, string> = {
+  comprehension: 'Comprehension',
+  poem: 'Poem',
+  visual: 'Visual',
+};
+
+const PASSAGE_FORMAT_LABELS: Record<PassageFormat, string> = {
+  text: 'Text',
+  poem: 'Poem',
+  article: 'Article',
+  visual_text: 'Visual Text',
+  image_only: 'Image Only',
+};
 
 export default function PassagesPage() {
   const router = useRouter();
@@ -82,25 +96,28 @@ export default function PassagesPage() {
   };
 
   const onSubmit = async (payload: PassageFormValues) => {
-    const isImageType = payload.passageType === 'IMAGE' || payload.passageType === 'TEXT_IMAGE';
-    const isTextType = payload.passageType === 'TEXT' || payload.passageType === 'TEXT_IMAGE';
-    const validPositions = ['ABOVE', 'MIDDLE', 'BELOW', 'BESIDE', 'MAIN'] as const;
+    const isImageType = payload.passageFormat === 'image_only' || payload.passageFormat === 'visual_text';
+    const isTextType = payload.passageFormat !== 'image_only';
+    const validPositions = ['above', 'below', 'inline'] as const;
     const rawPos = payload.imageDisplayPosition ?? '';
+    const difficulty = payload.difficulty as Difficulty;
 
     if (selectedPassage) {
       // Update: explicitly clear fields that are not relevant to chosen type
       const imgPos = isImageType && validPositions.includes(rawPos as typeof validPositions[number]) ? rawPos as typeof validPositions[number] : null;
       const updatePayload: UpdatePassagePayload = {
         title: payload.title?.trim() || null,
-        content: isTextType ? (payload.content?.trim() || null) : null,
-        passageFormat: 'Plain',
-        passageType: payload.passageType || null,
+        text: isTextType ? (payload.text?.trim() || null) : null,
+        passageFormat: payload.passageFormat,
+        passageType: payload.passageType,
         imageRef: isImageType ? (payload.imageRef?.trim() || null) : null,
         imageDisplayPosition: imgPos,
         latexEnabled: isTextType ? (payload.latexEnabled ?? false) : false,
-        section: payload.section?.trim() || null,
-        difficulty: payload.difficulty?.trim() || null,
-        topic: payload.topic?.trim() || null,
+        subjectId: payload.subjectId!.trim(),
+        difficulty,
+        topicId: payload.topicId!.trim(),
+        imageAltText: isImageType ? (payload.imageAltText?.trim() || null) : null,
+        imageCaption: isImageType ? (payload.imageCaption?.trim() || null) : null,
         notes: payload.notes?.trim() || null,
       };
       const result = await updatePassage(selectedPassage.id, updatePayload);
@@ -114,15 +131,17 @@ export default function PassagesPage() {
 
     const normalizedPayload: CreatePassagePayload = {
       title: payload.title?.trim() || undefined,
-      content: isTextType ? (payload.content?.trim() || undefined) : undefined,
-      passageFormat: 'Plain',
-      passageType: payload.passageType || undefined,
+      text: isTextType ? (payload.text?.trim() || undefined) : undefined,
+      passageFormat: payload.passageFormat,
+      passageType: payload.passageType,
       imageRef: isImageType ? (payload.imageRef?.trim() || undefined) : undefined,
       imageDisplayPosition: isImageType && validPositions.includes((payload.imageDisplayPosition ?? '') as typeof validPositions[number]) ? payload.imageDisplayPosition as CreatePassagePayload['imageDisplayPosition'] : undefined,
       latexEnabled: isTextType ? (payload.latexEnabled ?? false) : false,
-      section: payload.section?.trim() || undefined,
-      difficulty: payload.difficulty?.trim() || undefined,
-      topic: payload.topic?.trim() || undefined,
+      subjectId: payload.subjectId!.trim(),
+      difficulty,
+      topicId: payload.topicId!.trim(),
+      imageAltText: isImageType ? (payload.imageAltText?.trim() || undefined) : undefined,
+      imageCaption: isImageType ? (payload.imageCaption?.trim() || undefined) : undefined,
       notes: payload.notes?.trim() || undefined,
     };
 
@@ -242,42 +261,49 @@ export default function PassagesPage() {
                             <span className="font-black text-slate-900 dark:text-slate-100">
                               {passage.title || 'Untitled Passage'}
                             </span>
-                            {passage.externalId && (
+                            {passage.passageId && (
                               <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-black text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                                {passage.externalId}
+                                {passage.passageId}
                               </span>
                             )}
                           </div>
                           <p className="line-clamp-1 text-xs text-slate-400 dark:text-slate-500">
-                            {passage.content || <span className="italic">No text content</span>}
+                            {passage.text || <span className="italic">No text content</span>}
                           </p>
                         </div>
                       </div>
                     </td>
                     <td className="hidden lg:table-cell px-6 py-4">
                       {passage.passageType ? (
+                        <div className="flex flex-col items-start gap-1">
                         <span className={`inline-flex items-center rounded-lg px-2 py-1 text-[11px] font-bold ${
-                          passage.passageType === 'TEXT' ? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300' :
-                          passage.passageType === 'IMAGE' ? 'bg-violet-50 text-violet-600 dark:bg-violet-500/10 dark:text-violet-400' :
+                          passage.passageType === 'comprehension' ? 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300' :
+                          passage.passageType === 'poem' ? 'bg-fuchsia-50 text-fuchsia-600 dark:bg-fuchsia-500/10 dark:text-fuchsia-400' :
                           'bg-indigo-50 text-indigo-600 dark:bg-indigo-500/10 dark:text-indigo-400'
                         }`}>
-                          {passage.passageType === 'TEXT' ? 'Text' : passage.passageType === 'IMAGE' ? 'Image' : 'Text + Image'}
+                          {PASSAGE_TYPE_LABELS[passage.passageType]}
                         </span>
+                        {passage.passageFormat && (
+                          <span className="text-[11px] font-medium text-slate-400 dark:text-slate-500">
+                            {PASSAGE_FORMAT_LABELS[passage.passageFormat]}
+                          </span>
+                        )}
+                        </div>
                       ) : (
                         <span className="text-slate-300 dark:text-slate-700">—</span>
                       )}
                     </td>
                     <td className="hidden xl:table-cell px-6 py-4">
-                      {passage.section || passage.topic ? (
+                      {passage.subject || passage.topic ? (
                         <div className="min-w-0">
-                          {passage.section && (
+                          {passage.subject && (
                             <span className="block text-xs font-bold text-slate-700 dark:text-slate-300 truncate max-w-[160px]">
-                              {passage.section}
+                              {passage.subject.name}
                             </span>
                           )}
                           {passage.topic && (
                             <span className="block text-[11px] text-slate-400 dark:text-slate-500 truncate max-w-[160px]">
-                              {passage.topic}
+                              {passage.topic.name}
                             </span>
                           )}
                         </div>
@@ -376,7 +402,7 @@ export default function PassagesPage() {
         onClose={() => setIsDeleteOpen(false)}
         onConfirm={onConfirmDelete}
         title="Delete Passage"
-        message={`Are you sure you want to delete "${selectedPassage?.title || selectedPassage?.externalId || 'this passage'}"? Linked questions must be removed or reassigned first.`}
+        message={`Are you sure you want to delete "${selectedPassage?.title || selectedPassage?.passageId || 'this passage'}"? Linked questions must be removed or reassigned first.`}
         isLoading={!!selectedPassage && actionLoading === selectedPassage.id}
       />
     </div>

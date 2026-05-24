@@ -10,6 +10,7 @@ import {
   X,
   XCircle,
 } from 'lucide-react';
+import { CsvTemplateDownloadButton } from '@/features/csv-templates/components/CsvTemplateDownloadButton';
 import type { ImportPassagesResult } from '../types/passages.types';
 
 interface ImportPassageModalProps {
@@ -143,6 +144,13 @@ export function ImportPassageModal({ isOpen, onClose, onImportCsv }: ImportPassa
                   </div>
                 </>
               )}
+            </div>
+
+            <div className="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-700 dark:bg-slate-900">
+              <p className="text-xs font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                CSV Template
+              </p>
+              <CsvTemplateDownloadButton templateType="passages" label="Passages" />
             </div>
 
             {importError && (

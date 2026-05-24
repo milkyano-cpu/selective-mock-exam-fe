@@ -744,9 +744,9 @@ export default function QuestionsPage() {
                                 ⏱ {q.timeLimitSeconds}s
                               </span>
                             )}
-                            {(q.imageRef || q.imageUrls?.length || q.imageUrl) && (
+                            {q.imageRefs?.length > 0 && (
                               <span className="text-[9px] sm:text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded px-1.5 py-0.5">
-                                🖼 {q.imageRef ? 'ImageRef' : q.imageUrls?.length && q.imageUrls.length > 1 ? `${q.imageUrls.length} Images` : 'Image'}
+                                🖼 {q.imageRefs.length} {q.imageRefs.length > 1 ? 'Images' : 'Image'}
                               </span>
                             )}
                           </div>

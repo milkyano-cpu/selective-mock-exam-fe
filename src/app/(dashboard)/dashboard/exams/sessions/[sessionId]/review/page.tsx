@@ -62,9 +62,9 @@ function isAiGraded(answer: ReviewSessionAnswer) {
 
 function ReviewPassageAndImage({ answer }: { answer: ReviewSessionAnswer }) {
   const passage = answer.passage;
-  const questionImage = !passage && answer.image?.url ? answer.image : null;
+  const questionImages = !passage ? (answer.images ?? []).filter((img) => img.url) : [];
 
-  if (!passage && !questionImage) return null;
+  if (!passage && questionImages.length === 0) return null;
 
   return (
     <div className="mb-3 space-y-2">
@@ -73,23 +73,25 @@ function ReviewPassageAndImage({ answer }: { answer: ReviewSessionAnswer }) {
           {passage.title && (
             <p className="text-xs font-black uppercase text-indigo-500 dark:text-indigo-400">Passage: {passage.title}</p>
           )}
-          {passage.image?.url && (passage.imageDisplayPosition === 'ABOVE' || passage.imageDisplayPosition === 'MAIN') && (
+          {passage.image?.url && passage.imageDisplayPosition === 'above' && (
             <img src={passage.image.url} alt={passage.image.altText || ''} className="mt-2 max-h-56 rounded-lg object-contain" />
           )}
-          {passage.content && (
-            <p className="mt-2 whitespace-pre-wrap text-sm font-medium text-slate-700 dark:text-slate-300">{passage.content}</p>
+          {passage.text && (
+            <p className="mt-2 whitespace-pre-wrap text-sm font-medium text-slate-700 dark:text-slate-300">{passage.text}</p>
           )}
-          {passage.image?.url && passage.imageDisplayPosition === 'BELOW' && (
+          {passage.image?.url && (passage.imageDisplayPosition === 'below' || passage.imageDisplayPosition === null) && (
             <img src={passage.image.url} alt={passage.image.altText || ''} className="mt-2 max-h-56 rounded-lg object-contain" />
           )}
-          {passage.image?.url && passage.imageDisplayPosition === 'BESIDE' && !passage.content && (
+          {passage.image?.url && passage.imageDisplayPosition === 'inline' && !passage.text && (
             <img src={passage.image.url} alt={passage.image.altText || ''} className="mt-2 max-h-56 rounded-lg object-contain" />
           )}
         </div>
       )}
-      {questionImage && (
-        <div className="mt-2">
-          <img src={questionImage.url!} alt={questionImage.altText || ''} className="max-h-56 rounded-lg object-contain" />
+      {questionImages.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-2">
+          {questionImages.map((img, i) => (
+            <img key={`${img.fileName}-${i}`} src={img.url!} alt={img.altText || ''} className="max-h-56 rounded-lg object-contain" />
+          ))}
         </div>
       )}
     </div>

@@ -19,9 +19,17 @@ const DIFFICULTY_BADGES: Record<string, string> = {
 };
 
 const PASSAGE_TYPE_LABELS: Record<string, { label: string; icon: typeof ImageIcon }> = {
-  TEXT: { label: 'Text Only', icon: FileText },
-  IMAGE: { label: 'Image Only', icon: ImageIcon },
-  TEXT_IMAGE: { label: 'Text & Image', icon: Layers },
+  comprehension: { label: 'Comprehension', icon: BookOpenText },
+  poem: { label: 'Poem', icon: FileText },
+  visual: { label: 'Visual', icon: ImageIcon },
+};
+
+const PASSAGE_FORMAT_LABELS: Record<string, string> = {
+  text: 'Text',
+  poem: 'Poem',
+  article: 'Article',
+  visual_text: 'Visual Text',
+  image_only: 'Image Only',
 };
 
 export default function PassageDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -39,8 +47,8 @@ export default function PassageDetailPage({ params }: { params: Promise<{ id: st
 
   const isLoading = actionLoading === id && !selectedPassage;
 
-  const hasImage = (selectedPassage?.passageType === 'IMAGE' || selectedPassage?.passageType === 'TEXT_IMAGE') && selectedPassage?.image?.url;
-  const hasContent = !!selectedPassage?.content;
+  const hasImage = (selectedPassage?.passageFormat === 'image_only' || selectedPassage?.passageFormat === 'visual_text') && selectedPassage?.image?.url;
+  const hasContent = !!selectedPassage?.text;
 
   return (
     <div className="space-y-6">
@@ -82,10 +90,10 @@ export default function PassageDetailPage({ params }: { params: Promise<{ id: st
                     <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-slate-100">
                       {selectedPassage.title || 'Untitled Passage'}
                     </h1>
-                    {selectedPassage.externalId && (
+                    {selectedPassage.passageId && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-100 px-2.5 py-1 text-[11px] font-black text-blue-600 dark:from-blue-500/10 dark:to-cyan-500/10 dark:border-blue-500/20 dark:text-blue-400">
                         <Hash size={10} />
-                        {selectedPassage.externalId}
+                        {selectedPassage.passageId}
                       </span>
                     )}
                   </div>
@@ -100,6 +108,12 @@ export default function PassageDetailPage({ params }: { params: Promise<{ id: st
                         {PASSAGE_TYPE_LABELS[selectedPassage.passageType].label}
                       </div>
                     )}
+                    {selectedPassage.passageFormat && (
+                      <div className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 border border-emerald-100 px-2.5 py-1 text-[11px] font-bold text-emerald-600 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400">
+                        <FileText size={12} />
+                        {PASSAGE_FORMAT_LABELS[selectedPassage.passageFormat] ?? selectedPassage.passageFormat}
+                      </div>
+                    )}
                     {selectedPassage.difficulty && (
                       <div className={`inline-flex items-center rounded-lg px-2.5 py-1 text-[11px] font-black ${DIFFICULTY_BADGES[selectedPassage.difficulty]}`}>
                         {selectedPassage.difficulty}
@@ -108,19 +122,19 @@ export default function PassageDetailPage({ params }: { params: Promise<{ id: st
                     {selectedPassage.imageDisplayPosition && (
                       <div className="inline-flex items-center gap-1.5 rounded-lg bg-orange-50 border border-orange-100 px-2.5 py-1 text-[11px] font-bold text-orange-600 dark:bg-orange-500/10 dark:border-orange-500/20 dark:text-orange-400">
                         <ImageIcon size={12} />
-                        Image: {selectedPassage.imageDisplayPosition.charAt(0) + selectedPassage.imageDisplayPosition.slice(1).toLowerCase()}
+                        Image: {selectedPassage.imageDisplayPosition.charAt(0).toUpperCase() + selectedPassage.imageDisplayPosition.slice(1)}
                       </div>
                     )}
-                    {selectedPassage.section && (
+                    {selectedPassage.subject && (
                       <div className="inline-flex items-center gap-1.5 rounded-lg bg-purple-50 border border-purple-100 px-2.5 py-1 text-[11px] font-bold text-purple-600 dark:bg-purple-500/10 dark:border-purple-500/20 dark:text-purple-400">
                         <Layers size={12} />
-                        {selectedPassage.section}
+                        {selectedPassage.subject.name}
                       </div>
                     )}
                     {selectedPassage.topic && (
                       <div className="inline-flex items-center gap-1.5 rounded-lg bg-cyan-50 border border-cyan-100 px-2.5 py-1 text-[11px] font-bold text-cyan-600 dark:bg-cyan-500/10 dark:border-cyan-500/20 dark:text-cyan-400">
                         <BookOpenText size={12} />
-                        {selectedPassage.topic}
+                        {selectedPassage.topic.name}
                       </div>
                     )}
                     <div className="inline-flex items-center gap-1.5 rounded-lg bg-white/80 backdrop-blur-sm border border-slate-200 px-2.5 py-1 text-[11px] font-medium text-slate-500 dark:bg-slate-800/80 dark:border-slate-700 dark:text-slate-400">
@@ -205,7 +219,7 @@ export default function PassageDetailPage({ params }: { params: Promise<{ id: st
                         <span className="text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200">Passage Text</span>
                       </div>
                       <span className="text-[10px] font-medium text-slate-400">
-                        {selectedPassage.content!.trim().split(/\s+/).length} words
+                        {selectedPassage.text!.trim().split(/\s+/).length} words
                       </span>
                     </div>
                     <div className="relative px-5 py-5 sm:px-8 sm:py-7">
@@ -214,7 +228,7 @@ export default function PassageDetailPage({ params }: { params: Promise<{ id: st
                       </div>
                       <div className="relative pl-4 sm:pl-6 border-l-4 border-blue-500/40">
                         <p className="text-sm sm:text-base leading-7 sm:leading-8 text-slate-700 dark:text-slate-300 whitespace-pre-wrap font-medium">
-                          {selectedPassage.content}
+                          {selectedPassage.text}
                         </p>
                       </div>
                     </div>

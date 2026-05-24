@@ -14,31 +14,42 @@ import type { Subject, Topic } from '@/features/subjects/types/subjects.types';
 // ── Schema ────────────────────────────────────────────────────────────────────
 
 const passageSchema = z.object({
-  title:                z.string().min(1, 'Title is required').max(500, 'Maximum 500 characters'),
-  content:              z.string().max(20000, 'Maximum 20000 characters').optional().or(z.literal('')),
-  passageFormat:        z.string().max(100).optional().or(z.literal('')),
-  passageType:          z.enum(['TEXT', 'IMAGE', 'TEXT_IMAGE']),
+  title:                z.string().max(500, 'Maximum 500 characters').optional().or(z.literal('')),
+  text:                 z.string().max(20000, 'Maximum 20000 characters').optional().or(z.literal('')),
+  passageFormat:        z.enum(['text', 'poem', 'article', 'visual_text', 'image_only']),
+  passageType:          z.enum(['comprehension', 'poem', 'visual']),
   imageRef:             z.string().max(255).optional().or(z.literal('')),
-  imageDisplayPosition: z.string().optional().or(z.literal('')),
+  imageDisplayPosition: z.enum(['above', 'below', 'inline']).optional().or(z.literal('')),
   latexEnabled:         z.boolean().optional(),
-  section:              z.string().max(200).optional().or(z.literal('')),
-  difficulty:           z.string().max(50).optional().or(z.literal('')),
-  topic:                z.string().max(200).optional().or(z.literal('')),
+  subjectId:            z.string().optional().or(z.literal('')),
+  difficulty:           z.enum(['EASY', 'MEDIUM', 'HARD']).optional().or(z.literal('')),
+  topicId:              z.string().optional().or(z.literal('')),
+  imageAltText:         z.string().max(500).optional().or(z.literal('')),
+  imageCaption:         z.string().max(1000).optional().or(z.literal('')),
   notes:                z.string().max(5000).optional().or(z.literal('')),
 }).superRefine((data, ctx) => {
-  if ((data.passageType === 'IMAGE' || data.passageType === 'TEXT_IMAGE') && !data.imageRef?.trim()) {
+  if ((data.passageFormat === 'image_only' || data.passageFormat === 'visual_text') && !data.imageRef?.trim()) {
     ctx.addIssue({
       code: 'custom',
       path: ['imageRef'],
-      message: 'Image Ref is required when Passage Type is Image or Text+Image',
+      message: 'Image Ref is required for image-based passage formats',
     });
   }
-  if ((data.passageType === 'TEXT' || data.passageType === 'TEXT_IMAGE') && !data.content?.trim()) {
+  if (data.passageFormat !== 'image_only' && !data.text?.trim()) {
     ctx.addIssue({
       code: 'custom',
-      path: ['content'],
-      message: 'Passage Text is required when Passage Type is Text or Text+Image',
+      path: ['text'],
+      message: 'Passage Text is required unless the format is Image Only',
     });
+  }
+  if (!data.subjectId?.trim()) {
+    ctx.addIssue({ code: 'custom', path: ['subjectId'], message: 'Subject is required' });
+  }
+  if (!data.topicId?.trim()) {
+    ctx.addIssue({ code: 'custom', path: ['topicId'], message: 'Topic is required' });
+  }
+  if (!data.difficulty) {
+    ctx.addIssue({ code: 'custom', path: ['difficulty'], message: 'Difficulty is required' });
   }
 });
 
@@ -76,15 +87,17 @@ export function PassageModal({ isOpen, onClose, onSubmit, initialData, isLoading
     resolver: zodResolver(passageSchema),
     defaultValues: {
       title: '',
-      content: '',
-      passageFormat: 'Plain',
-      passageType: 'TEXT',
+      text: '',
+      passageFormat: 'text',
+      passageType: 'comprehension',
       imageRef: '',
       imageDisplayPosition: '',
       latexEnabled: false,
-      section: '',
+      subjectId: '',
       difficulty: '',
-      topic: '',
+      topicId: '',
+      imageAltText: '',
+      imageCaption: '',
       notes: '',
     },
   });
@@ -95,8 +108,8 @@ export function PassageModal({ isOpen, onClose, onSubmit, initialData, isLoading
   const [loadingSubjects, setLoadingSubjects] = useState(false);
   const [loadingTopics, setLoadingTopics] = useState(false);
 
-  const sectionValue = watch('section');
-  const passageTypeValue = watch('passageType');
+  const subjectIdValue = watch('subjectId');
+  const passageFormatValue = watch('passageFormat');
 
   // Fetch all subjects once on open
   useEffect(() => {
@@ -111,26 +124,21 @@ export function PassageModal({ isOpen, onClose, onSubmit, initialData, isLoading
     return () => { cancelled = true; };
   }, [isOpen]);
 
-  // Fetch topics when section (subject name) changes
+  // Fetch topics when subject changes
   useEffect(() => {
-    if (!sectionValue) {
-      setTopics([]);
-      return;
-    }
-    const subject = subjects.find((s) => s.name === sectionValue);
-    if (!subject) {
+    if (!subjectIdValue) {
       setTopics([]);
       return;
     }
     let cancelled = false;
     setLoadingTopics(true);
-    subjectsService.listTopics(subject.id, { limit: 100 }).then((res) => {
+    subjectsService.listTopics(subjectIdValue, { limit: 100 }).then((res) => {
       if (!cancelled && res.success) setTopics(res.data);
     }).catch(() => {}).finally(() => {
       if (!cancelled) setLoadingTopics(false);
     });
     return () => { cancelled = true; };
-  }, [sectionValue, subjects]);
+  }, [subjectIdValue, subjects]);
 
   // ── Image Ref autocomplete ────────────────────────────────────────────────
   const [imageSuggestions, setImageSuggestions] = useState<ImageSuggestion[]>([]);
@@ -192,15 +200,17 @@ export function PassageModal({ isOpen, onClose, onSubmit, initialData, isLoading
     if (!isOpen) return;
     reset({
       title:                initialData?.title ?? '',
-      content:              initialData?.content ?? '',
-      passageFormat:        initialData?.passageFormat ?? 'Plain',
-      passageType:          initialData?.passageType ?? 'TEXT',
+      text:                 initialData?.text ?? '',
+      passageFormat:        initialData?.passageFormat ?? 'text',
+      passageType:          initialData?.passageType ?? 'comprehension',
       imageRef:             initialData?.imageRef ?? '',
       imageDisplayPosition: initialData?.imageDisplayPosition ?? '',
       latexEnabled:         initialData?.latexEnabled ?? false,
-      section:              initialData?.section ?? '',
+      subjectId:            initialData?.subjectId ?? '',
       difficulty:           initialData?.difficulty ?? '',
-      topic:                initialData?.topic ?? '',
+      topicId:              initialData?.topicId ?? '',
+      imageAltText:         initialData?.imageAltText ?? '',
+      imageCaption:         initialData?.imageCaption ?? '',
       notes:                initialData?.notes ?? '',
     });
     setImageSuggestions([]);
@@ -214,8 +224,8 @@ export function PassageModal({ isOpen, onClose, onSubmit, initialData, isLoading
     setShowSuggestions(false);
   };
 
-  const needsImageRef = passageTypeValue === 'IMAGE' || passageTypeValue === 'TEXT_IMAGE';
-  const needsContent = passageTypeValue === 'TEXT' || passageTypeValue === 'TEXT_IMAGE';
+  const needsImageRef = passageFormatValue === 'image_only' || passageFormatValue === 'visual_text';
+  const needsContent = passageFormatValue !== 'image_only';
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
@@ -237,7 +247,7 @@ export function PassageModal({ isOpen, onClose, onSubmit, initialData, isLoading
           {/* Title — required */}
           <div className="space-y-1.5">
             <label htmlFor="title" className={labelCls}>
-              Title <span className="text-red-500">*</span>
+              Title
             </label>
             <input
               id="title"
@@ -248,8 +258,8 @@ export function PassageModal({ isOpen, onClose, onSubmit, initialData, isLoading
             {errors.title && <p className="mt-1 text-xs font-bold text-red-500">{errors.title.message}</p>}
           </div>
 
-          {/* Row: Passage Type + Difficulty */}
-          <div className="grid gap-5 sm:grid-cols-2">
+          {/* Row: Passage Type + Format + Difficulty */}
+          <div className="grid gap-5 sm:grid-cols-3">
             <div className="space-y-1.5">
               <label htmlFor="passageType" className={labelCls}>
                 Passage Type <span className="text-red-500">*</span>
@@ -260,9 +270,9 @@ export function PassageModal({ isOpen, onClose, onSubmit, initialData, isLoading
                   {...register('passageType')}
                   className={selectCls}
                 >
-                  <option value="TEXT">Text</option>
-                  <option value="IMAGE">Image</option>
-                  <option value="TEXT_IMAGE">Text + Image</option>
+                  <option value="comprehension">Comprehension</option>
+                  <option value="poem">Poem</option>
+                  <option value="visual">Visual</option>
                 </select>
                 <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
               </div>
@@ -270,7 +280,30 @@ export function PassageModal({ isOpen, onClose, onSubmit, initialData, isLoading
             </div>
 
             <div className="space-y-1.5">
-              <label htmlFor="difficulty" className={labelCls}>Difficulty</label>
+              <label htmlFor="passageFormat" className={labelCls}>
+                Passage Format <span className="text-red-500">*</span>
+              </label>
+              <div className="relative">
+                <select
+                  id="passageFormat"
+                  {...register('passageFormat')}
+                  className={selectCls}
+                >
+                  <option value="text">Text</option>
+                  <option value="poem">Poem</option>
+                  <option value="article">Article</option>
+                  <option value="visual_text">Visual Text</option>
+                  <option value="image_only">Image Only</option>
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+              </div>
+              {errors.passageFormat && <p className="mt-1 text-xs font-bold text-red-500">{errors.passageFormat.message}</p>}
+            </div>
+
+            <div className="space-y-1.5">
+              <label htmlFor="difficulty" className={labelCls}>
+                Difficulty <span className="text-red-500">*</span>
+              </label>
               <div className="relative">
                 <select
                   id="difficulty"
@@ -284,24 +317,25 @@ export function PassageModal({ isOpen, onClose, onSubmit, initialData, isLoading
                 </select>
                 <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
               </div>
+              {errors.difficulty && <p className="mt-1 text-xs font-bold text-red-500">{errors.difficulty.message}</p>}
             </div>
           </div>
 
-          {/* Passage Text — required when type is TEXT or TEXT_IMAGE */}
+          {/* Passage Text - required unless format is image_only */}
           {needsContent && (
             <div className="space-y-3">
               <div className="space-y-1.5">
-                <label htmlFor="content" className={labelCls}>
+                <label htmlFor="text" className={labelCls}>
                   Passage Text <span className="text-red-500">*</span>
                 </label>
                 <textarea
-                  id="content"
-                  {...register('content')}
+                  id="text"
+                  {...register('text')}
                   rows={8}
                   placeholder="Paste the full passage text here..."
                   className={`${inputCls} resize-y`}
                 />
-                {errors.content && <p className="mt-1 text-xs font-bold text-red-500">{errors.content.message}</p>}
+                {errors.text && <p className="mt-1 text-xs font-bold text-red-500">{errors.text.message}</p>}
               </div>
 
               {/* LaTeX toggle */}
@@ -334,7 +368,7 @@ export function PassageModal({ isOpen, onClose, onSubmit, initialData, isLoading
             </div>
           )}
 
-          {/* Image Ref — required when type is IMAGE or TEXT_IMAGE */}
+          {/* Image Ref - required when format is image_only or visual_text */}
           {needsImageRef && (
             <div className="relative space-y-1.5" ref={suggestionRef}>
               <label htmlFor="imageRef" className={labelCls}>
@@ -389,34 +423,34 @@ export function PassageModal({ isOpen, onClose, onSubmit, initialData, isLoading
                   className={selectCls}
                 >
                   <option value="">— Select position —</option>
-                  <option value="ABOVE">Above passage text</option>
-                  <option value="MIDDLE">In the middle of passage</option>
-                  <option value="BELOW">After passage text</option>
-                  <option value="BESIDE">Beside text (side by side)</option>
-                  <option value="MAIN">Main content (image only)</option>
+                  <option value="above">Above passage text</option>
+                  <option value="below">Below passage text</option>
+                  <option value="inline">Inline with passage text</option>
                 </select>
                 <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
               </div>
             </div>
           )}
 
-          {/* Row: Section (Subject) + Topic */}
+          {/* Row: Subject + Topic */}
           <div className="grid gap-5 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <label className={labelCls}>Section (Subject)</label>
+              <label className={labelCls}>
+                Subject <span className="text-red-500">*</span>
+              </label>
               <Controller
-                name="section"
+                name="subjectId"
                 control={control}
                 render={({ field }) => (
                   <SearchableSelect
                     value={field.value ?? ''}
                     onChange={(val) => {
                       field.onChange(val);
-                      setValue('topic', '');
+                      setValue('topicId', '');
                     }}
                     options={[
                       { value: '', label: '— Select subject —' },
-                      ...subjects.map((s) => ({ value: s.name, label: s.name })),
+                      ...subjects.map((s) => ({ value: s.id, label: s.name })),
                     ]}
                     placeholder="Select subject"
                     searchPlaceholder="Search subject..."
@@ -424,12 +458,15 @@ export function PassageModal({ isOpen, onClose, onSubmit, initialData, isLoading
                   />
                 )}
               />
+              {errors.subjectId && <p className="mt-1 text-xs font-bold text-red-500">{errors.subjectId.message}</p>}
             </div>
 
             <div className="space-y-1.5">
-              <label className={labelCls}>Topic</label>
+              <label className={labelCls}>
+                Topic <span className="text-red-500">*</span>
+              </label>
               <Controller
-                name="topic"
+                name="topicId"
                 control={control}
                 render={({ field }) => (
                   <SearchableSelect
@@ -437,16 +474,41 @@ export function PassageModal({ isOpen, onClose, onSubmit, initialData, isLoading
                     onChange={field.onChange}
                     options={[
                       { value: '', label: '— Select topic —' },
-                      ...topics.map((t) => ({ value: t.name, label: t.name })),
+                      ...topics.map((t) => ({ value: t.id, label: t.name })),
                     ]}
                     placeholder="Select topic"
                     searchPlaceholder="Search topic..."
-                    disabled={!sectionValue || loadingTopics}
+                    disabled={!subjectIdValue || loadingTopics}
                   />
                 )}
               />
+              {errors.topicId && <p className="mt-1 text-xs font-bold text-red-500">{errors.topicId.message}</p>}
             </div>
           </div>
+
+          {/* Image Alt Text + Caption — visible when type has image */}
+          {needsImageRef && (
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <label htmlFor="imageAltText" className={labelCls}>Image Alt Text</label>
+                <input
+                  id="imageAltText"
+                  {...register('imageAltText')}
+                  placeholder="Describe the image..."
+                  className={inputCls}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label htmlFor="imageCaption" className={labelCls}>Image Caption</label>
+                <input
+                  id="imageCaption"
+                  {...register('imageCaption')}
+                  placeholder="Optional caption..."
+                  className={inputCls}
+                />
+              </div>
+            </div>
+          )}
 
           {/* Notes */}
           <div className="space-y-1.5">

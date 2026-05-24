@@ -31,17 +31,15 @@ const LS_ANSWERS_KEY = (sessionId: string) => `exam_answers_${sessionId}`;
 const LS_TIMES_KEY = (sessionId: string) => `exam_times_${sessionId}`;
 
 function QuestionContent({ question }: { question: SessionQuestion }) {
-  const legacyImageUrls = question.image?.url ? [] : (question.imageUrls?.length ? question.imageUrls : (question.imageUrl ? [question.imageUrl] : []));
-
   return (
     <div className="space-y-3">
       {question.passage && (() => {
-        const pos = question.passage.imageDisplayPosition ?? 'BELOW';
+        const pos = question.passage.imageDisplayPosition ?? 'below';
         const hasImage = !!question.passage.image?.url;
-        const hasText = !!question.passage.content;
+        const hasText = !!question.passage.text;
 
         const imageBlock = hasImage ? (
-          <figure className={pos === 'BESIDE' ? '' : (pos === 'ABOVE' || pos === 'MAIN' ? 'mb-3' : 'mt-3')}>
+          <figure className={pos === 'above' ? 'mb-3' : 'mt-3'}>
             <img
               src={question.passage.image!.url!}
               alt={question.passage.image!.altText || question.passage.image!.fileName}
@@ -58,7 +56,7 @@ function QuestionContent({ question }: { question: SessionQuestion }) {
         const textBlock = hasText ? (
           <div className="text-sm font-medium leading-relaxed text-slate-700 dark:text-slate-300">
             <QuestionLatexRenderer
-              text={question.passage.content!}
+              text={question.passage.text!}
               latexEnabled={question.latexEnabled}
               fallbackClassName="whitespace-pre-wrap"
             />
@@ -72,34 +70,16 @@ function QuestionContent({ question }: { question: SessionQuestion }) {
                 {question.passage.title}
               </p>
             )}
-            {pos === 'MAIN' && imageBlock}
-            {pos === 'MAIN' && textBlock}
-            {pos === 'ABOVE' && imageBlock}
-            {pos === 'ABOVE' && textBlock}
-            {pos === 'BESIDE' && (hasImage && hasText ? (
+            {pos === 'above' && imageBlock}
+            {pos === 'above' && textBlock}
+            {pos === 'inline' && (hasImage && hasText ? (
               <div className="flex gap-4">
                 <div className="shrink-0">{imageBlock}</div>
                 <div className="flex-1">{textBlock}</div>
               </div>
             ) : (<>{textBlock}{imageBlock}</>))}
-            {pos === 'MIDDLE' && (() => {
-              if (!hasText || !hasImage) return <>{textBlock}{imageBlock}</>;
-              const lines = question.passage.content!.split('\n');
-              const mid = Math.ceil(lines.length / 2);
-              return (
-                <>
-                  <div className="text-sm font-medium leading-relaxed text-slate-700 dark:text-slate-300">
-                    <QuestionLatexRenderer text={lines.slice(0, mid).join('\n')} latexEnabled={question.latexEnabled} fallbackClassName="whitespace-pre-wrap" />
-                  </div>
-                  {imageBlock}
-                  <div className="text-sm font-medium leading-relaxed text-slate-700 dark:text-slate-300">
-                    <QuestionLatexRenderer text={lines.slice(mid).join('\n')} latexEnabled={question.latexEnabled} fallbackClassName="whitespace-pre-wrap" />
-                  </div>
-                </>
-              );
-            })()}
-            {pos === 'BELOW' && textBlock}
-            {pos === 'BELOW' && imageBlock}
+            {pos === 'below' && textBlock}
+            {pos === 'below' && imageBlock}
           </div>
         );
       })()}
@@ -110,29 +90,23 @@ function QuestionContent({ question }: { question: SessionQuestion }) {
           fallbackClassName="whitespace-pre-wrap"
         />
       </div>
-      {question.image?.url && (
-        <figure className="inline-block">
-          <img
-            src={question.image.url}
-            alt={question.image.altText || question.image.fileName}
-            className="max-h-48 rounded-2xl border border-slate-200 object-contain dark:border-slate-700"
-          />
-          {question.image.caption && (
-            <figcaption className="mt-2 text-xs font-medium text-slate-500 dark:text-slate-400">
-              {question.image.caption}
-            </figcaption>
-          )}
-        </figure>
-      )}
-      {legacyImageUrls.length > 0 && (
+      {question.images?.length > 0 && (
         <div className="flex flex-wrap gap-3">
-          {legacyImageUrls.map((imageUrl, index) => (
-            <img
-              key={`${imageUrl}-${index}`}
-              src={imageUrl}
-              alt={`Question illustration ${index + 1}`}
-              className="max-h-48 rounded-2xl border border-slate-200 object-contain dark:border-slate-700"
-            />
+          {question.images.map((img, index) => (
+            img.url ? (
+              <figure key={`${img.fileName}-${index}`} className="inline-block">
+                <img
+                  src={img.url}
+                  alt={img.altText || img.fileName}
+                  className="max-h-48 rounded-2xl border border-slate-200 object-contain dark:border-slate-700"
+                />
+                {img.caption && (
+                  <figcaption className="mt-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                    {img.caption}
+                  </figcaption>
+                )}
+              </figure>
+            ) : null
           ))}
         </div>
       )}

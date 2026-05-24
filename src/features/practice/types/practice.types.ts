@@ -15,22 +15,24 @@ export interface McqOption {
 export interface PracticeQuestion {
   questionId: string;
   order: number;
+  type: 'MCQ' | 'ESSAY';
   questionText: string;
+  writingType: string | null;
+  promptText: string | null;
   latexEnabled: boolean;
   difficulty: Difficulty;
   options: McqOption[] | null;
-  imageRef: string | null;
-  image: ImageSummary | null;
-  imageUrl: string | null;
-  imageUrls: string[];
+  imageRefs: string[];
+  images: ImageSummary[];
   correctAnswer: string;
   explanation: string | null;
+  maxMarks: number;
   passage: {
     id: string;
     title: string | null;
-    content: string | null;
+    text: string | null;
     imageRef: string | null;
-    imageDisplayPosition: 'ABOVE' | 'MIDDLE' | 'BELOW' | 'BESIDE' | 'MAIN' | null;
+    imageDisplayPosition: 'above' | 'below' | 'inline' | null;
     image: ImageSummary | null;
   } | null;
 }
@@ -39,6 +41,28 @@ export interface PracticeResultAnswer extends PracticeQuestion {
   studentAnswer: string;
   isCorrect: boolean;
   timeSpentSeconds: number;
+  awardedMarks: number | null;
+  bandLabel: string | null;
+  bandDescriptor: string | null;
+  gradingStatus: string;
+  aiFeedback: {
+    overallFeedback?: string;
+    feedback?: string | null;
+    strengths?: string[];
+    improvements?: string[];
+    criterionScores?: Array<{
+      criterionId: string;
+      criterionName: string;
+      score: number;
+      maxScore: number;
+      feedback: string;
+    }>;
+    totalAwardedMarks?: number;
+    totalPossibleMarks?: number;
+    scorePercent?: number;
+    bandLabel?: string | null;
+    bandDescriptor?: string | null;
+  } | null;
 }
 
 export interface PracticeSessionDetail {

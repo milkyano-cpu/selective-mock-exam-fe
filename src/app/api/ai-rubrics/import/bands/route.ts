@@ -4,12 +4,11 @@ import { fetchFromBackend } from '@/lib/serverBackend';
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
-    const backendRes = await fetchFromBackend(req, '/ai-rubrics/import', {
+    const backendRes = await fetchFromBackend(req, '/ai-rubrics/import/bands', {
       method: 'POST',
       body: formData,
     });
     const data = await backendRes.json().catch(() => ({}));
-
     return NextResponse.json(
       {
         success: backendRes.ok,
@@ -19,10 +18,7 @@ export async function POST(req: Request) {
       { status: backendRes.status }
     );
   } catch (err) {
-    console.error('[AI_RUBRICS IMPORT API POST] ERROR:', err);
-    return NextResponse.json(
-      { success: false, message: 'Internal Server Error', data: {} },
-      { status: 500 }
-    );
+    console.error('[BANDS IMPORT] ERROR:', err);
+    return NextResponse.json({ success: false, message: 'Internal Server Error', data: {} }, { status: 500 });
   }
 }

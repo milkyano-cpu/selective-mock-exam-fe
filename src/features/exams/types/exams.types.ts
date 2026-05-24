@@ -20,6 +20,9 @@ export interface EssayAiFeedback {
   isCorrect: boolean | null;
   confidence: 'high' | 'medium' | 'low' | null;
   feedback: string | null;
+  overallFeedback?: string | null;
+  strengths?: string[];
+  improvements?: string[];
   pendingReview: boolean | null;
   reason: string | null;
   gradedAt: string | null;
@@ -34,10 +37,14 @@ export interface EssayAiFeedback {
     score: number;
     maxScore: number;
     feedback: string;
+    strengths?: string[];
+    improvements?: string[];
   }>;
   totalAwardedMarks: number | null;
   totalPossibleMarks: number | null;
   scorePercent: number | null;
+  bandLabel?: string | null;
+  bandDescriptor?: string | null;
 }
 
 export interface ExamItem {
@@ -77,10 +84,8 @@ export interface ExamQuestionItem {
     latexEnabled: boolean;
     options: McqOption[] | null;
     correctAnswer: string;
-    imageRef: string | null;
-    image: ImageSummary | null;
-    imageUrl: string | null;
-    imageUrls: string[];
+    imageRefs: string[];
+    images: ImageSummary[];
     subjectName: string;
     topicName: string;
   };
@@ -93,13 +98,11 @@ export interface SessionQuestion {
   questionText: string;
   latexEnabled: boolean;
   options: McqOption[] | null;
-  imageRef: string | null;
-  image: ImageSummary | null;
-  imageUrl: string | null;
-  imageUrls: string[];
+  imageRefs: string[];
+  images: ImageSummary[];
   subjectName: string;
   topicName: string;
-  passage: { id: string; title: string | null; content: string | null; imageRef: string | null; imageDisplayPosition: 'ABOVE' | 'MIDDLE' | 'BELOW' | 'BESIDE' | 'MAIN' | null; image: ImageSummary | null } | null;
+  passage: { id: string; title: string | null; text: string | null; imageRef: string | null; imageDisplayPosition: 'above' | 'below' | 'inline' | null; image: ImageSummary | null } | null;
   existingAnswer: { studentAnswer: string; timeSpentSeconds: number } | null;
 }
 
@@ -145,14 +148,14 @@ export interface SessionResultAnswer {
   latexEnabled: boolean;
   type: 'MCQ' | 'ESSAY';
   options: McqOption[] | null;
-  imageRef: string | null;
-  image: ImageSummary | null;
+  imageRefs: string[];
+  images: ImageSummary[];
   passage: {
     id: string;
     title: string | null;
-    content: string | null;
+    text: string | null;
     imageRef: string | null;
-    imageDisplayPosition: 'ABOVE' | 'MIDDLE' | 'BELOW' | 'BESIDE' | 'MAIN' | null;
+    imageDisplayPosition: 'above' | 'below' | 'inline' | null;
     image: ImageSummary | null;
   } | null;
   studentAnswer: string;
@@ -166,6 +169,9 @@ export interface SessionResultAnswer {
   tutorFeedback: string | null;
   reviewStatus: AnswerReviewStatus;
   aiFeedback: EssayAiFeedback | null;
+  isOverridden: boolean;
+  overrideScore: number | null;
+  overrideNotes: string | null;
 }
 
 export interface SessionResult {
@@ -174,6 +180,8 @@ export interface SessionResult {
   examTitle: string;
   status: SessionStatus;
   finalScore: number | null;
+  mcqScore: number | null;
+  essayScore: number | null;
   rankingLevel: RankingLevel | null;
   totalTimeSeconds: number | null;
   activeTimeSeconds: number;
@@ -221,6 +229,8 @@ export interface ReviewSession {
     email: string;
   };
   finalScore: number | null;
+  mcqScore: number | null;
+  essayScore: number | null;
   rankingLevel: RankingLevel | null;
   totalTimeSeconds: number | null;
   activeTimeSeconds: number;

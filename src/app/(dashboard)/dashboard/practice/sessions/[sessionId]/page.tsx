@@ -268,11 +268,12 @@ export default function PracticeSessionPage() {
     nextSubmitted.add(q.questionId);
     setSubmittedSet(nextSubmitted);
 
-    const isCorrect = answers[q.questionId] === q.correctAnswer;
+    const isEssay = q.type === 'ESSAY';
+    const isCorrect = !isEssay && answers[q.questionId] === q.correctAnswer;
     const timeSpent = timeSpentMap.current[q.questionId] ?? 0;
     const speedLimit = SPEED_THRESHOLD[q.difficulty] ?? 30;
 
-    if (isCorrect && timeSpent <= speedLimit) {
+    if (!isEssay && isCorrect && timeSpent <= speedLimit) {
       const newStreak = streak + 1;
       setStreak(newStreak);
 
@@ -287,7 +288,7 @@ export default function PracticeSessionPage() {
           toastTimer.current = null;
         }, 3000);
       }
-    } else {
+    } else if (!isEssay) {
       setStreak(0);
     }
 
@@ -424,7 +425,7 @@ export default function PracticeSessionPage() {
                 idx === currentIdx
                   ? 'bg-[#0A9AE2] text-white scale-110 shadow-md'
                   : submittedSet.has(q.questionId)
-                  ? (answers[q.questionId] === q.correctAnswer ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30' : 'bg-rose-100 text-rose-600 dark:bg-rose-900/30')
+                  ? (q.type === 'ESSAY' ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30' : answers[q.questionId] === q.correctAnswer ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30' : 'bg-rose-100 text-rose-600 dark:bg-rose-900/30')
                   : 'bg-slate-200 dark:bg-slate-700 text-slate-500',
               ].join(' ')}
             >
@@ -466,12 +467,12 @@ export default function PracticeSessionPage() {
 
             {/* Passage */}
             {currentQuestion.passage && (() => {
-              const pos = currentQuestion.passage.imageDisplayPosition ?? 'BELOW';
+              const pos = currentQuestion.passage.imageDisplayPosition ?? 'below';
               const hasImage = !!currentQuestion.passage.image?.url;
-              const hasText = !!currentQuestion.passage.content;
+              const hasText = !!currentQuestion.passage.text;
 
               const imageBlock = hasImage ? (
-                <figure className={pos === 'BESIDE' ? '' : (pos === 'ABOVE' || pos === 'MAIN' ? 'mb-3' : 'mt-3')}>
+                <figure className={pos === 'above' ? 'mb-3' : 'mt-3'}>
                   <img
                     src={currentQuestion.passage.image!.url!}
                     alt={currentQuestion.passage.image!.altText || currentQuestion.passage.image!.fileName}
@@ -488,7 +489,7 @@ export default function PracticeSessionPage() {
               const textBlock = hasText ? (
                 <div className="text-sm font-medium leading-relaxed text-slate-700 dark:text-slate-300">
                   <QuestionLatexRenderer
-                    text={currentQuestion.passage.content!}
+                    text={currentQuestion.passage.text!}
                     latexEnabled={currentQuestion.latexEnabled}
                     fallbackClassName="whitespace-pre-wrap"
                   />
@@ -502,34 +503,16 @@ export default function PracticeSessionPage() {
                       {currentQuestion.passage.title}
                     </p>
                   )}
-                  {pos === 'MAIN' && imageBlock}
-                  {pos === 'MAIN' && textBlock}
-                  {pos === 'ABOVE' && imageBlock}
-                  {pos === 'ABOVE' && textBlock}
-                  {pos === 'BESIDE' && (hasImage && hasText ? (
+                  {pos === 'above' && imageBlock}
+                  {pos === 'above' && textBlock}
+                  {pos === 'inline' && (hasImage && hasText ? (
                     <div className="flex gap-4">
                       <div className="shrink-0">{imageBlock}</div>
                       <div className="flex-1">{textBlock}</div>
                     </div>
                   ) : (<>{textBlock}{imageBlock}</>))}
-                  {pos === 'MIDDLE' && (() => {
-                    if (!hasText || !hasImage) return <>{textBlock}{imageBlock}</>;
-                    const lines = currentQuestion.passage.content!.split('\n');
-                    const mid = Math.ceil(lines.length / 2);
-                    return (
-                      <>
-                        <div className="text-sm font-medium leading-relaxed text-slate-700 dark:text-slate-300">
-                          <QuestionLatexRenderer text={lines.slice(0, mid).join('\n')} latexEnabled={currentQuestion.latexEnabled} fallbackClassName="whitespace-pre-wrap" />
-                        </div>
-                        {imageBlock}
-                        <div className="text-sm font-medium leading-relaxed text-slate-700 dark:text-slate-300">
-                          <QuestionLatexRenderer text={lines.slice(mid).join('\n')} latexEnabled={currentQuestion.latexEnabled} fallbackClassName="whitespace-pre-wrap" />
-                        </div>
-                      </>
-                    );
-                  })()}
-                  {pos === 'BELOW' && textBlock}
-                  {pos === 'BELOW' && imageBlock}
+                  {pos === 'below' && textBlock}
+                  {pos === 'below' && imageBlock}
                 </div>
               );
             })()}
@@ -542,43 +525,36 @@ export default function PracticeSessionPage() {
               />
             </div>
 
+            {currentQuestion.type === 'ESSAY' && currentQuestion.promptText && (
+              <div className="mb-5 rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm font-medium leading-relaxed text-slate-700 dark:border-blue-900/40 dark:bg-blue-900/10 dark:text-slate-300">
+                <QuestionLatexRenderer text={currentQuestion.promptText} latexEnabled={currentQuestion.latexEnabled} fallbackClassName="whitespace-pre-wrap" />
+              </div>
+            )}
+
             {/* Images */}
-            {currentQuestion.image?.url && (
-              <figure className="mb-4">
-                <img
-                  src={currentQuestion.image.url}
-                  alt={currentQuestion.image.altText || currentQuestion.image.fileName}
-                  className="w-full rounded-xl border border-slate-100 object-contain dark:border-slate-700"
-                />
-                {currentQuestion.image.caption && (
-                  <figcaption className="mt-2 text-xs font-medium text-slate-500 dark:text-slate-400">
-                    {currentQuestion.image.caption}
-                  </figcaption>
-                )}
-              </figure>
-            )}
-            {!currentQuestion.image?.url && currentQuestion.imageUrl && (
-              <img
-                src={currentQuestion.imageUrl}
-                alt="Question"
-                className="mb-4 w-full rounded-xl border border-slate-100 dark:border-slate-700"
-              />
-            )}
-            {!currentQuestion.image?.url && currentQuestion.imageUrls.length > 0 && (
-              <div className="space-y-2 mb-4">
-                {currentQuestion.imageUrls.map((url, i) => (
-                  <img
-                    key={i}
-                    src={url}
-                    alt={`Image ${i + 1}`}
-                    className="w-full rounded-xl border border-slate-100 dark:border-slate-700"
-                  />
+            {currentQuestion.images?.length > 0 && (
+              <div className="mb-4 space-y-3">
+                {currentQuestion.images.map((img, i) => (
+                  img.url ? (
+                    <figure key={`${img.fileName}-${i}`}>
+                      <img
+                        src={img.url}
+                        alt={img.altText || img.fileName}
+                        className="w-full rounded-xl border border-slate-100 object-contain dark:border-slate-700"
+                      />
+                      {img.caption && (
+                        <figcaption className="mt-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                          {img.caption}
+                        </figcaption>
+                      )}
+                    </figure>
+                  ) : null
                 ))}
               </div>
             )}
 
             {/* MCQ Options */}
-            {currentQuestion.options && (
+            {currentQuestion.type === 'MCQ' && currentQuestion.options && (
               <div className="space-y-3">
                 {currentQuestion.options.map((opt) => {
                   const isSelected = answers[currentQuestion.questionId] === opt.key;
@@ -639,8 +615,19 @@ export default function PracticeSessionPage() {
               </div>
             )}
 
+            {currentQuestion.type === 'ESSAY' && (
+              <textarea
+                value={answers[currentQuestion.questionId] ?? ''}
+                onChange={(event) => handleAnswer(currentQuestion.questionId, event.target.value)}
+                disabled={submittedSet.has(currentQuestion.questionId)}
+                rows={10}
+                placeholder="Write your response..."
+                className="w-full rounded-2xl border-2 border-slate-100 bg-slate-50 p-4 text-sm font-medium leading-relaxed text-slate-800 outline-none transition-all focus:border-[#0A9AE2] dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+              />
+            )}
+
             {/* Inline Result Text */}
-            {submittedSet.has(currentQuestion.questionId) && (
+            {currentQuestion.type === 'MCQ' && submittedSet.has(currentQuestion.questionId) && (
               <motion.div
                 initial={{ opacity: 0, y: 5 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -667,7 +654,7 @@ export default function PracticeSessionPage() {
             )}
 
             {/* Explanation box after submission */}
-            {submittedSet.has(currentQuestion.questionId) && currentQuestion.explanation && (
+            {currentQuestion.type === 'MCQ' && submittedSet.has(currentQuestion.questionId) && currentQuestion.explanation && (
               <motion.div
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}

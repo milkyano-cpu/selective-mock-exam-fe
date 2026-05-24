@@ -1,7 +1,6 @@
 export type AiRubric = {
   id: string;
   name: string;
-  description: string | null;
   writingType: string | null;
   isDefault: boolean;
   isActive: boolean;
@@ -12,7 +11,8 @@ export type AiRubric = {
 
 export type AiRubricBandDescriptor = {
   id: string;
-  criterionId: string;
+  aiRubricId: string;
+  bandLabel: string;
   scoreMin: number;
   scoreMax: number;
   descriptor: string;
@@ -27,6 +27,9 @@ export type AiRubricCriterion = {
   criterionDescription: string;
   maxScore: number;
   sortOrder: number;
+  highScoringIndicators: string[];
+  lowScoringIndicators: string[];
+  aiCalibrationNotes: string[];
   createdAt: string;
   updatedAt: string;
   bandDescriptors?: AiRubricBandDescriptor[];
@@ -34,6 +37,8 @@ export type AiRubricCriterion = {
 
 export type AiRubricDetail = AiRubric & {
   criteria: AiRubricCriterion[];
+  bandDescriptors: AiRubricBandDescriptor[];
+  calibrationNotes: AiCalibrationNote[];
 };
 
 export type PaginationMeta = {
@@ -64,9 +69,26 @@ export type ListAiRubricsQuery = {
 };
 
 export type AiRubricBandDescriptorInput = {
+  bandLabel?: string;
   scoreMin: number;
   scoreMax: number;
   descriptor: string;
+};
+
+export type AiCalibrationNote = {
+  id: string;
+  aiRubricId: string;
+  category: string | null;
+  instruction: string;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AiCalibrationNoteInput = {
+  category?: string | null;
+  instruction: string;
+  sortOrder?: number;
 };
 
 export type AiRubricCriterionInput = {
@@ -74,28 +96,33 @@ export type AiRubricCriterionInput = {
   criterionDescription: string;
   maxScore: number;
   sortOrder?: number;
+  highScoringIndicators?: string[];
+  lowScoringIndicators?: string[];
+  aiCalibrationNotes?: string[];
   bandDescriptors?: AiRubricBandDescriptorInput[];
 };
 
 export type CreateAiRubricPayload = {
   id: string;
   name: string;
-  description?: string | null;
   writingType?: string | null;
   isDefault?: boolean;
   isActive?: boolean;
   totalMaxScore: number;
   criteria?: AiRubricCriterionInput[];
+  bandDescriptors?: AiRubricBandDescriptorInput[];
+  calibrationNotes?: AiCalibrationNoteInput[];
 };
 
 export type UpdateAiRubricPayload = {
   name?: string;
-  description?: string | null;
   writingType?: string | null;
   isDefault?: boolean;
   isActive?: boolean;
   totalMaxScore?: number;
   criteria?: AiRubricCriterionInput[];
+  bandDescriptors?: AiRubricBandDescriptorInput[];
+  calibrationNotes?: AiCalibrationNoteInput[];
 };
 
 export type ImportAiRubricsResult = {

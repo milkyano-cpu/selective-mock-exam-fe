@@ -1,16 +1,20 @@
 'use client';
 
-import { X, Loader2, ChevronsUpDown, Check, Search } from 'lucide-react';
+import { X, Loader2, ChevronsUpDown, Check, Search, Upload, ImageOff, Trash2 } from 'lucide-react';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react';
+import Image from 'next/image';
 import { subjectsService } from '@/features/subjects/services/subjects.service';
 import type { Subject, Topic } from '@/features/subjects/types/subjects.types';
 import { passagesService } from '@/features/passages/services/passages.service';
 import type { PassageListItem } from '@/features/passages/types/passages.types';
 import { aiRubricsService } from '@/features/ai-rubrics/services/ai-rubrics.service';
 import type { AiRubric } from '@/features/ai-rubrics/types/ai-rubrics.types';
+import { aiRubricWritingTypesService } from '@/features/ai-rubric-writing-types/services/ai-rubric-writing-types.service';
+import type { AiRubricWritingType } from '@/features/ai-rubric-writing-types/types/ai-rubric-writing-types.types';
+import { imagesService } from '@/features/images/services/images.service';
 import type { Question, CreateQuestionPayload } from '../types/questions.types';
 import { questionsService } from '../services/questions.service';
 import { LatexRenderer } from '@/components/ui/LatexRenderer';
@@ -27,24 +31,25 @@ const formSchema = z
     type:             z.enum(['MCQ', 'ESSAY']),
     difficulty:       z.enum(['EASY', 'MEDIUM', 'HARD']),
     questionText:     z.string().min(1, 'Question text is required').max(5000, 'Max 5000 characters'),
+    writingType:      z.string().optional(),
+    promptText:       z.string().optional(),
+    markingGuide:     z.string().optional(),
     optionA:          z.string().optional(),
     optionB:          z.string().optional(),
     optionC:          z.string().optional(),
     optionD:          z.string().optional(),
     optionE:          z.string().optional(),
     correctAnswer:    z.string().optional(),
-    essayAnswer:      z.string().optional(),
     explanation:      z.string().max(5000).optional(),
-    timeLimitSeconds: z.string().min(1, 'Time limit is required'),
-    imageRef:         z.string().optional(),
-    imageUrl:         z.string().optional(),
+    timeLimitSeconds: z.string().optional(),
+    imageRefs:        z.array(z.string().min(1)).default([]),
     subtopicsRaw:     z.string().optional(),
     notes:            z.string().max(2000).optional(),
     adaptiveTags:     z.string().max(2000).optional(),
     skillTags:        z.string().max(2000).optional(),
     questionId:       z.string().max(100).optional(),
     latexEnabled:    z.boolean().default(false),
-    markingType:      z.enum(['AUTO', 'AI_RUBRIC']),
+    markingType:      z.enum(['AUTO', 'AI', 'MANUAL']),
     maxMarks:         z.string().min(1, 'Max marks is required'),
   })
   .superRefine((data, ctx) => {
@@ -60,14 +65,21 @@ const formSchema = z
         ctx.addIssue({ code: 'custom', path: ['correctAnswer'], message: 'Select the correct answer' });
       }
     }
-    if (data.type === 'MCQ' && data.markingType === 'AI_RUBRIC') {
+    if (data.type === 'MCQ' && data.markingType !== 'AUTO') {
       ctx.addIssue({ code: 'custom', path: ['markingType'], message: 'MCQ questions must use Auto marking' });
     }
     if (data.type === 'MCQ' && data.aiRubricId) {
       ctx.addIssue({ code: 'custom', path: ['aiRubricId'], message: 'MCQ questions must not use an AI Rubric' });
     }
     if (data.type === 'ESSAY' && data.markingType === 'AUTO') {
-      ctx.addIssue({ code: 'custom', path: ['markingType'], message: 'Essay questions must use AI Rubric marking' });
+      ctx.addIssue({ code: 'custom', path: ['markingType'], message: 'Essay questions must use AI or Manual marking' });
+    }
+    if (data.type === 'ESSAY') {
+      if (!data.writingType) ctx.addIssue({ code: 'custom', path: ['writingType'], message: 'Writing type is required' });
+      if (!data.promptText?.trim()) ctx.addIssue({ code: 'custom', path: ['promptText'], message: 'Prompt text is required' });
+      if (data.markingType === 'AI' && !data.aiRubricId) {
+        ctx.addIssue({ code: 'custom', path: ['aiRubricId'], message: 'AI Rubric is required when marking type is AI' });
+      }
     }
     const parsedMaxMarks = parseInt(data.maxMarks, 10);
     if (!Number.isFinite(parsedMaxMarks) || parsedMaxMarks < 1) {
@@ -106,9 +118,9 @@ function buildDefaultValues(q: Question | null | undefined): FormInput {
   if (!q) {
     return {
       subjectId: '', topicId: '', passageId: '', aiRubricId: '', type: 'MCQ', difficulty: 'MEDIUM',
-      questionText: '', optionA: '', optionB: '', optionC: '', optionD: '',
-      optionE: '', correctAnswer: '', essayAnswer: '', explanation: '',
-      timeLimitSeconds: '', imageRef: '', imageUrl: '', subtopicsRaw: '', notes: '', questionId: '',
+      questionText: '', writingType: undefined, promptText: '', markingGuide: '', optionA: '', optionB: '', optionC: '', optionD: '',
+      optionE: '', correctAnswer: '', explanation: '',
+      timeLimitSeconds: '', imageRefs: [], subtopicsRaw: '', notes: '', questionId: '',
       adaptiveTags: '', skillTags: '',
       latexEnabled: false, markingType: 'AUTO', maxMarks: '1',
     };
@@ -123,24 +135,25 @@ function buildDefaultValues(q: Question | null | undefined): FormInput {
     type:             q.type,
     difficulty:       q.difficulty,
     questionText:     q.questionText,
+    writingType:      q.writingType ?? undefined,
+    promptText:       q.promptText ?? '',
+    markingGuide:     q.markingGuide ?? '',
     optionA:          opts.find(o => o.key === 'A')?.text ?? '',
     optionB:          opts.find(o => o.key === 'B')?.text ?? '',
     optionC:          opts.find(o => o.key === 'C')?.text ?? '',
     optionD:          opts.find(o => o.key === 'D')?.text ?? '',
     optionE:          opts.find(o => o.key === 'E')?.text ?? '',
     correctAnswer:    q.type === 'MCQ' ? q.correctAnswer : '',
-    essayAnswer:      q.type === 'ESSAY' ? q.correctAnswer : '',
     explanation:      q.explanation ?? '',
     timeLimitSeconds: q.timeLimitSeconds != null ? String(q.timeLimitSeconds) : '',
-    imageRef:         q.imageRef ?? '',
-    imageUrl:         q.imageUrls?.length ? q.imageUrls.join(' | ') : (q.imageUrl ?? ''),
+    imageRefs:        q.imageRefs ?? [],
     subtopicsRaw:     (q.subtopics ?? []).join(', '),
     notes:            q.notes ?? '',
     adaptiveTags:     (q.adaptiveTags ?? []).join(', '),
     skillTags:        (q.skillTags ?? []).join(', '),
     questionId:       q.questionId ?? '',
     latexEnabled:    q.latexEnabled ?? false,
-    markingType:      q.markingType ?? (q.type === 'ESSAY' ? 'AI_RUBRIC' : 'AUTO'),
+    markingType:      q.type === 'MCQ' ? 'AUTO' : (q.markingType === 'MANUAL' ? 'MANUAL' : 'AI'),
     maxMarks:         String(q.maxMarks ?? (q.type === 'ESSAY' ? 20 : 1)),
   };
 }
@@ -152,6 +165,7 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
   const [topics, setTopics]     = useState<Topic[]>([]);
   const [passages, setPassages] = useState<PassageListItem[]>([]);
   const [aiRubrics, setAiRubrics]   = useState<AiRubric[]>([]);
+  const [writingTypes, setWritingTypes] = useState<AiRubricWritingType[]>([]);
   const [passageSearch, setPassageSearch] = useState('');
   const [isPassagePickerOpen, setIsPassagePickerOpen] = useState(false);
   const passagePickerRef = useRef<HTMLDivElement | null>(null);
@@ -170,6 +184,7 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
   });
 
   const selectedType      = watch('type');
+  const selectedMarkingType = watch('markingType');
   const selectedSubjectId = watch('subjectId');
   const selectedPassageId = watch('passageId');
   const latexEnabled     = watch('latexEnabled');
@@ -209,9 +224,11 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
       subjectsService.listSubjects({ page: 1, limit: 100 }),
       passagesService.list({ page: 1, limit: 100 }),
       aiRubricsService.list({ page: 1, limit: 100, activeOnly: true }),
-    ]).then(async ([subjectsRes, passagesRes, aiRubricsRes]) => {
+      aiRubricWritingTypesService.list(),
+    ]).then(async ([subjectsRes, passagesRes, aiRubricsRes, writingTypesRes]) => {
       if (subjectsRes.success) setSubjects(subjectsRes.data);
       if (aiRubricsRes.success) setAiRubrics(aiRubricsRes.data);
+      if (writingTypesRes.success) setWritingTypes(writingTypesRes.data);
 
       if (passagesRes.success) {
         let nextPassages = passagesRes.data;
@@ -304,21 +321,20 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
     const payload: CreateQuestionPayload = {
       subjectId:        values.subjectId,
       topicId:          values.topicId,
-      passageId:        values.passageId || (initialData ? null : undefined),
+      passageId:        values.type === 'ESSAY' ? undefined : (values.passageId || (initialData ? null : undefined)),
       aiRubricId:         values.type === 'ESSAY' ? (values.aiRubricId || null) : null,
       type:             values.type,
       difficulty:       values.difficulty,
       questionText:     values.questionText,
+      writingType:      values.type === 'ESSAY' ? (values.writingType?.trim() || undefined) : undefined,
+      promptText:       values.type === 'ESSAY' ? (values.promptText?.trim() || undefined) : undefined,
+      markingGuide:     values.type === 'ESSAY' ? values.markingGuide?.trim() || null : null,
       latexEnabled:    values.latexEnabled,
-      markingType:      values.markingType,
+      markingType:      values.type === 'MCQ' ? 'AUTO' : values.markingType,
       maxMarks:         parseInt(values.maxMarks, 10),
       explanation:      values.explanation?.trim() || undefined,
       timeLimitSeconds,
-      imageRef:         values.imageRef?.trim() || (initialData ? null : undefined),
-      imageUrl:         values.imageUrl?.trim() || undefined,
-      imageUrls:        values.imageUrl?.trim()
-                          ? values.imageUrl.split('|').map((item) => item.trim()).filter(Boolean)
-                          : undefined,
+      imageRefs:        values.imageRefs ?? [],
       subtopics:        subtopics.length ? subtopics : undefined,
       notes:            values.notes?.trim() || undefined,
       adaptiveTags:     values.adaptiveTags?.trim()
@@ -341,7 +357,7 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
       payload.options = options;
       payload.correctAnswer = values.correctAnswer;
     } else {
-      payload.correctAnswer = values.essayAnswer?.trim() || undefined;
+      payload.correctAnswer = '';
     }
 
     await onSubmit(payload);
@@ -353,13 +369,13 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
   const filteredPassages = passages.filter((passage) => {
     if (!passageSearch.trim()) return true;
     const query = passageSearch.toLowerCase();
-    return [passage.title, passage.externalId, passage.content]
+    return [passage.title, passage.passageId, passage.text]
       .filter(Boolean)
       .some((value) => value!.toLowerCase().includes(query));
   });
   const selectedPassage = passages.find((passage) => passage.id === selectedPassageId);
   const selectedPassageLabel = selectedPassage
-    ? `${selectedPassage.title || 'Untitled Passage'}${selectedPassage.externalId ? ` • ${selectedPassage.externalId}` : ''}`
+    ? `${selectedPassage.title || 'Untitled Passage'}${selectedPassage.passageId ? ` • ${selectedPassage.passageId}` : ''}`
     : 'No linked passage';
 
   return (
@@ -393,9 +409,12 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
                       type="button"
                       onClick={() => {
                         field.onChange(t);
-                        setValue('markingType', t === 'ESSAY' ? 'AI_RUBRIC' : 'AUTO');
+                        setValue('markingType', t === 'ESSAY' ? 'AI' : 'AUTO');
                         setValue('maxMarks', t === 'ESSAY' ? '20' : '1');
-                        if (t === 'MCQ') setValue('aiRubricId', '');
+                        if (t === 'MCQ') {
+                          setValue('aiRubricId', '');
+                          setValue('passageId', '');
+                        }
                       }}
                       className={`flex-1 py-2.5 rounded-xl font-bold text-sm transition-all ${
                         field.value === t
@@ -411,7 +430,7 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          {selectedType === 'ESSAY' && (
             <div className="space-y-1.5">
               <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Marking Type<RequiredAsterisk /></label>
               <Controller
@@ -420,50 +439,57 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
                 render={({ field }) => (
                   <SearchableSelect
                     value={field.value}
-                    onChange={field.onChange}
+                    onChange={(v) => {
+                      field.onChange(v);
+                      if (v === 'MANUAL') setValue('aiRubricId', '');
+                    }}
                     placeholder="Select marking type"
                     searchPlaceholder="Search marking types..."
                     options={[
-                      { value: 'AUTO', label: 'Auto' },
-                      { value: 'AI_RUBRIC', label: 'AI Rubric' },
+                      { value: 'AI', label: 'AI (graded by AI engine)' },
+                      { value: 'MANUAL', label: 'Manual (graded by tutor)' },
                     ]}
                   />
                 )}
               />
               {errors.markingType && <p className="text-xs text-red-500 font-bold">{errors.markingType.message}</p>}
             </div>
-
-            <div className="space-y-1.5">
-              <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Max Marks<RequiredAsterisk /></label>
-              <input
-                type="number"
-                min="1"
-                step="1"
-                {...register('maxMarks')}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 font-medium text-slate-900 transition-all focus:border-[#0A9AE2] focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-              />
-              {errors.maxMarks && <p className="text-xs text-red-500 font-bold">{errors.maxMarks.message}</p>}
-            </div>
-          </div>
+          )}
+          {/* Hidden maxMarks input — MCQ is always 1; Essay AI syncs from rubric */}
+          <input type="hidden" {...register('maxMarks')} />
 
           {selectedType === 'ESSAY' && (
-            <div className="space-y-1.5">
-              <label className="text-sm font-bold text-slate-700 dark:text-slate-300">AI Rubric</label>
-              <select
-                {...register('aiRubricId', { onChange: handleAiRubricChange })}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 font-medium text-slate-900 transition-all focus:border-[#0A9AE2] focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-              >
-                <option value="">Use default AI Rubric</option>
-                {aiRubrics.map((aiRubric) => (
-                  <option key={aiRubric.id} value={aiRubric.id}>
-                    {aiRubric.name} ({aiRubric.id}) - {aiRubric.totalMaxScore} marks
-                  </option>
-                ))}
-              </select>
-              <p className="text-xs font-medium text-slate-400 dark:text-slate-500">
-                Leave blank to use the active default AI Rubric during essay scoring.
-              </p>
-              {errors.aiRubricId && <p className="text-xs text-red-500 font-bold">{errors.aiRubricId.message}</p>}
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="space-y-1.5">
+                <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Writing Type<RequiredAsterisk /></label>
+                <select
+                  {...register('writingType')}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 font-medium text-slate-900 transition-all focus:border-[#0A9AE2] focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                >
+                  <option value="">Select writing type</option>
+                  {writingTypes.map((wt) => (
+                    <option key={wt.id} value={wt.name}>{wt.name}</option>
+                  ))}
+                </select>
+                {errors.writingType && <p className="text-xs text-red-500 font-bold">{errors.writingType.message}</p>}
+              </div>
+              {selectedMarkingType === 'AI' && (
+                <div className="space-y-1.5">
+                  <label className="text-sm font-bold text-slate-700 dark:text-slate-300">AI Rubric<RequiredAsterisk /></label>
+                  <select
+                    {...register('aiRubricId', { onChange: handleAiRubricChange })}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 font-medium text-slate-900 transition-all focus:border-[#0A9AE2] focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                  >
+                    <option value="">Select AI Rubric</option>
+                    {aiRubrics.map((aiRubric) => (
+                      <option key={aiRubric.id} value={aiRubric.id}>
+                        {aiRubric.name} ({aiRubric.id}) - {aiRubric.totalMaxScore} marks
+                      </option>
+                    ))}
+                  </select>
+                  {errors.aiRubricId && <p className="text-xs text-red-500 font-bold">{errors.aiRubricId.message}</p>}
+                </div>
+              )}
             </div>
           )}
           {/* Subject + Topic row */}
@@ -524,6 +550,7 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
             />
           </div>
 
+          {selectedType === 'MCQ' && (
           <div className="space-y-3 rounded-2xl border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
             <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:justify-between">
               <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Linked Passage</label>
@@ -559,7 +586,7 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
                           <input
                             value={passageSearch}
                             onChange={(e) => setPassageSearch(e.target.value)}
-                            placeholder="Search passage by title, external ID, or content..."
+                            placeholder="Search passage by title, external ID, or text..."
                             className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-10 pr-3 font-medium text-slate-900 transition-all focus:border-[#0A9AE2] focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
                           />
                         </div>
@@ -606,14 +633,14 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
                                 <div className="min-w-0 flex-1">
                                   <div className="flex flex-wrap items-center gap-2">
                                     <p className="truncate font-bold text-slate-900 dark:text-slate-100">{passage.title || 'Untitled Passage'}</p>
-                                    {passage.externalId && (
+                                    {passage.passageId && (
                                       <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-black text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                                        {passage.externalId}
+                                        {passage.passageId}
                                       </span>
                                     )}
                                   </div>
                                   <p className="mt-1 line-clamp-2 text-xs font-medium text-slate-500 dark:text-slate-400">
-                                    {passage.content}
+                                    {passage.text}
                                   </p>
                                   <p className="mt-1 text-[11px] font-bold text-slate-400 dark:text-slate-500">
                                     {passage._count.questions} linked question{passage._count.questions !== 1 ? 's' : ''}
@@ -634,9 +661,9 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
               <div className="rounded-xl border border-blue-100 bg-blue-50/70 px-4 py-3 dark:border-blue-500/20 dark:bg-blue-500/10">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-bold text-slate-900 dark:text-slate-100">{selectedPassage.title || 'Untitled Passage'}</span>
-                  {selectedPassage.externalId && (
+                  {selectedPassage.passageId && (
                     <span className="inline-flex rounded-full bg-white px-2 py-0.5 text-[10px] font-black text-slate-500 dark:bg-slate-900 dark:text-slate-400">
-                      {selectedPassage.externalId}
+                      {selectedPassage.passageId}
                     </span>
                   )}
                   <span className="inline-flex rounded-full bg-white px-2 py-0.5 text-[10px] font-black text-slate-500 dark:bg-slate-900 dark:text-slate-400">
@@ -644,7 +671,7 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
                   </span>
                 </div>
                 <p className="mt-2 line-clamp-3 text-xs sm:text-sm font-medium text-slate-600 dark:text-slate-300">
-                  {selectedPassage.content}
+                  {selectedPassage.text}
                 </p>
               </div>
             ) : (
@@ -653,6 +680,7 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
               </p>
             )}
           </div>
+          )}
 
           {/* Difficulty */}
           <div className="space-y-1.5">
@@ -700,6 +728,30 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
             {errors.questionText && <p className="text-xs text-red-500 font-bold">{errors.questionText.message}</p>}
           </div>
 
+          {selectedType === 'ESSAY' && (
+            <>
+              <div className="space-y-1.5">
+                <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Prompt Text<RequiredAsterisk /></label>
+                <textarea
+                  {...register('promptText')}
+                  placeholder="Enter the writing prompt shown to students..."
+                  rows={5}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 font-medium text-slate-900 transition-all focus:border-[#0A9AE2] focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 resize-none"
+                />
+                {errors.promptText && <p className="text-xs text-red-500 font-bold">{errors.promptText.message}</p>}
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Marking Guide <span className="text-slate-400 font-medium">(internal)</span></label>
+                <textarea
+                  {...register('markingGuide')}
+                  placeholder="Optional internal marking guide, sample notes, or constraints..."
+                  rows={4}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 font-medium text-slate-900 transition-all focus:border-[#0A9AE2] focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 resize-none"
+                />
+              </div>
+            </>
+          )}
+
           {/* latexEnabled toggle */}
           <div className="flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-950">
             <Controller
@@ -733,32 +785,21 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
             </div>
           )}
 
-          {/* Image Reference */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Image Ref</label>
-            <input
-              {...register('imageRef')}
-              placeholder="file-name.png"
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 font-medium text-slate-900 transition-all focus:border-[#0A9AE2] focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-            />
-          </div>
-
-          {/* Image URL */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Legacy Image URL(s)</label>
-            <input
-              {...register('imageUrl')}
-              placeholder="https://... or q1-a.png | q1-b.png"
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 font-medium text-slate-900 transition-all focus:border-[#0A9AE2] focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-            />
-            <p className="text-xs font-medium text-slate-400 dark:text-slate-500">
-              Use `|` to separate multiple image URLs or required image filenames.
-            </p>
-          </div>
+          {/* Images Upload */}
+          <Controller
+            name="imageRefs"
+            control={control}
+            render={({ field }) => (
+              <QuestionImagesUploader
+                value={field.value ?? []}
+                onChange={field.onChange}
+              />
+            )}
+          />
 
           {/* Time Limit */}
           <div className="space-y-1.5">
-            <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Time Limit (seconds)<RequiredAsterisk /></label>
+            <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Time Limit (seconds)</label>
             <input
               {...register('timeLimitSeconds')}
               type="number"
@@ -869,21 +910,6 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
             </div>
           )}
 
-          {/* Essay model answer */}
-          {selectedType === 'ESSAY' && (
-            <div className="space-y-1.5">
-              <label className="text-sm font-bold text-slate-700 dark:text-slate-300">
-                Model Answer / AI Rubric <span className="text-slate-400 font-medium">(optional)</span>
-              </label>
-              <textarea
-                {...register('essayAnswer')}
-                placeholder="Enter model answer or grading AI Rubric..."
-                rows={4}
-                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 font-medium text-slate-900 transition-all focus:border-[#0A9AE2] focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 resize-none"
-              />
-            </div>
-          )}
-
           {/* Explanation */}
           <div className="space-y-1.5">
             <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Explanation</label>
@@ -917,6 +943,114 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
           </div>
         </form>
       </div>
+    </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Images Uploader
+// ═══════════════════════════════════════════════════════════════════════════
+
+type UploadedItem = {
+  fileName: string;
+  url: string | null;
+};
+
+function QuestionImagesUploader({ value, onChange }: { value: string[]; onChange: (next: string[]) => void }) {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [items, setItems] = useState<UploadedItem[]>(() => value.map((fileName) => ({ fileName, url: null })));
+  const [isUploading, setIsUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Keep items in sync with value (e.g., when editing an existing question)
+  useEffect(() => {
+    setItems((prev) => {
+      const prevByFileName = new Map(prev.map((i) => [i.fileName, i]));
+      return value.map((fileName) => prevByFileName.get(fileName) ?? { fileName, url: null });
+    });
+  }, [value]);
+
+  const handleFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setIsUploading(true);
+    setError(null);
+    const newRefs: string[] = [];
+    const newItems: UploadedItem[] = [];
+    try {
+      for (const file of Array.from(files)) {
+        const res = await imagesService.upload(file, { imageType: 'QUESTION' });
+        if (res.success) {
+          newRefs.push(res.data.fileName);
+          newItems.push({ fileName: res.data.fileName, url: res.data.url });
+        }
+      }
+      const nextRefs = [...value, ...newRefs];
+      onChange(nextRefs);
+      setItems((prev) => [...prev, ...newItems]);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setError(msg || 'Failed to upload image');
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const removeAt = (index: number) => {
+    onChange(value.filter((_, i) => i !== index));
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Images</label>
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={isUploading}
+          className="inline-flex items-center gap-2 rounded-lg bg-[#0A9AE2] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#0864B6] disabled:opacity-60"
+        >
+          {isUploading ? <Loader2 size={14} className="animate-spin" /> : <Upload size={14} />}
+          Upload Images
+        </button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          multiple
+          onChange={(e) => void handleFiles(e.target.files)}
+          className="hidden"
+        />
+      </div>
+      {error && <p className="text-xs font-bold text-red-500">{error}</p>}
+      {items.length === 0 ? (
+        <div className="flex flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center text-sm font-bold text-slate-400 dark:border-slate-700 dark:bg-slate-950">
+          <ImageOff size={20} />
+          No images uploaded
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+          {items.map((item, i) => (
+            <div key={item.fileName} className="group relative overflow-hidden rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-950">
+              {item.url ? (
+                <Image src={item.url} alt={item.fileName} width={200} height={200} className="aspect-square w-full object-cover" unoptimized />
+              ) : (
+                <div className="flex aspect-square w-full items-center justify-center bg-slate-100 dark:bg-slate-800">
+                  <ImageOff size={20} className="text-slate-400" />
+                </div>
+              )}
+              <button
+                type="button"
+                onClick={() => removeAt(i)}
+                className="absolute right-1 top-1 rounded-lg bg-red-500/90 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100"
+              >
+                <Trash2 size={14} />
+              </button>
+              <p className="truncate px-2 py-1 text-[10px] font-mono text-slate-500 dark:text-slate-400" title={item.fileName}>{item.fileName}</p>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
