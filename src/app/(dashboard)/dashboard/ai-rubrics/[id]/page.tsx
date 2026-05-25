@@ -84,21 +84,21 @@ export default function AiRubricDetailPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="flex flex-col gap-3">
         <Link href="/dashboard/ai-rubrics" className="inline-flex w-fit items-center gap-2 text-sm font-bold text-slate-500 hover:text-[#0A9AE2]"><ArrowLeft size={16} /> Back to rubrics</Link>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100 sm:text-3xl">{rubric.name} <span className="text-[#0A9AE2]">.</span></h1>
-            <p className="font-mono text-xs text-slate-400">{rubric.id}</p>
+        <div className="relative flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0 pr-10 sm:pr-0">
+            <h1 className="break-words text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100 sm:text-3xl">{rubric.name} <span className="text-[#0A9AE2]">.</span></h1>
+            <p className="break-all font-mono text-xs text-slate-400">{rubric.id}</p>
             <div className="mt-2 flex flex-wrap gap-2 text-xs font-bold">
               {rubric.writingType && <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400">{rubric.writingType}</span>}
               <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-slate-600 dark:bg-slate-800 dark:text-slate-300">{rubric.totalMaxScore}</span>
               <span className={`rounded-full px-2.5 py-0.5 ${rubric.isActive ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400' : 'bg-slate-100 text-slate-500'}`}>{rubric.isActive ? 'Active' : 'Inactive'}</span>
             </div>
           </div>
-          <button onClick={() => router.push('/dashboard/ai-rubrics')} className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"><X size={18} /></button>
+          <button onClick={() => router.push('/dashboard/ai-rubrics')} className="absolute right-0 top-0 rounded-xl p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 sm:static"><X size={18} /></button>
         </div>
       </div>
 
@@ -111,13 +111,13 @@ export default function AiRubricDetailPage() {
       )}
 
       {/* Tabs */}
-      <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex gap-1 border-b border-slate-100 px-2 dark:border-slate-800">
+      <div className="min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+        <div className="grid grid-cols-3 border-b border-slate-100 px-1 dark:border-slate-800 sm:flex sm:gap-1 sm:px-2">
           <TabButton active={activeTab === 'criteria'} onClick={() => setActiveTab('criteria')} label="Criteria" count={rubric.criteria.length} />
           <TabButton active={activeTab === 'bands'} onClick={() => setActiveTab('bands')} label="Band Descriptors" count={rubric.bandDescriptors.length} />
           <TabButton active={activeTab === 'notes'} onClick={() => setActiveTab('notes')} label="Calibration Notes" count={rubric.calibrationNotes.length} />
         </div>
-        <div className="p-4 sm:p-6">
+        <div className="min-w-0 p-3 sm:p-6">
           {activeTab === 'criteria' && (
             <CriteriaTab rubricId={rubricId} items={rubric.criteria} onChanged={(msg) => { setMessage(msg); setError(null); void loadRubric(); }} onError={(msg) => { setError(msg); setMessage(null); }} />
           )}
@@ -141,11 +141,11 @@ function TabButton({ active, onClick, label, count }: { active: boolean; onClick
   return (
     <button
       onClick={onClick}
-      className={`flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-bold transition-colors ${
+      className={`flex min-w-0 flex-col items-center justify-center gap-1 border-b-2 px-1 py-3 text-center text-xs font-bold transition-colors sm:flex-row sm:gap-2 sm:px-4 sm:text-sm ${
         active ? 'border-[#0A9AE2] text-[#0A9AE2]' : 'border-transparent text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
       }`}
     >
-      {label}
+      <span className="leading-tight">{label}</span>
       <span className={`rounded-full px-2 py-0.5 text-xs font-black ${active ? 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-400' : 'bg-slate-100 text-slate-500 dark:bg-slate-800'}`}>{count}</span>
     </button>
   );
@@ -154,7 +154,7 @@ function TabButton({ active, onClick, label, count }: { active: boolean; onClick
 function TabToolbar({ onCreate }: { onCreate: () => void }) {
   return (
     <div className="mb-4 flex flex-wrap items-center justify-end gap-2">
-      <button onClick={onCreate} className="inline-flex items-center gap-2 rounded-xl bg-[#0A9AE2] px-4 py-2 text-sm font-bold text-white hover:bg-[#0864B6]">
+      <button onClick={onCreate} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#0A9AE2] px-4 py-2 text-sm font-bold text-white hover:bg-[#0864B6] sm:w-auto">
         <Plus size={15} /> New
       </button>
     </div>
@@ -163,14 +163,14 @@ function TabToolbar({ onCreate }: { onCreate: () => void }) {
 
 function ModalShell({ title, onClose, children, footer }: { title: string; onClose: () => void; children: React.ReactNode; footer: React.ReactNode }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-3 backdrop-blur-sm sm:p-4">
       <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900">
-        <div className="flex items-center justify-between border-b border-slate-100 p-5 dark:border-slate-800">
+        <div className="flex items-center justify-between border-b border-slate-100 p-4 dark:border-slate-800 sm:p-5">
           <h2 className="font-black text-slate-900 dark:text-slate-100">{title}</h2>
           <button onClick={onClose} className="rounded-xl p-2 hover:bg-slate-100 dark:hover:bg-slate-800"><X size={18} /></button>
         </div>
-        <div className="flex-1 overflow-y-auto p-5">{children}</div>
-        <div className="flex gap-3 border-t border-slate-100 p-5 dark:border-slate-800">{footer}</div>
+        <div className="flex-1 overflow-y-auto p-4 sm:p-5">{children}</div>
+        <div className="flex gap-3 border-t border-slate-100 p-4 dark:border-slate-800 sm:p-5">{footer}</div>
       </div>
     </div>
   );
@@ -184,8 +184,8 @@ function StringList({ items, onChange, label, placeholder }: { items: string[]; 
         <button type="button" onClick={() => onChange([...items, ''])} className="text-xs font-bold text-[#0A9AE2]">+ Add</button>
       </div>
       {items.map((v, i) => (
-        <div key={i} className="flex gap-2">
-          <input value={v} onChange={(e) => { const n = [...items]; n[i] = e.target.value; onChange(n); }} placeholder={placeholder} className="flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium focus:border-[#0A9AE2] focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
+        <div key={i} className="flex min-w-0 gap-2">
+          <input value={v} onChange={(e) => { const n = [...items]; n[i] = e.target.value; onChange(n); }} placeholder={placeholder} className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium focus:border-[#0A9AE2] focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100" />
           <button type="button" onClick={() => onChange(items.filter((_, j) => j !== i))} className="rounded-lg p-2 text-red-400 hover:bg-red-50 dark:hover:bg-red-500/10"><X size={14} /></button>
         </div>
       ))}
@@ -208,6 +208,7 @@ function CriteriaTab({ rubricId, items, onChanged, onError }: CriteriaTabProps) 
   const [editing, setEditing] = useState<AiRubricCriterion | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const sorted = useMemo(() => [...items].sort((a, b) => a.sortOrder - b.sortOrder), [items]);
 
   const openCreate = () => { setEditing(null); setIsFormOpen(true); };
   const openEdit = (c: AiRubricCriterion) => { setEditing(c); setIsFormOpen(true); };
@@ -261,8 +262,29 @@ function CriteriaTab({ rubricId, items, onChanged, onError }: CriteriaTabProps) 
       {items.length === 0 ? (
         <p className="py-12 text-center text-sm font-bold text-slate-400">No criteria yet.</p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+        <>
+          <div className="space-y-3 sm:hidden">
+            {sorted.map((c) => (
+              <article key={c.id} className="rounded-xl border border-slate-100 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-950/40">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-mono text-xs text-slate-400">#{c.sortOrder}</p>
+                    <h3 className="mt-1 break-words text-sm font-black text-slate-800 dark:text-slate-100">{c.criterionName}</h3>
+                  </div>
+                  <span className="shrink-0 rounded-full bg-blue-100 px-2.5 py-1 text-xs font-black text-blue-700 dark:bg-blue-500/20 dark:text-blue-400">
+                    Max {c.maxScore}
+                  </span>
+                </div>
+                <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-600 dark:text-slate-400">{c.criterionDescription}</p>
+                <div className="mt-3 flex gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
+                  <button onClick={() => openEdit(c)} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-white px-3 py-2 text-xs font-bold text-slate-600 dark:bg-slate-900 dark:text-slate-300"><Pencil size={14} /> Edit</button>
+                  <button onClick={() => void remove(c)} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-white px-3 py-2 text-xs font-bold text-red-500 dark:bg-slate-900"><Trash2 size={14} /> Delete</button>
+                </div>
+              </article>
+            ))}
+          </div>
+          <div className="hidden overflow-x-auto sm:block">
+            <table className="w-full text-sm">
             <thead className="bg-slate-50 dark:bg-slate-800/60">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-black uppercase text-slate-500">#</th>
@@ -273,7 +295,7 @@ function CriteriaTab({ rubricId, items, onChanged, onError }: CriteriaTabProps) 
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {[...items].sort((a, b) => a.sortOrder - b.sortOrder).map((c) => (
+              {sorted.map((c) => (
                 <tr key={c.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
                   <td className="px-4 py-3 font-mono text-xs text-slate-400">{c.sortOrder}</td>
                   <td className="px-4 py-3 font-black text-slate-800 dark:text-slate-100">{c.criterionName}</td>
@@ -288,8 +310,9 @@ function CriteriaTab({ rubricId, items, onChanged, onError }: CriteriaTabProps) 
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
+            </table>
+          </div>
+        </>
       )}
 
       {isFormOpen && (
@@ -376,6 +399,7 @@ function BandsTab({ rubricId, items, onChanged, onError }: { rubricId: string; i
   const [editing, setEditing] = useState<AiRubricBandDescriptor | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const sorted = useMemo(() => [...items].sort((a, b) => b.scoreMin - a.scoreMin), [items]);
 
   const openCreate = () => { setEditing(null); setIsFormOpen(true); };
   const openEdit = (b: AiRubricBandDescriptor) => { setEditing(b); setIsFormOpen(true); };
@@ -426,8 +450,26 @@ function BandsTab({ rubricId, items, onChanged, onError }: { rubricId: string; i
       {items.length === 0 ? (
         <p className="py-12 text-center text-sm font-bold text-slate-400">No band descriptors yet.</p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+        <>
+          <div className="space-y-3 sm:hidden">
+            {sorted.map((b) => (
+              <article key={b.id} className="rounded-xl border border-slate-100 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-950/40">
+                <div className="flex items-start justify-between gap-3">
+                  <h3 className="min-w-0 break-words text-sm font-black text-slate-800 dark:text-slate-100">{b.bandLabel}</h3>
+                  <span className="shrink-0 rounded-full bg-blue-100 px-2.5 py-1 text-xs font-black text-blue-700 dark:bg-blue-500/20 dark:text-blue-400">
+                    {b.scoreMin} - {b.scoreMax}
+                  </span>
+                </div>
+                <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-600 dark:text-slate-400">{b.descriptor}</p>
+                <div className="mt-3 flex gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
+                  <button onClick={() => openEdit(b)} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-white px-3 py-2 text-xs font-bold text-slate-600 dark:bg-slate-900 dark:text-slate-300"><Pencil size={14} /> Edit</button>
+                  <button onClick={() => void remove(b)} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-white px-3 py-2 text-xs font-bold text-red-500 dark:bg-slate-900"><Trash2 size={14} /> Delete</button>
+                </div>
+              </article>
+            ))}
+          </div>
+          <div className="hidden overflow-x-auto sm:block">
+            <table className="w-full text-sm">
             <thead className="bg-slate-50 dark:bg-slate-800/60">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-black uppercase text-slate-500">Label</th>
@@ -437,7 +479,7 @@ function BandsTab({ rubricId, items, onChanged, onError }: { rubricId: string; i
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {[...items].sort((a, b) => b.scoreMin - a.scoreMin).map((b) => (
+              {sorted.map((b) => (
                 <tr key={b.id} className="hover:bg-slate-50/70 dark:hover:bg-slate-800/40">
                   <td className="px-4 py-3 font-black text-slate-800 dark:text-slate-100">{b.bandLabel}</td>
                   <td className="px-4 py-3 font-bold text-slate-700 dark:text-slate-300">{b.scoreMin} - {b.scoreMax}</td>
@@ -451,8 +493,9 @@ function BandsTab({ rubricId, items, onChanged, onError }: { rubricId: string; i
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
+            </table>
+          </div>
+        </>
       )}
       {isFormOpen && (
         <BandFormModal initial={editing} onSubmit={submit} onCancel={() => setIsFormOpen(false)} isSaving={isSaving} />
@@ -567,8 +610,24 @@ function NotesTab({ rubricId, items, onChanged, onError }: { rubricId: string; i
       {sorted.length === 0 ? (
         <p className="py-12 text-center text-sm font-bold text-slate-400">No calibration notes yet.</p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+        <>
+          <div className="space-y-3 sm:hidden">
+            {sorted.map((n) => (
+              <article key={n.id} className="rounded-xl border border-slate-100 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-950/40">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="font-mono text-xs text-slate-400">#{n.sortOrder}</span>
+                  {n.category ? <span className="rounded-full bg-blue-100 px-2.5 py-1 text-xs font-black text-blue-700 dark:bg-blue-500/20 dark:text-blue-400">{n.category}</span> : null}
+                </div>
+                <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-700 dark:text-slate-300">{n.instruction}</p>
+                <div className="mt-3 flex gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
+                  <button onClick={() => { setEditing(n); setIsFormOpen(true); }} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-white px-3 py-2 text-xs font-bold text-slate-600 dark:bg-slate-900 dark:text-slate-300"><Pencil size={14} /> Edit</button>
+                  <button onClick={() => void remove(n)} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-white px-3 py-2 text-xs font-bold text-red-500 dark:bg-slate-900"><Trash2 size={14} /> Delete</button>
+                </div>
+              </article>
+            ))}
+          </div>
+          <div className="hidden overflow-x-auto sm:block">
+            <table className="w-full text-sm">
             <thead className="bg-slate-50 dark:bg-slate-800/60">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-black uppercase text-slate-500">#</th>
@@ -592,8 +651,9 @@ function NotesTab({ rubricId, items, onChanged, onError }: { rubricId: string; i
                 </tr>
               ))}
             </tbody>
-          </table>
-        </div>
+            </table>
+          </div>
+        </>
       )}
       {isFormOpen && (
         <NoteFormModal initial={editing} onSubmit={submit} onCancel={() => setIsFormOpen(false)} isSaving={isSaving} />
