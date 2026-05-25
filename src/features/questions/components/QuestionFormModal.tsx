@@ -32,7 +32,7 @@ const formSchema = z
     difficulty:       z.enum(['EASY', 'MEDIUM', 'HARD']),
     questionText:     z.string().min(1, 'Question text is required').max(5000, 'Max 5000 characters'),
     writingType:      z.string().optional(),
-    promptText:       z.string().optional(),
+    promptText:       z.string().max(10000, 'Max 10000 characters').optional(),
     markingGuide:     z.string().optional(),
     optionA:          z.string().optional(),
     optionB:          z.string().optional(),
@@ -76,7 +76,6 @@ const formSchema = z
     }
     if (data.type === 'ESSAY') {
       if (!data.writingType) ctx.addIssue({ code: 'custom', path: ['writingType'], message: 'Writing type is required' });
-      if (!data.promptText?.trim()) ctx.addIssue({ code: 'custom', path: ['promptText'], message: 'Prompt text is required' });
       if (data.markingType === 'AI' && !data.aiRubricId) {
         ctx.addIssue({ code: 'custom', path: ['aiRubricId'], message: 'AI Rubric is required when marking type is AI' });
       }
@@ -327,7 +326,7 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
       difficulty:       values.difficulty,
       questionText:     values.questionText,
       writingType:      values.type === 'ESSAY' ? (values.writingType?.trim() || undefined) : undefined,
-      promptText:       values.type === 'ESSAY' ? (values.promptText?.trim() || undefined) : undefined,
+      promptText:       values.type === 'ESSAY' ? (values.promptText?.trim() || (initialData ? null : undefined)) : undefined,
       markingGuide:     values.type === 'ESSAY' ? values.markingGuide?.trim() || null : null,
       latexEnabled:    values.latexEnabled,
       markingType:      values.type === 'MCQ' ? 'AUTO' : values.markingType,
@@ -731,10 +730,10 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
           {selectedType === 'ESSAY' && (
             <>
               <div className="space-y-1.5">
-                <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Prompt Text<RequiredAsterisk /></label>
+                <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Prompt Text <span className="text-slate-400 font-medium">(optional stimulus)</span></label>
                 <textarea
                   {...register('promptText')}
-                  placeholder="Enter the writing prompt shown to students..."
+                  placeholder="Optional text stimulus shown to students..."
                   rows={5}
                   className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 font-medium text-slate-900 transition-all focus:border-[#0A9AE2] focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 resize-none"
                 />

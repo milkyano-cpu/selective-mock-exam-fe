@@ -64,10 +64,18 @@ function ReviewPassageAndImage({ answer }: { answer: ReviewSessionAnswer }) {
   const passage = answer.passage;
   const questionImages = !passage ? (answer.images ?? []).filter((img) => img.url) : [];
 
-  if (!passage && questionImages.length === 0) return null;
+  if (!answer.promptText && !passage && questionImages.length === 0) return null;
 
   return (
     <div className="mb-3 space-y-2">
+      {answer.type === 'ESSAY' && answer.promptText && (
+        <div className="rounded-xl border border-blue-100 bg-blue-50/50 px-4 py-3 dark:border-blue-900/30 dark:bg-blue-900/10">
+          <p className="text-xs font-black uppercase text-blue-500 dark:text-blue-400">Stimulus</p>
+          <div className="mt-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+            <QuestionLatexRenderer text={answer.promptText} latexEnabled={answer.latexEnabled} />
+          </div>
+        </div>
+      )}
       {passage && (
         <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 px-4 py-3 dark:border-indigo-900/30 dark:bg-indigo-900/10">
           {passage.title && (

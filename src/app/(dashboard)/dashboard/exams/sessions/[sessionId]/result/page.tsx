@@ -108,6 +108,14 @@ function AnswerCard({ answer, index }: { answer: SessionResultAnswer; index: num
 
       {expanded && (
         <div className={`border-t px-4 pb-4 pt-3 ${dividerBorderClass}`}>
+          {answer.type === 'ESSAY' && answer.promptText && (
+            <div className="mb-3 rounded-xl border border-blue-100 bg-blue-50/50 px-3 py-2.5 dark:border-blue-900/30 dark:bg-blue-900/10">
+              <p className="text-xs font-bold uppercase text-blue-500 dark:text-blue-400">Stimulus</p>
+              <div className="mt-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+                <QuestionLatexRenderer text={answer.promptText} latexEnabled={answer.latexEnabled} />
+              </div>
+            </div>
+          )}
           {answer.options && (
             <div className="space-y-2">
               {answer.options.map((opt) => {

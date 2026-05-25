@@ -90,6 +90,16 @@ function QuestionContent({ question }: { question: SessionQuestion }) {
           fallbackClassName="whitespace-pre-wrap"
         />
       </div>
+      {question.type === 'ESSAY' && question.promptText && (
+        <div className="rounded-2xl border border-blue-100 bg-blue-50 p-4 text-sm font-medium leading-relaxed text-slate-700 dark:border-blue-900/40 dark:bg-blue-900/10 dark:text-slate-300">
+          <p className="mb-2 text-xs font-bold uppercase tracking-wide text-blue-600 dark:text-blue-400">Stimulus</p>
+          <QuestionLatexRenderer
+            text={question.promptText}
+            latexEnabled={question.latexEnabled}
+            fallbackClassName="whitespace-pre-wrap"
+          />
+        </div>
+      )}
       {question.images?.length > 0 && (
         <div className="flex flex-wrap gap-3">
           {question.images.map((img, index) => (

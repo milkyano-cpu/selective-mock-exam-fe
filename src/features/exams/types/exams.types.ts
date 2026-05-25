@@ -96,6 +96,7 @@ export interface SessionQuestion {
   order: number;
   type: 'MCQ' | 'ESSAY';
   questionText: string;
+  promptText: string | null;
   latexEnabled: boolean;
   options: McqOption[] | null;
   imageRefs: string[];
@@ -145,6 +146,7 @@ export interface SessionResultAnswer {
   questionId: string;
   order: number;
   questionText: string;
+  promptText: string | null;
   latexEnabled: boolean;
   type: 'MCQ' | 'ESSAY';
   options: McqOption[] | null;
