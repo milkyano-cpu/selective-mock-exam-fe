@@ -791,6 +791,7 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
             render={({ field }) => (
               <QuestionImagesUploader
                 value={field.value ?? []}
+                initialImages={initialData?.images}
                 onChange={field.onChange}
               />
             )}
@@ -955,19 +956,25 @@ type UploadedItem = {
   url: string | null;
 };
 
-function QuestionImagesUploader({ value, onChange }: { value: string[]; onChange: (next: string[]) => void }) {
+function QuestionImagesUploader({
+  value,
+  initialImages,
+  onChange,
+}: {
+  value: string[];
+  initialImages?: Question['images'];
+  onChange: (next: string[]) => void;
+}) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-  const [items, setItems] = useState<UploadedItem[]>(() => value.map((fileName) => ({ fileName, url: null })));
+  const [uploadedItems, setUploadedItems] = useState<UploadedItem[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  // Keep items in sync with value (e.g., when editing an existing question)
-  useEffect(() => {
-    setItems((prev) => {
-      const prevByFileName = new Map(prev.map((i) => [i.fileName, i]));
-      return value.map((fileName) => prevByFileName.get(fileName) ?? { fileName, url: null });
-    });
-  }, [value]);
+  const initialByFileName = new Map((initialImages ?? []).map((image) => [image.fileName, image] as const));
+  const uploadedByFileName = new Map(uploadedItems.map((item) => [item.fileName, item] as const));
+  const items = value.map((fileName) => ({
+    fileName,
+    url: uploadedByFileName.get(fileName)?.url ?? initialByFileName.get(fileName)?.url ?? null,
+  }));
 
   const handleFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -985,7 +992,7 @@ function QuestionImagesUploader({ value, onChange }: { value: string[]; onChange
       }
       const nextRefs = [...value, ...newRefs];
       onChange(nextRefs);
-      setItems((prev) => [...prev, ...newItems]);
+      setUploadedItems((prev) => [...prev, ...newItems]);
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       setError(msg || 'Failed to upload image');
