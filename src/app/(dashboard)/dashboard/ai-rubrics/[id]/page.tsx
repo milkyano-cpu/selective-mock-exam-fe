@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { aiRubricsService } from '@/features/ai-rubrics/services/ai-rubrics.service';
+import { DeleteConfirmModal } from '@/features/subjects/components/DeleteConfirmModal';
 import type {
   AiCalibrationNote,
   AiCalibrationNoteInput,
@@ -208,6 +209,8 @@ function CriteriaTab({ rubricId, items, onChanged, onError }: CriteriaTabProps) 
   const [editing, setEditing] = useState<AiRubricCriterion | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [deleting, setDeleting] = useState<AiRubricCriterion | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const sorted = useMemo(() => [...items].sort((a, b) => a.sortOrder - b.sortOrder), [items]);
 
   const openCreate = () => { setEditing(null); setIsFormOpen(true); };
@@ -245,14 +248,18 @@ function CriteriaTab({ rubricId, items, onChanged, onError }: CriteriaTabProps) 
     }
   };
 
-  const remove = async (c: AiRubricCriterion) => {
-    if (!confirm(`Delete criterion "${c.criterionName}"?`)) return;
+  const onConfirmDelete = async () => {
+    if (!deleting) return;
+    setIsDeleting(true);
     try {
-      await aiRubricsService.deleteCriterion(rubricId, c.id);
+      await aiRubricsService.deleteCriterion(rubricId, deleting.id);
+      setDeleting(null);
       onChanged('Criterion deleted');
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       onError(msg || 'Failed to delete criterion');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -278,7 +285,7 @@ function CriteriaTab({ rubricId, items, onChanged, onError }: CriteriaTabProps) 
                 <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-600 dark:text-slate-400">{c.criterionDescription}</p>
                 <div className="mt-3 flex gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
                   <button onClick={() => openEdit(c)} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-white px-3 py-2 text-xs font-bold text-slate-600 dark:bg-slate-900 dark:text-slate-300"><Pencil size={14} /> Edit</button>
-                  <button onClick={() => void remove(c)} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-white px-3 py-2 text-xs font-bold text-red-500 dark:bg-slate-900"><Trash2 size={14} /> Delete</button>
+                  <button onClick={() => setDeleting(c)} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-white px-3 py-2 text-xs font-bold text-red-500 dark:bg-slate-900"><Trash2 size={14} /> Delete</button>
                 </div>
               </article>
             ))}
@@ -304,7 +311,7 @@ function CriteriaTab({ rubricId, items, onChanged, onError }: CriteriaTabProps) 
                   <td className="px-4 py-3 text-right">
                     <div className="flex justify-end gap-1">
                       <button onClick={() => openEdit(c)} title="Edit" className="rounded-lg p-2 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-500/10"><Pencil size={15} /></button>
-                      <button onClick={() => void remove(c)} title="Delete" className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"><Trash2 size={15} /></button>
+                      <button onClick={() => setDeleting(c)} title="Delete" className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"><Trash2 size={15} /></button>
                     </div>
                   </td>
                 </tr>
@@ -318,6 +325,14 @@ function CriteriaTab({ rubricId, items, onChanged, onError }: CriteriaTabProps) 
       {isFormOpen && (
         <CriterionFormModal initial={editing} onSubmit={submit} onCancel={() => setIsFormOpen(false)} isSaving={isSaving} />
       )}
+      <DeleteConfirmModal
+        isOpen={!!deleting}
+        onClose={() => setDeleting(null)}
+        onConfirm={onConfirmDelete}
+        title="Delete Criterion"
+        message={`Are you sure you want to delete "${deleting?.criterionName ?? 'this criterion'}"? This action cannot be undone.`}
+        isLoading={isDeleting}
+      />
     </div>
   );
 }
@@ -399,6 +414,8 @@ function BandsTab({ rubricId, items, onChanged, onError }: { rubricId: string; i
   const [editing, setEditing] = useState<AiRubricBandDescriptor | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [deleting, setDeleting] = useState<AiRubricBandDescriptor | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const sorted = useMemo(() => [...items].sort((a, b) => b.scoreMin - a.scoreMin), [items]);
 
   const openCreate = () => { setEditing(null); setIsFormOpen(true); };
@@ -433,14 +450,18 @@ function BandsTab({ rubricId, items, onChanged, onError }: { rubricId: string; i
     }
   };
 
-  const remove = async (b: AiRubricBandDescriptor) => {
-    if (!confirm(`Delete band "${b.bandLabel}"?`)) return;
+  const onConfirmDelete = async () => {
+    if (!deleting) return;
+    setIsDeleting(true);
     try {
-      await aiRubricsService.deleteBand(rubricId, b.id);
+      await aiRubricsService.deleteBand(rubricId, deleting.id);
+      setDeleting(null);
       onChanged('Band descriptor deleted');
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       onError(msg || 'Failed to delete band');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -463,7 +484,7 @@ function BandsTab({ rubricId, items, onChanged, onError }: { rubricId: string; i
                 <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-600 dark:text-slate-400">{b.descriptor}</p>
                 <div className="mt-3 flex gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
                   <button onClick={() => openEdit(b)} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-white px-3 py-2 text-xs font-bold text-slate-600 dark:bg-slate-900 dark:text-slate-300"><Pencil size={14} /> Edit</button>
-                  <button onClick={() => void remove(b)} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-white px-3 py-2 text-xs font-bold text-red-500 dark:bg-slate-900"><Trash2 size={14} /> Delete</button>
+                  <button onClick={() => setDeleting(b)} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-white px-3 py-2 text-xs font-bold text-red-500 dark:bg-slate-900"><Trash2 size={14} /> Delete</button>
                 </div>
               </article>
             ))}
@@ -487,7 +508,7 @@ function BandsTab({ rubricId, items, onChanged, onError }: { rubricId: string; i
                   <td className="px-4 py-3 text-right">
                     <div className="flex justify-end gap-1">
                       <button onClick={() => openEdit(b)} title="Edit" className="rounded-lg p-2 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-500/10"><Pencil size={15} /></button>
-                      <button onClick={() => void remove(b)} title="Delete" className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"><Trash2 size={15} /></button>
+                      <button onClick={() => setDeleting(b)} title="Delete" className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"><Trash2 size={15} /></button>
                     </div>
                   </td>
                 </tr>
@@ -500,6 +521,14 @@ function BandsTab({ rubricId, items, onChanged, onError }: { rubricId: string; i
       {isFormOpen && (
         <BandFormModal initial={editing} onSubmit={submit} onCancel={() => setIsFormOpen(false)} isSaving={isSaving} />
       )}
+      <DeleteConfirmModal
+        isOpen={!!deleting}
+        onClose={() => setDeleting(null)}
+        onConfirm={onConfirmDelete}
+        title="Delete Band"
+        message={`Are you sure you want to delete "${deleting?.bandLabel ?? 'this band'}"? This action cannot be undone.`}
+        isLoading={isDeleting}
+      />
     </div>
   );
 }
@@ -562,6 +591,8 @@ function NotesTab({ rubricId, items, onChanged, onError }: { rubricId: string; i
   const [editing, setEditing] = useState<AiCalibrationNote | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [deleting, setDeleting] = useState<AiCalibrationNote | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const sorted = useMemo(() => [...items].sort((a, b) => a.sortOrder - b.sortOrder), [items]);
 
@@ -593,14 +624,18 @@ function NotesTab({ rubricId, items, onChanged, onError }: { rubricId: string; i
     }
   };
 
-  const remove = async (n: AiCalibrationNote) => {
-    if (!confirm('Delete this calibration note?')) return;
+  const onConfirmDelete = async () => {
+    if (!deleting) return;
+    setIsDeleting(true);
     try {
-      await aiRubricsService.deleteCalibrationNote(rubricId, n.id);
+      await aiRubricsService.deleteCalibrationNote(rubricId, deleting.id);
+      setDeleting(null);
       onChanged('Calibration note deleted');
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       onError(msg || 'Failed to delete note');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -621,7 +656,7 @@ function NotesTab({ rubricId, items, onChanged, onError }: { rubricId: string; i
                 <p className="mt-3 whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-700 dark:text-slate-300">{n.instruction}</p>
                 <div className="mt-3 flex gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
                   <button onClick={() => { setEditing(n); setIsFormOpen(true); }} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-white px-3 py-2 text-xs font-bold text-slate-600 dark:bg-slate-900 dark:text-slate-300"><Pencil size={14} /> Edit</button>
-                  <button onClick={() => void remove(n)} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-white px-3 py-2 text-xs font-bold text-red-500 dark:bg-slate-900"><Trash2 size={14} /> Delete</button>
+                  <button onClick={() => setDeleting(n)} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-white px-3 py-2 text-xs font-bold text-red-500 dark:bg-slate-900"><Trash2 size={14} /> Delete</button>
                 </div>
               </article>
             ))}
@@ -645,7 +680,7 @@ function NotesTab({ rubricId, items, onChanged, onError }: { rubricId: string; i
                   <td className="px-4 py-3 text-right">
                     <div className="flex justify-end gap-1">
                       <button onClick={() => { setEditing(n); setIsFormOpen(true); }} title="Edit" className="rounded-lg p-2 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-500/10"><Pencil size={15} /></button>
-                      <button onClick={() => void remove(n)} title="Delete" className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"><Trash2 size={15} /></button>
+                      <button onClick={() => setDeleting(n)} title="Delete" className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"><Trash2 size={15} /></button>
                     </div>
                   </td>
                 </tr>
@@ -658,6 +693,14 @@ function NotesTab({ rubricId, items, onChanged, onError }: { rubricId: string; i
       {isFormOpen && (
         <NoteFormModal initial={editing} onSubmit={submit} onCancel={() => setIsFormOpen(false)} isSaving={isSaving} />
       )}
+      <DeleteConfirmModal
+        isOpen={!!deleting}
+        onClose={() => setDeleting(null)}
+        onConfirm={onConfirmDelete}
+        title="Delete Calibration Note"
+        message="Are you sure you want to delete this calibration note? This action cannot be undone."
+        isLoading={isDeleting}
+      />
     </div>
   );
 }

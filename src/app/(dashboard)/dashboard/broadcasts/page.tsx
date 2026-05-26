@@ -8,6 +8,7 @@ import {
   type AnnouncementPriority,
   type AnnouncementTarget,
 } from '@/features/announcements/services/announcement.service';
+import { DeleteConfirmModal } from '@/features/subjects/components/DeleteConfirmModal';
 import {
   Megaphone,
   ShieldAlert,
@@ -44,6 +45,8 @@ export default function BroadcastsPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [listError, setListError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [form, setForm] = useState({
     title: '',
     message: '',
@@ -139,12 +142,17 @@ export default function BroadcastsPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const onConfirmDelete = async () => {
+    if (!deletingId) return;
+    setIsDeleting(true);
     try {
-      await announcementService.remove(id);
+      await announcementService.remove(deletingId);
+      setDeletingId(null);
       void fetchAnnouncements(page);
     } catch {
       // silent
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -255,7 +263,7 @@ export default function BroadcastsPage() {
                     {user.role === 'ADMIN' && (
                       <td className="px-6 py-4 text-right">
                         <button
-                          onClick={() => void handleDelete(item.id)}
+                          onClick={() => setDeletingId(item.id)}
                           className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
                         >
                           <Trash2 size={13} /> Delete
@@ -350,6 +358,15 @@ export default function BroadcastsPage() {
           </div>
         </div>
       )}
+
+      <DeleteConfirmModal
+        isOpen={!!deletingId}
+        onClose={() => setDeletingId(null)}
+        onConfirm={onConfirmDelete}
+        title="Delete Broadcast"
+        message="Are you sure you want to delete this broadcast? This action cannot be undone."
+        isLoading={isDeleting}
+      />
     </div>
   );
 }

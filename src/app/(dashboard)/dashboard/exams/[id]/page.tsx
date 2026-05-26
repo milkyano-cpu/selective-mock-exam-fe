@@ -8,6 +8,7 @@ import { examService } from '@/features/exams/services/exams.service';
 import { questionsService } from '@/features/questions/services/questions.service';
 import { QuestionLatexRenderer } from '@/components/ui/QuestionLatexRenderer';
 import type { ExamItem, ExamQuestionItem, ManualGradingQueueStatus, ManualGradingSubmission } from '@/features/exams/types/exams.types';
+import { DeleteConfirmModal } from '@/features/subjects/components/DeleteConfirmModal';
 import {
   ArrowLeft,
   Loader2,
@@ -459,6 +460,7 @@ export default function ExamDetailPage() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [removeTargetId, setRemoveTargetId] = useState<string | null>(null);
   const [qFilter, setQFilter] = useState<'ALL' | 'MCQ' | 'ESSAY' | 'EASY' | 'MEDIUM' | 'HARD'>('ALL');
   const [qSearch, setQSearch] = useState('');
   const [submissions, setSubmissions] = useState<ManualGradingSubmission[]>([]);
@@ -544,13 +546,15 @@ export default function ExamDetailPage() {
     }
   };
 
-  const handleRemoveQuestion = async (questionId: string) => {
-    if (!confirm('Remove this question from the exam?')) return;
+  const onConfirmRemoveQuestion = async () => {
+    if (!removeTargetId) return;
+    const questionId = removeTargetId;
     setRemovingId(questionId);
     try {
       const res = await examService.removeQuestion(id, questionId);
       if (res.success) {
         setSuccessMsg('Question removed');
+        setRemoveTargetId(null);
         setQuestions((prev) => prev.filter((q) => q.questionId !== questionId));
         setExam((prev) => prev ? { ...prev, questionCount: prev.questionCount - 1 } : prev);
       } else {
@@ -923,7 +927,7 @@ export default function ExamDetailPage() {
 
                       {isAdmin && !exam.hasSessions && (
                         <button
-                          onClick={() => handleRemoveQuestion(eq.questionId)}
+                          onClick={() => setRemoveTargetId(eq.questionId)}
                           disabled={removingId === eq.questionId}
                           className="shrink-0 rounded-lg p-1.5 text-slate-400 opacity-100 transition-all hover:bg-red-50 hover:text-red-500 dark:text-slate-500 dark:hover:bg-red-900/20 dark:hover:text-red-400 disabled:opacity-50 sm:text-slate-300 sm:opacity-0 sm:group-hover:opacity-100 dark:sm:text-slate-600"
                           title="Remove question"
@@ -1153,6 +1157,15 @@ export default function ExamDetailPage() {
           onAdded={() => { loadExam(); setSuccessMsg('Questions added successfully'); }}
         />
       )}
+
+      <DeleteConfirmModal
+        isOpen={!!removeTargetId}
+        onClose={() => setRemoveTargetId(null)}
+        onConfirm={onConfirmRemoveQuestion}
+        title="Remove Question"
+        message="Are you sure you want to remove this question from the exam?"
+        isLoading={removingId === removeTargetId}
+      />
 
       {isStarting && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/80 backdrop-blur-md dark:bg-slate-950/80">

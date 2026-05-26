@@ -5,6 +5,7 @@ import { Brain, CheckCircle2, Layers3, Plus, RotateCcw, Sparkles, Trash2, type L
 import { FeaturePaywall } from "@/components/billing/FeaturePaywall";
 import { useAuthStore } from "@/features/auth/store/auth.store";
 import { hasPremiumAccess } from "@/features/membership/access";
+import { DeleteConfirmModal } from "@/features/subjects/components/DeleteConfirmModal";
 
 type Rating = "again" | "hard" | "good" | "easy";
 
@@ -61,6 +62,8 @@ export default function FlashcardsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const activeCard = dueCards[0] ?? null;
 
@@ -159,15 +162,20 @@ export default function FlashcardsPage() {
     }
   }
 
-  async function handleDelete(id: string) {
+  async function onConfirmDelete() {
+    if (!deletingId) return;
+    setIsDeleting(true);
     setError("");
     setMessage("");
     try {
-      await readJson(`/api/flashcards/${id}`, { method: "DELETE" });
+      await readJson(`/api/flashcards/${deletingId}`, { method: "DELETE" });
       setMessage("Flashcard deleted.");
+      setDeletingId(null);
       await loadData();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete flashcard");
+    } finally {
+      setIsDeleting(false);
     }
   }
 
@@ -302,7 +310,7 @@ export default function FlashcardsPage() {
                   </div>
                   <div className="flex gap-2">
                     <button onClick={() => startEdit(card)} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-black text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">Edit</button>
-                    <button onClick={() => handleDelete(card.id)} className="rounded-xl border border-red-200 px-3 py-2 text-red-600 hover:bg-red-50 dark:border-red-900 dark:text-red-300 dark:hover:bg-red-950/30">
+                    <button onClick={() => setDeletingId(card.id)} className="rounded-xl border border-red-200 px-3 py-2 text-red-600 hover:bg-red-50 dark:border-red-900 dark:text-red-300 dark:hover:bg-red-950/30">
                       <Trash2 size={16} />
                     </button>
                   </div>
@@ -312,6 +320,15 @@ export default function FlashcardsPage() {
           )}
         </div>
       </section>
+
+      <DeleteConfirmModal
+        isOpen={!!deletingId}
+        onClose={() => setDeletingId(null)}
+        onConfirm={onConfirmDelete}
+        title="Delete Flashcard"
+        message="Are you sure you want to delete this flashcard? This action cannot be undone."
+        isLoading={isDeleting}
+      />
     </div>
   );
 }

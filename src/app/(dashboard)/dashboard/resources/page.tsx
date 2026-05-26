@@ -6,6 +6,7 @@ import { PdfPreview } from '@/features/resources/components/pdf-preview';
 import { resourceService } from '@/features/resources/services/resources.service';
 import type { Resource, ResourceType, Tier } from '@/features/resources/types/resources.types';
 import { AlertTriangle, ExternalLink, FileText, FolderOpen, Loader2, Pencil, Plus, Search, Trash2, Upload, Video, X } from 'lucide-react';
+import { DeleteConfirmModal } from '@/features/subjects/components/DeleteConfirmModal';
 
 type FilterType = 'ALL' | ResourceType;
 type VideoInputMode = 'UPLOAD' | 'URL';
@@ -112,6 +113,8 @@ export default function ResourcesPage() {
   const [form, setForm] = useState(initialForm);
   const [file, setFile] = useState<File | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
+  const [deletingResourceId, setDeletingResourceId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const isAuthorized = user?.role === 'ADMIN' || user?.role === 'TUTOR' || user?.role === 'STUDENT';
   const canManage = user?.role === 'ADMIN' || user?.role === 'TUTOR';
@@ -268,11 +271,16 @@ export default function ResourcesPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    const confirmed = window.confirm('Delete this resource?');
-    if (!confirmed) return;
-    await resourceService.remove(id);
-    await loadResources();
+  const onConfirmDelete = async () => {
+    if (!deletingResourceId) return;
+    setIsDeleting(true);
+    try {
+      await resourceService.remove(deletingResourceId);
+      await loadResources();
+      setDeletingResourceId(null);
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const openEditModal = (resource: Resource) => {
@@ -427,7 +435,7 @@ export default function ResourcesPage() {
                         <Pencil size={16} />
                       </button>
                       <button
-                        onClick={() => void handleDelete(resource.id)}
+                        onClick={() => setDeletingResourceId(resource.id)}
                         className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10"
                         title="Delete"
                       >
@@ -506,7 +514,7 @@ export default function ResourcesPage() {
                               <Pencil size={15} />
                             </button>
                             <button
-                              onClick={() => void handleDelete(resource.id)}
+                              onClick={() => setDeletingResourceId(resource.id)}
                               className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
                               title="Delete"
                             >
@@ -899,6 +907,15 @@ export default function ResourcesPage() {
           </form>
         </div>
       )}
+
+      <DeleteConfirmModal
+        isOpen={!!deletingResourceId}
+        onClose={() => setDeletingResourceId(null)}
+        onConfirm={onConfirmDelete}
+        title="Delete Resource"
+        message="Are you sure you want to delete this resource? This action cannot be undone."
+        isLoading={isDeleting}
+      />
     </div>
   );
 }

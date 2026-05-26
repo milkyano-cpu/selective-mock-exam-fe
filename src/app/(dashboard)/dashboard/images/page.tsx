@@ -5,6 +5,7 @@ import { AlertTriangle, Check, ClipboardCopy, ImageIcon, Loader2, Pencil, Plus, 
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { imagesService } from '@/features/images/services/images.service';
 import type { MasterImage } from '@/features/images/types/images.types';
+import { DeleteConfirmModal } from '@/features/subjects/components/DeleteConfirmModal';
 
 const initialUploadForm = {
   imageType: 'QUESTION' as 'QUESTION' | 'PASSAGE',
@@ -44,6 +45,7 @@ export default function ImagesPage() {
   const [rowActionId, setRowActionId] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [deletingImage, setDeletingImage] = useState<MasterImage | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadImages = async () => {
@@ -144,14 +146,14 @@ export default function ImagesPage() {
     }
   };
 
-  const handleDelete = async (image: MasterImage) => {
-    const confirmed = window.confirm(`Delete ${image.fileName}?`);
-    if (!confirmed) return;
-
+  const onConfirmDelete = async () => {
+    if (!deletingImage) return;
+    const image = deletingImage;
     setRowActionId(image.uuid);
     setMessage('');
     try {
       await imagesService.remove(image.uuid);
+      setDeletingImage(null);
       await loadImages();
     } catch (error) {
       setMessage(getErrorMessage(error, 'Failed to delete image.'));
@@ -377,7 +379,7 @@ export default function ImagesPage() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => void handleDelete(image)}
+                            onClick={() => setDeletingImage(image)}
                             disabled={linkedCount > 0 || isBusy}
                             className="rounded-lg p-2 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:bg-red-500/10"
                             title={linkedCount > 0 ? 'Image is linked' : 'Delete image'}
@@ -436,6 +438,15 @@ export default function ImagesPage() {
           </form>
         </div>
       )}
+
+      <DeleteConfirmModal
+        isOpen={!!deletingImage}
+        onClose={() => setDeletingImage(null)}
+        onConfirm={onConfirmDelete}
+        title="Delete Image"
+        message={`Are you sure you want to delete ${deletingImage?.fileName ?? 'this image'}? This action cannot be undone.`}
+        isLoading={rowActionId === deletingImage?.uuid}
+      />
     </div>
   );
 }

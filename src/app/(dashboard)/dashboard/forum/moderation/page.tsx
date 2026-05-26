@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { isAxiosError } from 'axios';
 import { forumService } from '@/features/forum/services/forum.service';
 import type { ForumFlag, ForumWarning, ForumBannedWord } from '@/features/forum/types/forum.types';
+import { DeleteConfirmModal } from '@/features/subjects/components/DeleteConfirmModal';
 import {
   ArrowLeft,
   Flag,
@@ -117,6 +118,8 @@ export default function ForumModerationPage() {
   const [bwLoading, setBwLoading] = useState(false);
   const [newWord, setNewWord] = useState('');
   const [bwError, setBwError] = useState<string | null>(null);
+  const [deleteWordId, setDeleteWordId] = useState<string | null>(null);
+  const [isDeletingWord, setIsDeletingWord] = useState(false);
 
   // Warn modal
   const [warnTarget, setWarnTarget] = useState<{ id: string; name: string } | null>(null);
@@ -178,13 +181,17 @@ export default function ForumModerationPage() {
     }
   };
 
-  const handleDeleteWord = async (wordId: string) => {
-    if (!confirm('Remove this word from the filter list?')) return;
+  const onConfirmDeleteWord = async () => {
+    if (!deleteWordId) return;
+    setIsDeletingWord(true);
     try {
-      await forumService.deleteBannedWord(wordId);
+      await forumService.deleteBannedWord(deleteWordId);
+      setDeleteWordId(null);
       loadBannedWords();
     } catch (err) {
       alert(isAxiosError(err) ? err.response?.data?.message : 'Error');
+    } finally {
+      setIsDeletingWord(false);
     }
   };
 
@@ -377,7 +384,7 @@ export default function ForumModerationPage() {
               {bannedWords.map((bw) => (
                 <span key={bw.id} className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300">
                   {bw.word}
-                  <button onClick={() => handleDeleteWord(bw.id)} className="text-slate-400 hover:text-red-500">
+                  <button onClick={() => setDeleteWordId(bw.id)} className="text-slate-400 hover:text-red-500">
                     <Trash2 size={13} />
                   </button>
                 </span>
@@ -386,6 +393,15 @@ export default function ForumModerationPage() {
           )}
         </div>
       )}
+
+      <DeleteConfirmModal
+        isOpen={!!deleteWordId}
+        onClose={() => setDeleteWordId(null)}
+        onConfirm={onConfirmDeleteWord}
+        title="Remove Banned Word"
+        message="Are you sure you want to remove this word from the filter list?"
+        isLoading={isDeletingWord}
+      />
     </div>
   );
 }

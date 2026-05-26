@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { countdownService } from '@/features/countdowns/services/countdown.service';
 import type { CountdownItem } from '@/features/countdowns/types/countdowns.types';
+import { DeleteConfirmModal } from '@/features/subjects/components/DeleteConfirmModal';
 import {
   Clock3,
   ShieldAlert,
@@ -48,6 +49,8 @@ export default function CountdownsPage() {
   const [listError, setListError] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [form, setForm] = useState({
     title: '',
     targetAt: '',
@@ -185,14 +188,17 @@ export default function CountdownsPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const onConfirmDelete = async () => {
+    if (!deletingId) return;
+    setIsDeleting(true);
     setErrorMsg(null);
     setSuccessMsg(null);
 
     try {
-      const res = await countdownService.remove(id);
+      const res = await countdownService.remove(deletingId);
       if (res.success) {
         setSuccessMsg(res.message);
+        setDeletingId(null);
         void fetchCountdowns(page);
       } else {
         setErrorMsg(res.message || 'Failed to delete countdown');
@@ -200,6 +206,8 @@ export default function CountdownsPage() {
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       setErrorMsg(msg || 'Failed to delete countdown');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -337,7 +345,7 @@ export default function CountdownsPage() {
                             <CheckCircle2 size={13} /> {item.isActive ? 'Inactive' : 'Activate'}
                           </button>
                           <button
-                            onClick={() => void handleDelete(item.id)}
+                            onClick={() => setDeletingId(item.id)}
                             className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
                           >
                             <Trash2 size={13} /> Delete
@@ -438,6 +446,15 @@ export default function CountdownsPage() {
           </div>
         </div>
       )}
+
+      <DeleteConfirmModal
+        isOpen={!!deletingId}
+        onClose={() => setDeletingId(null)}
+        onConfirm={onConfirmDelete}
+        title="Delete Countdown"
+        message="Are you sure you want to delete this countdown? This action cannot be undone."
+        isLoading={isDeleting}
+      />
     </div>
   );
 }

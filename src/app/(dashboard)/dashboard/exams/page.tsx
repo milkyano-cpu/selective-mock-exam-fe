@@ -6,6 +6,7 @@ import { isAxiosError } from 'axios';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { examService } from '@/features/exams/services/exams.service';
 import type { ExamItem, GradingType, PaginationMeta, SessionSummary, ExamAttemptSummary } from '@/features/exams/types/exams.types';
+import { DeleteConfirmModal } from '@/features/subjects/components/DeleteConfirmModal';
 import {
   Plus,
   Loader2,
@@ -67,6 +68,7 @@ function AdminExamView() {
   const [formError, setFormError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [publishingId, setPublishingId] = useState<string | null>(null);
   const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
   const [publishExamData, setPublishExamData] = useState<{ 
@@ -176,13 +178,15 @@ function AdminExamView() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Delete this exam? This cannot be undone.')) return;
+  const onConfirmDelete = async () => {
+    if (!deleteTargetId) return;
+    const id = deleteTargetId;
     setDeletingId(id);
     try {
       const res = await examService.remove(id);
       if (res.success) {
         setSuccessMsg('Exam deleted');
+        setDeleteTargetId(null);
         loadExams(page);
       }
     } catch (err) {
@@ -503,7 +507,7 @@ function AdminExamView() {
                         <button
                           onClick={(event) => {
                             event.stopPropagation();
-                            void handleDelete(exam.id);
+                            setDeleteTargetId(exam.id);
                           }}
                           disabled={deletingId === exam.id}
                           className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400 disabled:opacity-50"
@@ -758,6 +762,15 @@ function AdminExamView() {
           </div>
         </div>
       )}
+
+      <DeleteConfirmModal
+        isOpen={!!deleteTargetId}
+        onClose={() => setDeleteTargetId(null)}
+        onConfirm={onConfirmDelete}
+        title="Delete Exam"
+        message="Are you sure you want to delete this exam? This action cannot be undone."
+        isLoading={deletingId === deleteTargetId}
+      />
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { useAuthStore } from '@/features/auth/store/auth.store';
 import { useBanners } from '@/features/banners/hooks/useBanners';
 import { Image as ImageIcon, ShieldAlert, Plus, X, Loader2, ChevronLeft, ChevronRight, Trash2, Edit2, Upload } from 'lucide-react';
 import type { Banner, UpdateBannerPayload } from '@/features/banners/types/banners.types';
+import { DeleteConfirmModal } from '@/features/subjects/components/DeleteConfirmModal';
 
 const PAGE_LIMIT = 20;
 
@@ -21,6 +22,8 @@ export default function BannersPage() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [form, setForm] = useState({ imageFile: null as File | null, imageUrl: '', targetUrl: '', isActive: true });
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     void fetchBanners({ page, limit: PAGE_LIMIT });
@@ -159,10 +162,15 @@ export default function BannersPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm('Delete this banner?')) {
-      await deleteBanner(id);
+  const onConfirmDelete = async () => {
+    if (!deletingId) return;
+    setIsDeleting(true);
+    try {
+      await deleteBanner(deletingId);
       void fetchBanners({ page, limit: PAGE_LIMIT });
+      setDeletingId(null);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -271,7 +279,7 @@ export default function BannersPage() {
                           <Edit2 size={13} /> Edit
                         </button>
                         <button
-                          onClick={() => void handleDelete(banner.id)}
+                          onClick={() => setDeletingId(banner.id)}
                           className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-bold text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10"
                         >
                           <Trash2 size={13} /> Delete
@@ -418,6 +426,15 @@ export default function BannersPage() {
           </div>
         </div>
       )}
+
+      <DeleteConfirmModal
+        isOpen={!!deletingId}
+        onClose={() => setDeletingId(null)}
+        onConfirm={onConfirmDelete}
+        title="Delete Banner"
+        message="Are you sure you want to delete this banner? This action cannot be undone."
+        isLoading={isDeleting}
+      />
     </div>
   );
 }

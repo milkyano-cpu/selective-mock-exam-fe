@@ -9,6 +9,7 @@ import { aiRubricWritingTypesService } from '@/features/ai-rubric-writing-types/
 import type { AiRubricWritingType } from '@/features/ai-rubric-writing-types/types/ai-rubric-writing-types.types';
 import { CsvTemplateDownloadButton } from '@/features/csv-templates/components/CsvTemplateDownloadButton';
 import type { CsvTemplateType } from '@/features/csv-templates/services/csv-templates.service';
+import { DeleteConfirmModal } from '@/features/subjects/components/DeleteConfirmModal';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -76,6 +77,8 @@ export default function AiRubricsPage() {
   const [importingEntity, setImportingEntity] = useState<ImportEntity | null>(null);
   const [importFile, setImportFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [deactivating, setDeactivating] = useState<AiRubric | null>(null);
+  const [isDeactivating, setIsDeactivating] = useState(false);
 
   const loadAiRubrics = useCallback(async () => {
     setIsLoading(true);
@@ -164,17 +167,25 @@ export default function AiRubricsPage() {
     }
   };
 
-  const deactivate = async (e: React.MouseEvent, r: AiRubric) => {
+  const openDeactivate = (e: React.MouseEvent, r: AiRubric) => {
     e.stopPropagation();
-    if (!confirm(`Deactivate "${r.name}"?`)) return;
+    setDeactivating(r);
+  };
+
+  const onConfirmDeactivate = async () => {
+    if (!deactivating) return;
+    setIsDeactivating(true);
     setError(null); setMessage(null);
     try {
-      await aiRubricsService.deactivate(r.id);
+      await aiRubricsService.deactivate(deactivating.id);
       setMessage('Rubric deactivated');
+      setDeactivating(null);
       await loadAiRubrics();
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       setError(msg || 'Failed to deactivate');
+    } finally {
+      setIsDeactivating(false);
     }
   };
 
@@ -297,7 +308,7 @@ export default function AiRubricsPage() {
                     <div className="flex justify-end gap-1">
                       <button onClick={(e) => { e.stopPropagation(); router.push(`/dashboard/ai-rubrics/${r.id}`); }} title="Open detail" className="rounded-lg p-2 text-slate-400 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-500/10"><Eye size={16} /></button>
                       <button onClick={(e) => void openEdit(e, r)} title="Edit rubric metadata" className="rounded-lg p-2 text-slate-400 hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-500/10"><Pencil size={16} /></button>
-                      {r.isActive && <button onClick={(e) => void deactivate(e, r)} title="Deactivate" className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"><Trash2 size={16} /></button>}
+                      {r.isActive && <button onClick={(e) => openDeactivate(e, r)} title="Deactivate" className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"><Trash2 size={16} /></button>}
                     </div>
                   </td>
                 </tr>
@@ -394,6 +405,15 @@ export default function AiRubricsPage() {
           </div>
         </div>
       )}
+
+      <DeleteConfirmModal
+        isOpen={!!deactivating}
+        onClose={() => setDeactivating(null)}
+        onConfirm={onConfirmDeactivate}
+        title="Deactivate Rubric"
+        message={`Are you sure you want to deactivate "${deactivating?.name ?? 'this rubric'}"?`}
+        isLoading={isDeactivating}
+      />
     </div>
   );
 }

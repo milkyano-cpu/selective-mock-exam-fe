@@ -8,6 +8,7 @@ import { useAuthStore } from '@/features/auth/store/auth.store';
 import { canWriteForum } from '@/features/membership/access';
 import { forumService } from '@/features/forum/services/forum.service';
 import type { ForumPost, ForumThreadDetail, FlagReason } from '@/features/forum/types/forum.types';
+import { DeleteConfirmModal } from '@/features/subjects/components/DeleteConfirmModal';
 import {
   ArrowLeft,
   Pin,
@@ -195,6 +196,8 @@ export default function ThreadDetailPage() {
 
   const [flagPostId, setFlagPostId] = useState<string | null>(null);
   const [flagSuccess, setFlagSuccess] = useState(false);
+  const [deletePostId, setDeletePostId] = useState<string | null>(null);
+  const [isDeletingPost, setIsDeletingPost] = useState(false);
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -219,13 +222,21 @@ export default function ThreadDetailPage() {
     return () => window.clearTimeout(timer);
   }, [load, page]);
 
-  const handleDeletePost = async (postId: string) => {
-    if (!confirm('Delete this post?')) return;
+  const handleDeletePost = (postId: string) => {
+    setDeletePostId(postId);
+  };
+
+  const onConfirmDeletePost = async () => {
+    if (!deletePostId) return;
+    setIsDeletingPost(true);
     try {
-      await forumService.deletePost(postId);
+      await forumService.deletePost(deletePostId);
+      setDeletePostId(null);
       load(page);
     } catch (err) {
       alert(isAxiosError(err) ? err.response?.data?.message ?? 'Failed to delete' : 'Failed to delete');
+    } finally {
+      setIsDeletingPost(false);
     }
   };
 
@@ -466,6 +477,15 @@ export default function ThreadDetailPage() {
           <Lock size={16} /> Basic members can read forum discussions. Upgrade to Standard or Premium to reply.
         </div>
       )}
+
+      <DeleteConfirmModal
+        isOpen={!!deletePostId}
+        onClose={() => setDeletePostId(null)}
+        onConfirm={onConfirmDeletePost}
+        title="Delete Post"
+        message="Are you sure you want to delete this post? This action cannot be undone."
+        isLoading={isDeletingPost}
+      />
 
       {/* Flag modal */}
       {flagPostId && canForumWrite && (
