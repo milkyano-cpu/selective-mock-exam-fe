@@ -7,7 +7,6 @@ import {
   FileSpreadsheet,
   Loader2,
   Plus,
-  RefreshCw,
   ShieldAlert,
 } from 'lucide-react';
 import { useAuthStore } from '@/features/auth/store/auth.store';
@@ -114,15 +113,7 @@ export default function CsvTemplatesPage() {
             Upload template files used by CSV import modals.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => void loadTemplates()}
-          disabled={isLoading}
-          className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-        >
-          <RefreshCw size={15} className={isLoading ? 'animate-spin' : ''} />
-          Refresh
-        </button>
+
       </header>
 
       {(message || error) && (
@@ -145,7 +136,7 @@ export default function CsvTemplatesPage() {
       <section className="rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
         <div className="grid gap-4 border-b border-slate-100 p-5 dark:border-slate-800 lg:grid-cols-[1fr_1fr_auto] lg:items-end">
           <div className="space-y-1.5">
-            <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Peruntukan</label>
+            <label className="text-sm font-bold text-slate-700 dark:text-slate-300">Intended Use</label>
             <select
               value={selectedType}
               onChange={(e) => setSelectedType(e.target.value as CsvTemplateType)}

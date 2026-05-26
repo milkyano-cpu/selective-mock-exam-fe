@@ -190,11 +190,6 @@ function EssayReviewCard({
                 {answer.aiFeedback.scorePercent !== null && (
                   <span className="text-sm font-black text-emerald-700 dark:text-emerald-300">
                     AI Score: {answer.aiFeedback.scorePercent.toFixed(0)}%
-                    {answer.aiFeedback.isCorrect !== null && (
-                      <span className={`ml-2 text-xs ${answer.aiFeedback.isCorrect ? 'text-green-600' : 'text-red-500'}`}>
-                        ({answer.aiFeedback.isCorrect ? 'Correct' : 'Incorrect'})
-                      </span>
-                    )}
                   </span>
                 )}
               </div>

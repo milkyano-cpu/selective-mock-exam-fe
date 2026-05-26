@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { isAxiosError } from 'axios';
 import { examService } from '@/features/exams/services/exams.service';
@@ -26,6 +27,7 @@ import {
   RefreshCw,
   BookOpen,
   Hash,
+  ArrowRight,
 } from 'lucide-react';
 
 const RANKING_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
@@ -50,32 +52,37 @@ function isPendingReview(answer: SessionResultAnswer) {
   return answer.reviewStatus === 'PENDING_REVIEW';
 }
 
-function isEssayAiGraded(answer: SessionResultAnswer) {
-  return answer.type === 'ESSAY' && answer.reviewStatus === 'AI_GRADED';
-}
-
-function AnswerCard({ answer, index }: { answer: SessionResultAnswer; index: number }) {
+function AnswerCard({ answer, index, sessionId }: { answer: SessionResultAnswer; index: number; sessionId: string }) {
   const [expanded, setExpanded] = useState(false);
   const isPendingAnswer = isPendingReview(answer);
-  const isAiGradedEssay = isEssayAiGraded(answer);
+  const isEssayAnswer = answer.type === 'ESSAY';
+  const essayScore = answer.overrideScore ?? answer.awardedMarks ?? answer.manualScore;
   const cardBorderClass = isPendingAnswer
     ? 'border-amber-200 dark:border-amber-800/50'
-    : answer.isCorrect
+    : isEssayAnswer
+      ? 'border-blue-200 dark:border-blue-800/50'
+      : answer.isCorrect
       ? 'border-green-200 dark:border-green-800/50'
       : 'border-red-200 dark:border-red-800/50';
   const badgeClass = isPendingAnswer
     ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-    : answer.isCorrect
+    : isEssayAnswer
+      ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+      : answer.isCorrect
       ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
       : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400';
   const statusClass = isPendingAnswer
     ? 'text-amber-600 dark:text-amber-400'
-    : answer.isCorrect
+    : isEssayAnswer
+      ? 'text-blue-600 dark:text-blue-400'
+      : answer.isCorrect
       ? 'text-green-600 dark:text-green-400'
       : 'text-red-600 dark:text-red-400';
   const dividerBorderClass = isPendingAnswer
     ? 'border-amber-100 dark:border-amber-900/30'
-    : answer.isCorrect
+    : isEssayAnswer
+      ? 'border-blue-100 dark:border-blue-900/30'
+      : answer.isCorrect
       ? 'border-green-100 dark:border-green-900/30'
       : 'border-red-100 dark:border-red-900/30';
 
@@ -94,8 +101,8 @@ function AnswerCard({ answer, index }: { answer: SessionResultAnswer; index: num
           </div>
           <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
             <span className={`flex items-center gap-1 font-semibold ${statusClass}`}>
-              {isPendingAnswer ? <FileText size={11} /> : answer.isCorrect ? <CheckCircle2 size={11} /> : <XCircle size={11} />}
-              {isPendingAnswer ? 'Pending Review' : answer.isCorrect ? 'Correct' : 'Incorrect'}
+              {isPendingAnswer || isEssayAnswer ? <FileText size={11} /> : answer.isCorrect ? <CheckCircle2 size={11} /> : <XCircle size={11} />}
+              {isPendingAnswer ? 'Pending Review' : isEssayAnswer ? 'Graded' : answer.isCorrect ? 'Correct' : 'Incorrect'}
             </span>
             <span className="text-slate-300 dark:text-slate-600">·</span>
             <span className="flex items-center gap-0.5 text-slate-400"><Clock size={10} />{formatSeconds(answer.timeSpentSeconds)}</span>
@@ -108,15 +115,7 @@ function AnswerCard({ answer, index }: { answer: SessionResultAnswer; index: num
 
       {expanded && (
         <div className={`border-t px-4 pb-4 pt-3 ${dividerBorderClass}`}>
-          {answer.type === 'ESSAY' && answer.promptText && (
-            <div className="mb-3 rounded-xl border border-blue-100 bg-blue-50/50 px-3 py-2.5 dark:border-blue-900/30 dark:bg-blue-900/10">
-              <p className="text-xs font-bold uppercase text-blue-500 dark:text-blue-400">Stimulus</p>
-              <div className="mt-2 text-sm font-medium text-slate-700 dark:text-slate-300">
-                <QuestionLatexRenderer text={answer.promptText} latexEnabled={answer.latexEnabled} />
-              </div>
-            </div>
-          )}
-          {answer.options && (
+          {answer.type === 'MCQ' && answer.options && (
             <div className="space-y-2">
               {answer.options.map((opt) => {
                 const isStudentAnswer = answer.studentAnswer === opt.key;
@@ -144,101 +143,40 @@ function AnswerCard({ answer, index }: { answer: SessionResultAnswer; index: num
           )}
 
           {answer.type === 'ESSAY' && (
-            <div className="space-y-2">
-              <div>
-                <p className="text-xs font-bold uppercase text-slate-400">Your Answer</p>
-                <p className="mt-1 text-sm font-medium text-slate-700 dark:text-slate-300">
-                  {answer.studentAnswer || <span className="italic text-slate-400">No answer</span>}
-                </p>
-              </div>
-              {isAiGradedEssay && (answer.aiFeedback?.overallFeedback || answer.aiFeedback?.feedback) && (
-                <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2.5 dark:border-emerald-900/30 dark:bg-emerald-900/10">
-                  <p className="text-xs font-bold uppercase text-emerald-600 dark:text-emerald-400">Review</p>
-                  <p className="mt-1 text-sm font-medium text-emerald-800 dark:text-emerald-300">
-                    {answer.aiFeedback.overallFeedback ?? answer.aiFeedback.feedback}
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="rounded-xl bg-blue-50 px-3 py-2.5 dark:bg-blue-900/10">
+                  <p className="text-xs font-bold uppercase text-slate-400">Band</p>
+                  <p className="mt-1 text-sm font-black text-blue-700 dark:text-blue-300">
+                    {answer.aiFeedback?.bandLabel ?? (isPendingAnswer ? 'Pending review' : 'Not assigned')}
                   </p>
-                  {answer.aiFeedback.bandLabel && (
-                    <p className="mt-2 text-xs font-black uppercase text-emerald-700 dark:text-emerald-300">
-                      {answer.aiFeedback.bandLabel}{answer.aiFeedback.bandDescriptor ? ` · ${answer.aiFeedback.bandDescriptor}` : ''}
-                    </p>
-                  )}
-                  {(answer.aiFeedback.strengths?.length ?? 0) > 0 && (
-                    <div className="mt-2">
-                      <p className="text-xs font-black uppercase text-emerald-700 dark:text-emerald-300">Strengths</p>
-                      <ul className="mt-1 space-y-0.5">
-                        {answer.aiFeedback.strengths?.map((s: string, i: number) => (
-                          <li key={i} className="flex items-start gap-1.5 text-xs font-medium text-emerald-800 dark:text-emerald-300">
-                            <span className="mt-1 block h-1 w-1 shrink-0 rounded-full bg-emerald-500" />{s}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  {(answer.aiFeedback.improvements?.length ?? 0) > 0 && (
-                    <div className="mt-2">
-                      <p className="text-xs font-black uppercase text-amber-700 dark:text-amber-300">Areas to Improve</p>
-                      <ul className="mt-1 space-y-0.5">
-                        {answer.aiFeedback.improvements?.map((s: string, i: number) => (
-                          <li key={i} className="flex items-start gap-1.5 text-xs font-medium text-amber-800 dark:text-amber-300">
-                            <span className="mt-1 block h-1 w-1 shrink-0 rounded-full bg-amber-500" />{s}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  {answer.aiFeedback.aiRubric && (
-                    <div className="mt-3 rounded-lg bg-white/70 px-3 py-2 dark:bg-slate-900/40">
-                      <p className="text-xs font-black uppercase text-emerald-700 dark:text-emerald-300">
-                        {answer.aiFeedback.aiRubric.name} · {answer.aiFeedback.totalAwardedMarks ?? 0}/{answer.aiFeedback.totalPossibleMarks ?? answer.aiFeedback.aiRubric.totalMaxScore} marks
-                      </p>
-                      {answer.aiFeedback.criterionScores.length > 0 && (
-                        <div className="mt-2 space-y-2">
-                          {answer.aiFeedback.criterionScores.map((criterion) => (
-                            <div key={criterion.criterionId} className="rounded-lg bg-emerald-100/60 px-2.5 py-2 dark:bg-emerald-950/30">
-                              <div className="flex items-center justify-between gap-2">
-                                <p className="text-xs font-black text-emerald-900 dark:text-emerald-200">{criterion.criterionName}</p>
-                                <span className="text-xs font-black text-emerald-700 dark:text-emerald-300">{criterion.score}/{criterion.maxScore}</span>
-                              </div>
-                              {criterion.feedback && <p className="mt-1 text-xs font-medium text-emerald-800 dark:text-emerald-300">{criterion.feedback}</p>}
-                              {(criterion.strengths?.length ?? 0) > 0 && (
-                                <ul className="mt-1 space-y-0.5">
-                                  {criterion.strengths?.map((s: string, si: number) => (
-                                    <li key={si} className="flex items-start gap-1 text-xs text-emerald-700 dark:text-emerald-400">
-                                      <span className="mt-1 block h-1 w-1 shrink-0 rounded-full bg-emerald-400" />{s}
-                                    </li>
-                                  ))}
-                                </ul>
-                              )}
-                              {(criterion.improvements?.length ?? 0) > 0 && (
-                                <ul className="mt-1 space-y-0.5">
-                                  {criterion.improvements?.map((s: string, si: number) => (
-                                    <li key={si} className="flex items-start gap-1 text-xs text-amber-700 dark:text-amber-400">
-                                      <span className="mt-1 block h-1 w-1 shrink-0 rounded-full bg-amber-400" />{s}
-                                    </li>
-                                  ))}
-                                </ul>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </div>
-              )}
+                <div className="rounded-xl bg-blue-50 px-3 py-2.5 dark:bg-blue-900/10">
+                  <p className="text-xs font-bold uppercase text-slate-400">Score</p>
+                  <p className="mt-1 text-sm font-black text-blue-700 dark:text-blue-300">
+                    {isPendingAnswer ? 'Pending review' : essayScore === null ? 'Not available' : `${essayScore}/${answer.maxMarks}`}
+                  </p>
+                </div>
+              </div>
+              <Link
+                href={`/dashboard/exams/sessions/${sessionId}/result/essays/${encodeURIComponent(answer.questionId)}`}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-blue-700"
+              >
+                See Full Review <ArrowRight size={15} />
+              </Link>
             </div>
           )}
 
-          {isPendingAnswer && (
+          {!isEssayAnswer && isPendingAnswer && (
             <div className="mt-3 rounded-xl border border-amber-100 bg-amber-50 px-3 py-2.5 dark:border-amber-900/30 dark:bg-amber-900/10">
               <p className="text-xs font-bold uppercase text-amber-500">Status</p>
               <p className="mt-1 text-sm font-medium text-amber-700 dark:text-amber-300">
-                {answer.aiFeedback?.reason ?? 'This answer is awaiting manual review, so it has not been marked as correct or incorrect yet.'}
+                {answer.aiFeedback?.reason ?? 'This answer is awaiting manual review, so its final score is not available yet.'}
               </p>
             </div>
           )}
           
-          {answer.isOverridden && answer.overrideScore !== null && (
+          {!isEssayAnswer && answer.isOverridden && answer.overrideScore !== null && (
             <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2.5 dark:border-blue-900/30 dark:bg-blue-900/10">
               <p className="text-xs font-bold uppercase text-blue-500">Reviewed Score</p>
               <p className="mt-1 text-sm font-black text-blue-800 dark:text-blue-100">{answer.overrideScore}/{answer.maxMarks}</p>
@@ -246,14 +184,14 @@ function AnswerCard({ answer, index }: { answer: SessionResultAnswer; index: num
             </div>
           )}
 
-          {!answer.isOverridden && answer.manualScore !== null && (
+          {!isEssayAnswer && !answer.isOverridden && answer.manualScore !== null && (
             <div className="mt-3 rounded-xl bg-slate-50 px-3 py-2.5 dark:bg-slate-800">
               <p className="text-xs font-bold uppercase text-slate-400">Manual Score</p>
               <p className="mt-1 text-sm font-black text-slate-800 dark:text-slate-100">{answer.awardedMarks ?? answer.manualScore}/{answer.maxMarks}</p>
             </div>
           )}
 
-          {answer.explanation && (
+          {!isEssayAnswer && answer.explanation && (
             <div className="mt-3 rounded-xl bg-slate-50 px-3 py-2.5 dark:bg-slate-800">
               <p className="text-xs font-bold uppercase text-slate-400">Explanation</p>
               <div className="mt-1 text-sm font-medium text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
@@ -262,7 +200,7 @@ function AnswerCard({ answer, index }: { answer: SessionResultAnswer; index: num
             </div>
           )}
 
-          {answer.tutorFeedback && (
+          {!isEssayAnswer && answer.tutorFeedback && (
             <div className="mt-2 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2.5 dark:border-blue-900/30 dark:bg-blue-900/10">
               <p className="text-xs font-bold uppercase text-blue-500">Tutor Feedback</p>
               <p className="mt-1 text-sm font-medium text-blue-700 dark:text-blue-300">{answer.tutorFeedback}</p>
@@ -403,12 +341,15 @@ export default function ExamResultPage() {
   if (!result) return null;
 
   const rankConfig = result.rankingLevel ? RANKING_CONFIG[result.rankingLevel] : null;
-  const pendingReviewCount = result.answers.filter(isPendingReview).length;
+  const mcqAnswers = result.answers.filter((answer) => answer.type === 'MCQ');
+  const essayAnswers = result.answers.filter((answer) => answer.type === 'ESSAY');
+  const pendingReviewCount = essayAnswers.filter(isPendingReview).length;
   // When status is SUBMITTED with no pending reviews, grading hasn't completed yet — counts are meaningless
   const isGradingPending = result.status === 'SUBMITTED' && pendingReviewCount === 0;
-  const incorrectCount = isGradingPending ? 0 : Math.max(0, result.totalQuestions - result.correctCount - pendingReviewCount);
-  const reviewedQuestionCount = isGradingPending ? 0 : Math.max(0, result.totalQuestions - pendingReviewCount);
-  const percentage = reviewedQuestionCount > 0 ? (result.correctCount / reviewedQuestionCount) * 100 : 0;
+  const correctCount = isGradingPending ? 0 : mcqAnswers.filter((answer) => answer.isCorrect).length;
+  const incorrectCount = isGradingPending ? 0 : Math.max(0, mcqAnswers.length - correctCount);
+  const gradedEssayCount = isGradingPending ? 0 : Math.max(0, essayAnswers.length - pendingReviewCount);
+  const percentage = mcqAnswers.length > 0 ? (correctCount / mcqAnswers.length) * 100 : 0;
 
   return (
     <div className="mx-auto w-full max-w-5xl space-y-6 px-4 py-6 md:px-8 md:py-10">
@@ -485,18 +426,18 @@ export default function ExamResultPage() {
           <div className="flex-1 grid grid-cols-2 gap-4 sm:grid-cols-4">
             <div className="rounded-2xl bg-slate-50 p-3 dark:bg-slate-800">
               <p className="text-xs font-bold uppercase text-slate-400">Correct</p>
-              <p className="mt-1 text-xl font-black text-green-600 dark:text-green-400">{isGradingPending ? '—' : result.correctCount}</p>
-              <p className="text-xs text-slate-400">of {result.totalQuestions}</p>
+              <p className="mt-1 text-xl font-black text-green-600 dark:text-green-400">{isGradingPending ? '—' : correctCount}</p>
+              <p className="text-xs text-slate-400">of {mcqAnswers.length} MCQ</p>
             </div>
             <div className="rounded-2xl bg-slate-50 p-3 dark:bg-slate-800">
               <p className="text-xs font-bold uppercase text-slate-400">Incorrect</p>
               <p className="mt-1 text-xl font-black text-red-600 dark:text-red-400">{isGradingPending ? '—' : incorrectCount}</p>
-              <p className="text-xs text-slate-400">of {result.totalQuestions}</p>
+              <p className="text-xs text-slate-400">of {mcqAnswers.length} MCQ</p>
             </div>
             <div className="rounded-2xl bg-slate-50 p-3 dark:bg-slate-800">
-              <p className="text-xs font-bold uppercase text-slate-400">{isGradingPending ? 'Status' : 'Pending Review'}</p>
-              <p className="mt-1 text-xl font-black text-amber-600 dark:text-amber-400">{isGradingPending ? 'Grading...' : pendingReviewCount}</p>
-              <p className="text-xs text-slate-400">{isGradingPending ? 'auto-refreshing' : 'answers'}</p>
+              <p className="text-xs font-bold uppercase text-slate-400">Essay</p>
+              <p className="mt-1 text-xl font-black text-purple-600 dark:text-purple-400">{isGradingPending ? '—' : `${gradedEssayCount} graded`}</p>
+              <p className="text-xs text-slate-400">{isGradingPending ? 'grading' : pendingReviewCount > 0 ? `${pendingReviewCount} pending` : `${essayAnswers.length} answer${essayAnswers.length === 1 ? '' : 's'}`}</p>
             </div>
             <div className="rounded-2xl bg-slate-50 p-3 dark:bg-slate-800">
               <p className="text-xs font-bold uppercase text-slate-400">Time Used</p>
@@ -515,7 +456,7 @@ export default function ExamResultPage() {
             />
           </div>
           <p className="mt-1.5 text-right text-xs font-bold text-slate-400">
-            {isGradingPending ? 'Grading in progress...' : reviewedQuestionCount > 0 ? `${percentage.toFixed(1)}% accuracy` : 'Awaiting manual review'}
+            {isGradingPending ? 'Grading in progress...' : mcqAnswers.length > 0 ? `${percentage.toFixed(1)}% MCQ accuracy` : 'No MCQ answers'}
           </p>
         </div>
       </div>
@@ -715,7 +656,7 @@ export default function ExamResultPage() {
           <h2 className="text-base font-black text-slate-900 dark:text-slate-100">Answer Review</h2>
           {result.answers.map((answer, i) => {
             if (!answer.studentAnswer || answer.studentAnswer.trim() === '') return null;
-            return <AnswerCard key={answer.questionId} answer={answer} index={i} />;
+            return <AnswerCard key={answer.questionId} answer={answer} index={i} sessionId={sessionId} />;
           })}
         </div>
       )}

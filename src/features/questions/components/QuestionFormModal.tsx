@@ -51,6 +51,7 @@ const formSchema = z
     latexEnabled:    z.boolean().default(false),
     markingType:      z.enum(['AUTO', 'AI', 'MANUAL']),
     maxMarks:         z.string().min(1, 'Max marks is required'),
+    isPracticeAllowed: z.boolean().default(false),
   })
   .superRefine((data, ctx) => {
     if (data.type === 'MCQ') {
@@ -121,7 +122,7 @@ function buildDefaultValues(q: Question | null | undefined): FormInput {
       optionE: '', correctAnswer: '', explanation: '',
       timeLimitSeconds: '', imageRefs: [], subtopicsRaw: '', notes: '', questionId: '',
       adaptiveTags: '', skillTags: '',
-      latexEnabled: false, markingType: 'AUTO', maxMarks: '1',
+      latexEnabled: false, markingType: 'AUTO', maxMarks: '1', isPracticeAllowed: false,
     };
   }
 
@@ -154,6 +155,7 @@ function buildDefaultValues(q: Question | null | undefined): FormInput {
     latexEnabled:    q.latexEnabled ?? false,
     markingType:      q.type === 'MCQ' ? 'AUTO' : (q.markingType === 'MANUAL' ? 'MANUAL' : 'AI'),
     maxMarks:         String(q.maxMarks ?? (q.type === 'ESSAY' ? 20 : 1)),
+    isPracticeAllowed: q.type === 'ESSAY' ? (q.isPracticeAllowed ?? false) : true,
   };
 }
 
@@ -313,9 +315,11 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
       ? values.subtopicsRaw.split(',').map(s => s.trim()).filter(Boolean)
       : [];
 
-    const timeLimitSeconds = values.timeLimitSeconds
-      ? parseInt(values.timeLimitSeconds, 10) || undefined
-      : undefined;
+    const parsedTimeLimitSeconds = Number.parseInt(values.timeLimitSeconds ?? '', 10);
+    const timeLimitSeconds =
+      Number.isFinite(parsedTimeLimitSeconds) && parsedTimeLimitSeconds > 0
+        ? parsedTimeLimitSeconds
+        : null;
 
     const payload: CreateQuestionPayload = {
       subjectId:        values.subjectId,
@@ -331,6 +335,7 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
       latexEnabled:    values.latexEnabled,
       markingType:      values.type === 'MCQ' ? 'AUTO' : values.markingType,
       maxMarks:         parseInt(values.maxMarks, 10),
+      isPracticeAllowed: values.type === 'ESSAY' ? values.isPracticeAllowed : undefined,
       explanation:      values.explanation?.trim() || undefined,
       timeLimitSeconds,
       imageRefs:        values.imageRefs ?? [],
@@ -410,6 +415,7 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
                         field.onChange(t);
                         setValue('markingType', t === 'ESSAY' ? 'AI' : 'AUTO');
                         setValue('maxMarks', t === 'ESSAY' ? '20' : '1');
+                        setValue('isPracticeAllowed', t === 'ESSAY' ? false : true);
                         if (t === 'MCQ') {
                           setValue('aiRubricId', '');
                           setValue('passageId', '');
@@ -489,6 +495,29 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
                   {errors.aiRubricId && <p className="text-xs text-red-500 font-bold">{errors.aiRubricId.message}</p>}
                 </div>
               )}
+            </div>
+          )}
+          {selectedType === 'ESSAY' && (
+            <div className="flex items-start gap-3 rounded-xl border border-blue-100 bg-blue-50/60 px-4 py-3 dark:border-blue-900/30 dark:bg-blue-900/10">
+              <Controller
+                name="isPracticeAllowed"
+                control={control}
+                render={({ field }) => (
+                  <input
+                    type="checkbox"
+                    id="isPracticeAllowed"
+                    checked={field.value}
+                    onChange={(event) => field.onChange(event.target.checked)}
+                    className="mt-0.5 h-4 w-4 cursor-pointer rounded border-slate-300 text-[#0A9AE2] focus:ring-[#0A9AE2]"
+                  />
+                )}
+              />
+              <label htmlFor="isPracticeAllowed" className="flex cursor-pointer flex-col gap-0.5">
+                <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Allow in Practice</span>
+                <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                  Leave off for essays intended only for the exam pool.
+                </span>
+              </label>
             </div>
           )}
           {/* Subject + Topic row */}
@@ -803,9 +832,7 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
             <input
               {...register('timeLimitSeconds')}
               type="number"
-              min={5}
-              max={3600}
-              placeholder="e.g. 60"
+              placeholder="Optional"
               className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 font-medium text-slate-900 transition-all focus:border-[#0A9AE2] focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
             />
             {errors.timeLimitSeconds && <p className="text-xs text-red-500 font-bold">{errors.timeLimitSeconds.message}</p>}

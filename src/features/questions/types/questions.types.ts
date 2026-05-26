@@ -36,6 +36,7 @@ export type Question = {
   latexEnabled:    boolean;
   markingType:      QuestionMarkingType;
   maxMarks:         number;
+  isPracticeAllowed: boolean;
   options:          McqOption[] | null;
   correctAnswer:    string;
   explanation:      string | null;
@@ -166,10 +167,11 @@ export type CreateQuestionPayload = {
   latexEnabled?:    boolean;
   markingType?:      QuestionMarkingType;
   maxMarks?:         number;
+  isPracticeAllowed?: boolean;
   options?:          McqOption[];
   correctAnswer?:    string;
   explanation?:      string;
-  timeLimitSeconds?: number;
+  timeLimitSeconds?: number | null;
   imageRefs?:        string[];
   subtopics?:        string[];
   notes?:            string;
@@ -189,6 +191,7 @@ export type ListQuestionsQuery = {
   type?:       QuestionType;
   difficulty?: QuestionDifficulty;
   status?:     QuestionStatus;
+  isPracticeAllowed?: boolean;
 };
 
 export type BulkSubmitResult = {

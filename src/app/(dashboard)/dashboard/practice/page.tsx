@@ -34,6 +34,7 @@ import type {
   PracticeSessionSummary,
   DifficultyFilter,
   QuestionCount,
+  RecommendationItem,
 } from '@/features/practice/types/practice.types';
 import type { TopicPerformanceItem } from '@/features/analytics/types/analytics.types';
 
@@ -141,6 +142,7 @@ export default function PracticeHubPage() {
   const [hasFullPracticeAccess, setHasFullPracticeAccess] = useState(true);
 
   const [topicPerformance, setTopicPerformance] = useState<TopicPerformanceItem[]>([]);
+  const [weakTopics, setWeakTopics] = useState<RecommendationItem[]>([]);
 
   // Start modal state
   const [startModal, setStartModal] = useState<ModalTarget | null>(null);
@@ -159,10 +161,16 @@ export default function PracticeHubPage() {
 
   const loadSubjects = useCallback(async () => {
     try {
-      const res = await subjectsService.listSubjects({ limit: 100, publishedOnly: true });
+      const res = await subjectsService.listSubjects({ limit: 100, publishedOnly: true, practiceOnly: true });
       if (res.success) {
-        setSubjects(res.data);
-        if (res.data.length > 0) setSelectedSubjectId(res.data[0].id);
+        const availableSubjects = res.data.filter((subject) => (subject._count?.questions ?? 0) > 0);
+        setSubjects(availableSubjects);
+        setSelectedSubjectId((current) =>
+          current && availableSubjects.some((subject) => subject.id === current)
+            ? current
+            : (availableSubjects[0]?.id ?? null)
+        );
+        if (availableSubjects.length === 0) setTopics([]);
       }
     } finally {
       setIsLoadingSubjects(false);
@@ -172,8 +180,8 @@ export default function PracticeHubPage() {
   const loadTopics = useCallback(async (subjectId: string) => {
     setIsLoadingTopics(true);
     try {
-      const res = await subjectsService.listTopics(subjectId, { limit: 100, publishedOnly: true });
-      if (res.success) setTopics(res.data);
+      const res = await subjectsService.listTopics(subjectId, { limit: 100, publishedOnly: true, practiceOnly: true });
+      if (res.success) setTopics(res.data.filter((topic) => (topic._count?.questions ?? 0) > 0));
       else setTopics([]);
     } catch {
       setTopics([]);
@@ -203,17 +211,29 @@ export default function PracticeHubPage() {
     }
   }, [recentSessionsPage]);
 
+  const loadWeakTopics = useCallback(async () => {
+    try {
+      const res = await practiceService.getRecommendations({ threshold: 60, limit: 4 });
+      if (res.success) setWeakTopics(res.data.filter((topic) => topic.availableQuestions > 0));
+    } catch {
+      setWeakTopics([]);
+    }
+  }, []);
+
   const loadAccess = useCallback(async () => {
     try {
       const res = await practiceService.getAccess();
       if (res.success) {
         setHasFullPracticeAccess(res.data.fullPracticeAccess);
         setFreeTopics(res.data.freeTopics);
+        if (res.data.fullPracticeAccess) void loadWeakTopics();
+        else setWeakTopics([]);
       }
     } catch {
       setHasFullPracticeAccess(true);
+      setWeakTopics([]);
     }
-  }, []);
+  }, [loadWeakTopics]);
 
   const loadPerformance = useCallback(async () => {
     try {
@@ -339,7 +359,6 @@ export default function PracticeHubPage() {
     }
   };
 
-  const weakTopics = topicPerformance.filter((p) => p.scoreAvg < 60).slice(0, 4);
   const selectedSubject = subjects.find((s) => s.id === selectedSubjectId) ?? null;
   const pendingTutorSessions = tutorSessions.filter((s) => s.status === 'IN_PROGRESS');
   const firstPendingTutorSession = pendingTutorSessions[0] ?? null;
@@ -352,8 +371,6 @@ export default function PracticeHubPage() {
       ? completedSessions.reduce((sum, s) => sum + (s.scorePercent ?? 0), 0) / completedSessions.length
       : null;
   const totalAnswered = sessions.reduce((sum, s) => sum + (s.status === 'COMPLETED' ? s.questionCount : 0), 0);
-  const subjectQuestionTotal = topics.reduce((sum, topic) => sum + (topic._count?.questions ?? 0), 0);
-  const subjectReadyTopics = topics.filter((topic) => (topic._count?.questions ?? 0) > 0).length;
 
   if (isLoadingSubjects) {
     return (
@@ -639,7 +656,7 @@ export default function PracticeHubPage() {
           {selectedSubjectId && (() => {
             const subj = subjects.find((s) => s.id === selectedSubjectId);
             return subj ? (
-              <div className="grid gap-4 border-b border-slate-100 bg-slate-50 px-5 py-4 dark:border-slate-800 dark:bg-slate-950/40 md:grid-cols-[1fr_auto] md:items-center">
+              <div className="border-b border-slate-100 bg-slate-50 px-5 py-4 dark:border-slate-800 dark:bg-slate-950/40">
                 <div className="flex items-center gap-3">
                   <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#0A9AE2]/10 text-[#0A9AE2]">
                     <BookMarked size={20} />
@@ -647,15 +664,9 @@ export default function PracticeHubPage() {
                   <div>
                     <p className="text-sm font-black text-slate-900 dark:text-slate-100">{subj.name}</p>
                     <p className="text-xs font-bold text-slate-400">
-                      {subjectReadyTopics} ready topics - {subjectQuestionTotal} questions available
+                      Select a topic below or practice across this subject.
                     </p>
                   </div>
-                </div>
-                <div className="h-2 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800 md:w-44">
-                  <div
-                    className="h-full rounded-full bg-[#0A9AE2]"
-                    style={{ width: `${topics.length > 0 ? (subjectReadyTopics / topics.length) * 100 : 0}%` }}
-                  />
                 </div>
               </div>
             ) : null;
@@ -681,7 +692,6 @@ export default function PracticeHubPage() {
               topics.map((topic) => {
                 const perf = perfMap.get(topic.id);
                 const inProgress = inProgressSessionMap.get(topic.id);
-                const questionCount_ = topic._count?.questions ?? 0;
                 const accessible = isTopicAccessible(topic.id);
                 const score = perf?.scoreAvg ?? null;
                 const scoreTone =
@@ -707,11 +717,7 @@ export default function PracticeHubPage() {
                           <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-black text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
                             Continue
                           </span>
-                        ) : (
-                          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-black text-slate-500 dark:bg-slate-800 dark:text-slate-300">
-                            {questionCount_}Q
-                          </span>
-                        )}
+                        ) : null}
                       </div>
                       <p className="line-clamp-2 min-h-11 text-base font-black leading-snug text-slate-950 dark:text-white">
                         {topic.name}
@@ -747,7 +753,7 @@ export default function PracticeHubPage() {
                       <button
                         type="button"
                         onClick={() => handleStartOrResume(topic.id, topic.name)}
-                        disabled={questionCount_ === 0 || !accessible}
+                        disabled={!accessible}
                         className="flex h-10 shrink-0 items-center justify-center gap-2 rounded-2xl bg-[#0A9AE2] px-4 text-xs font-black text-white transition-colors hover:bg-[#0659AA] disabled:cursor-not-allowed disabled:opacity-40"
                       >
                         {accessible ? <Zap size={14} /> : <LockKeyhole size={14} />}

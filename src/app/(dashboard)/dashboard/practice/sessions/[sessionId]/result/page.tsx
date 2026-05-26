@@ -19,14 +19,14 @@ import {
 } from 'lucide-react';
 import { practiceService } from '@/features/practice/services/practice.service';
 import { QuestionLatexRenderer } from '@/components/ui/QuestionLatexRenderer';
-import type { PracticeSessionDetail, PracticeResultAnswer, QuestionCount } from '@/features/practice/types/practice.types';
+import type { PracticeSessionDetail, PracticeResultAnswer } from '@/features/practice/types/practice.types';
 
-function ScoreRing({ percent }: { percent: number }) {
+function ScoreRing({ percent }: { percent: number | null }) {
   const r = 48;
   const circumference = 2 * Math.PI * r;
-  const dash = circumference * (1 - percent / 100);
+  const dash = circumference * (1 - (percent ?? 0) / 100);
 
-  const color = percent >= 70 ? '#22c55e' : percent >= 50 ? '#f59e0b' : '#f87171';
+  const color = percent === null ? '#94a3b8' : percent >= 70 ? '#22c55e' : percent >= 50 ? '#f59e0b' : '#f87171';
 
   return (
     <div className="relative h-28 w-28 shrink-0 sm:h-36 sm:w-36">
@@ -47,7 +47,7 @@ function ScoreRing({ percent }: { percent: number }) {
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-3xl font-black text-slate-950 dark:text-white sm:text-4xl">{Math.round(percent)}%</span>
+        <span className="text-3xl font-black text-slate-950 dark:text-white sm:text-4xl">{percent === null ? '-' : `${Math.round(percent)}%`}</span>
         <span className="text-[10px] font-black uppercase tracking-wide text-slate-400">score</span>
       </div>
     </div>
@@ -64,7 +64,15 @@ function formatDuration(seconds: number) {
   return `${remainingSeconds}s`;
 }
 
-function getScoreTone(percent: number) {
+function getScoreTone(percent: number | null) {
+  if (percent === null) {
+    return {
+      title: 'Awaiting review',
+      note: 'A final score will appear once essay review is complete.',
+      badge: 'bg-blue-50 text-blue-700 ring-blue-100 dark:bg-blue-950/40 dark:text-blue-300 dark:ring-blue-900/60',
+      progress: 'bg-slate-300 dark:bg-slate-600',
+    };
+  }
   if (percent >= 70) {
     return {
       title: 'Strong finish',
@@ -124,7 +132,7 @@ function AnswerCard({ answer, index }: { answer: PracticeResultAnswer; index: nu
           <div className="flex flex-wrap gap-3 mt-2 text-xs font-bold">
             <span className="text-slate-500">
               Your answer:{' '}
-              <span className={answer.isCorrect ? 'text-green-600 dark:text-green-400' : isEssay ? 'text-blue-600 dark:text-blue-400' : 'text-red-500'}>
+              <span className={isEssay ? 'text-blue-600 dark:text-blue-400' : answer.isCorrect ? 'text-green-600 dark:text-green-400' : 'text-red-500'}>
                 {answer.studentAnswer || <em className="font-normal text-slate-400">skipped</em>}
               </span>
             </span>
@@ -242,23 +250,9 @@ export default function PracticeResultPage() {
     }
     setIsRetrying(true);
     try {
-      if (session.sourceType === 'TUTOR_ASSIGNED') {
-        // Retake with the same questions the tutor assigned
-        const res = await practiceService.retake(session.sessionId);
-        if (res.success) {
-          router.push(`/dashboard/practice/sessions/${res.data.sessionId}`);
-        }
-      } else {
-        if (!session.topicId && !session.subjectId) return;
-        const res = await practiceService.start({
-          topicId: session.topicId ?? undefined,
-          subjectId: !session.topicId ? (session.subjectId ?? undefined) : undefined,
-          difficulty: session.difficulty,
-          questionCount: (session.questionCount as QuestionCount) ?? 10,
-        });
-        if (res.success) {
-          router.push(`/dashboard/practice/sessions/${res.data.sessionId}`);
-        }
+      const res = await practiceService.retake(session.sessionId);
+      if (res.success) {
+        router.push(`/dashboard/practice/sessions/${res.data.sessionId}`);
       }
     } finally {
       setIsRetrying(false);
@@ -303,15 +297,26 @@ export default function PracticeResultPage() {
   }
 
   const answers: PracticeResultAnswer[] = session.answers;
-  const correctCount = answers.filter((a) => a.isCorrect).length;
+  const mcqAnswers = answers.filter((answer) => answer.type === 'MCQ');
+  const essayAnswers = answers.filter((answer) => answer.type === 'ESSAY');
+  const correctCount = mcqAnswers.filter((answer) => answer.isCorrect).length;
+  const incorrectCount = Math.max(0, mcqAnswers.length - correctCount);
+  const gradedEssayCount = essayAnswers.filter((answer) => answer.gradingStatus === 'GRADED').length;
+  const pendingEssayCount = Math.max(0, essayAnswers.length - gradedEssayCount);
   const totalQuestions = answers.length;
-  const scorePercent = totalQuestions > 0 ? (correctCount / totalQuestions) * 100 : 0;
+  const totalAwardedMarks = answers.reduce((sum, answer) => sum + (answer.awardedMarks ?? 0), 0);
+  const totalPossibleMarks = answers.reduce((sum, answer) => sum + answer.maxMarks, 0);
+  const scorePercent = pendingEssayCount === 0 && totalPossibleMarks > 0
+    ? (totalAwardedMarks / totalPossibleMarks) * 100
+    : null;
+  const mcqAccuracy = mcqAnswers.length > 0 ? (correctCount / mcqAnswers.length) * 100 : null;
   const startedAtMs = new Date(session.startedAt).getTime();
   const endedAtMs = session.endedAt ? new Date(session.endedAt).getTime() : Number.NaN;
   const totalSessionSeconds = Number.isFinite(startedAtMs) && Number.isFinite(endedAtMs)
     ? Math.max(0, Math.round((endedAtMs - startedAtMs) / 1000))
     : 0;
   const scoreTone = getScoreTone(scorePercent);
+  const mcqTone = getScoreTone(mcqAccuracy);
   const practiceName = session.topicName
     ?? (session.subjectName ? `${session.subjectName} - All Topics` : 'Mixed Practice');
 
@@ -373,14 +378,7 @@ export default function PracticeResultPage() {
                   </span>
                 </div>
 
-                <div className="flex items-end justify-between gap-3">
-                  <div>
-                    <p className="text-2xl font-black text-slate-950 dark:text-white sm:text-3xl">
-                      {correctCount}
-                      <span className="text-base text-slate-400 sm:text-lg"> / {totalQuestions}</span>
-                    </p>
-                    <p className="mt-0.5 text-[10px] font-black uppercase tracking-wide text-slate-400 sm:text-xs">questions correct</p>
-                  </div>
+                <div className="mb-3 flex justify-end">
                   <div className="text-right">
                     <p className="text-xl font-black text-slate-950 dark:text-white sm:text-2xl">{formatDuration(totalSessionSeconds)}</p>
                     <p className="mt-0.5 flex items-center justify-end gap-1.5 text-[10px] font-black uppercase tracking-wide text-slate-400 sm:text-xs">
@@ -390,13 +388,31 @@ export default function PracticeResultPage() {
                   </div>
                 </div>
 
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="rounded-xl bg-slate-50 p-2.5 dark:bg-slate-900">
+                    <p className="text-[10px] font-black uppercase text-slate-400">Correct</p>
+                    <p className="mt-1 text-xl font-black text-emerald-600 dark:text-emerald-400">{correctCount}</p>
+                    <p className="text-[10px] font-bold text-slate-400">of {mcqAnswers.length} MCQ</p>
+                  </div>
+                  <div className="rounded-xl bg-slate-50 p-2.5 dark:bg-slate-900">
+                    <p className="text-[10px] font-black uppercase text-slate-400">Incorrect</p>
+                    <p className="mt-1 text-xl font-black text-rose-600 dark:text-rose-400">{incorrectCount}</p>
+                    <p className="text-[10px] font-bold text-slate-400">of {mcqAnswers.length} MCQ</p>
+                  </div>
+                  <div className="rounded-xl bg-slate-50 p-2.5 dark:bg-slate-900">
+                    <p className="text-[10px] font-black uppercase text-slate-400">Essay</p>
+                    <p className="mt-1 text-xl font-black text-blue-600 dark:text-blue-400">{gradedEssayCount} graded</p>
+                    <p className="text-[10px] font-bold text-slate-400">{pendingEssayCount > 0 ? `${pendingEssayCount} pending` : `${essayAnswers.length} answer${essayAnswers.length === 1 ? '' : 's'}`}</p>
+                  </div>
+                </div>
+
                 <div className="mt-4">
                   <div className="mb-2 flex items-center justify-between text-xs font-black uppercase tracking-wide text-slate-400">
-                    <span>Accuracy</span>
-                    <span>{Math.round(scorePercent)}%</span>
+                    <span>MCQ Accuracy</span>
+                    <span>{mcqAccuracy === null ? 'N/A' : `${Math.round(mcqAccuracy)}%`}</span>
                   </div>
                   <div className="h-3 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-                    <div className={`h-full rounded-full ${scoreTone.progress}`} style={{ width: `${scorePercent}%` }} />
+                    <div className={`h-full rounded-full ${mcqTone.progress}`} style={{ width: `${mcqAccuracy ?? 0}%` }} />
                   </div>
                 </div>
 
@@ -418,7 +434,7 @@ export default function PracticeResultPage() {
               <button
                 type="button"
                 onClick={handlePracticeAgain}
-                disabled={isRetrying || (session.sourceType !== 'TUTOR_ASSIGNED' && !session.topicId && !session.subjectId)}
+                disabled={isRetrying}
                 className="flex h-11 flex-1 items-center justify-center gap-2 rounded-2xl bg-cyan-400 text-sm font-black text-slate-950 shadow-lg shadow-cyan-950/30 transition-colors hover:bg-cyan-300 disabled:opacity-60"
               >
                 {isRetrying ? (

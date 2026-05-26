@@ -78,6 +78,7 @@ function renderMathSegment(latex: string, displayMode: boolean, className = '') 
 function processTextContent(text: string) {
   let content = text.replace(/\u00A4/g, '$').replace(/\\\$/g, '$');
 
+  content = content.replace(/\\,/g, '\u2009');
   content = content.replace(/\\begin\{(?:itemize|enumerate)\}(?:\[[^\]]*\])?\s*/g, '');
   content = content.replace(/\\end\{(?:itemize|enumerate)\}\s*/g, '');
 

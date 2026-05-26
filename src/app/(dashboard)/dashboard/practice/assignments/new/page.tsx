@@ -79,7 +79,7 @@ export default function NewAssignmentPage() {
   // Load subjects once
   useEffect(() => {
     subjectsService
-      .listSubjects({ limit: 100, publishedOnly: true })
+      .listSubjects({ limit: 100, publishedOnly: true, practiceOnly: true })
       .then((res) => {
         if (res.success) setSubjects(res.data);
       })
@@ -90,7 +90,7 @@ export default function NewAssignmentPage() {
   useEffect(() => {
     if (!selectedSubjectId) { setTopics([]); setSelectedTopicId(''); return; }
     subjectsService
-      .listTopics(selectedSubjectId, { limit: 100, publishedOnly: true })
+      .listTopics(selectedSubjectId, { limit: 100, publishedOnly: true, practiceOnly: true })
       .then((res) => {
         if (res.success) { setTopics(res.data); setSelectedTopicId(''); }
       })
@@ -126,8 +126,8 @@ export default function NewAssignmentPage() {
       const res = await questionsService.list({
         page: questionPage,
         limit: 15,
-        type: 'MCQ',
         status: 'PUBLISHED',
+        isPracticeAllowed: true,
         subjectId: selectedSubjectId || undefined,
         topicId: selectedTopicId || undefined,
         difficulty: difficultyFilter !== 'ALL' ? difficultyFilter : undefined,
@@ -477,7 +477,7 @@ export default function NewAssignmentPage() {
                 </div>
               ) : questions.length === 0 ? (
                 <div className="py-12 text-center text-slate-400 text-sm">
-                  No published MCQ questions match the current filters
+                  No practice-eligible questions match the current filters
                 </div>
               ) : (
                 <div className="divide-y divide-slate-50 dark:divide-slate-800">
@@ -520,6 +520,9 @@ export default function NewAssignmentPage() {
                             )}
                             <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${DIFFICULTY_COLORS[q.difficulty]}`}>
                               {q.difficulty}
+                            </span>
+                            <span className="rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                              {q.type}
                             </span>
                             <div className="flex items-center gap-1 text-[10px] text-slate-400">
                               <BookOpen size={10} />
@@ -610,7 +613,7 @@ export default function NewAssignmentPage() {
                     <Layers size={11} /> Questions
                   </p>
                   <p className="font-black text-3xl text-[#0A9AE2]">{selectedQuestions.length}</p>
-                  <p className="text-xs text-slate-400">MCQ questions</p>
+                  <p className="text-xs text-slate-400">Practice questions</p>
                 </div>
               </div>
 
@@ -652,6 +655,9 @@ export default function NewAssignmentPage() {
                       </p>
                       <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md flex-shrink-0 ${DIFFICULTY_COLORS[q.difficulty]}`}>
                         {q.difficulty[0]}
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-400 flex-shrink-0">
+                        {q.type}
                       </span>
                     </div>
                   ))}

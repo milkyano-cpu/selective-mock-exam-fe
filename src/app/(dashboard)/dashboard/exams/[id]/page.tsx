@@ -214,6 +214,10 @@ function AddQuestionsModal({
                         <QuestionLatexRenderer text={q.questionText} latexEnabled={q.latexEnabled} />
                       </div>
                       <div className="mt-1 flex flex-wrap gap-2 text-xs font-medium text-slate-400">
+                        <span className="font-bold text-slate-600 dark:text-slate-300">
+                          {q.questionId ?? '-'}
+                        </span>
+                        <span>&middot;</span>
                         <span>{q.subjectName}</span>
                         <span>·</span>
                         <span>{q.topicName}</span>

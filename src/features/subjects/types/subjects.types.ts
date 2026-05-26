@@ -87,4 +87,5 @@ export interface ListQuery {
   sortBy?: string;
   order?: 'asc' | 'desc';
   publishedOnly?: boolean;
+  practiceOnly?: boolean;
 }
