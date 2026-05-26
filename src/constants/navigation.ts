@@ -45,14 +45,9 @@ export const parentMenuItems = [
 
 export const adminMenuGroups = [
   {
-    group: null,
+    group: 'Main Menu',
     items: [
-      { icon: LayoutDashboard, label: 'Admin Panel', href: '/dashboard' },
-    ],
-  },
-  {
-    group: 'User Management',
-    items: [
+      { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
       { icon: Users, label: 'Users', href: '/dashboard/users' },
     ],
   },

@@ -148,11 +148,11 @@ export const GlobalSearch = ({ role }: GlobalSearchProps) => {
   return (
     <div
       ref={containerRef}
-      className="relative hidden w-64 items-center md:flex lg:w-96"
+      className="relative hidden w-72 items-center md:flex lg:w-[27rem]"
     >
-      <div className="flex w-full items-center gap-2 rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2 transition-colors focus-within:border-[#0A9AE2] dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#0A9AE2]/10 text-[#0A9AE2]">
-          <Search size={16} />
+      <div className="group flex h-10 w-full items-center gap-2 rounded-full border border-slate-200/90 bg-white px-2 shadow-[0_1px_3px_rgba(15,23,42,0.04)] transition-all duration-200 hover:border-slate-300 focus-within:border-[#0A9AE2]/45 focus-within:shadow-[0_0_0_4px_rgba(10,154,226,0.10),0_5px_16px_rgba(15,23,42,0.06)] dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-600">
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#E8F7FD] text-[#0A9AE2] transition-colors duration-200 group-focus-within:bg-[#0A9AE2] group-focus-within:text-white dark:bg-sky-900/40">
+          <Search size={15} strokeWidth={2.25} />
         </div>
         <input
           ref={inputRef}
@@ -166,15 +166,15 @@ export const GlobalSearch = ({ role }: GlobalSearchProps) => {
               inputRef.current?.blur();
             }
           }}
-          placeholder="Search topics, practice, exams..."
-          className="w-full border-none bg-transparent text-sm text-slate-600 outline-none placeholder:text-slate-400 dark:text-slate-200 dark:placeholder:text-slate-500"
+          placeholder="Search subjects, exams, assignments..."
+          className="min-w-0 flex-1 border-none bg-transparent text-sm font-medium text-slate-700 outline-none placeholder:font-normal placeholder:text-slate-400 dark:text-slate-200 dark:placeholder:text-slate-500"
         />
         {query && (
           <button
             type="button"
             onClick={handleClear}
             aria-label="Clear search"
-            className="rounded-lg p-1 text-slate-400 transition-colors hover:bg-slate-200 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-300"
           >
             <X size={14} />
           </button>
@@ -182,7 +182,7 @@ export const GlobalSearch = ({ role }: GlobalSearchProps) => {
       </div>
 
       {showDropdown && (
-        <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl shadow-slate-900/10 animate-in fade-in slide-in-from-top-1 dark:border-slate-700 dark:bg-slate-900">
+        <div className="absolute left-0 right-0 top-full z-50 mt-3 overflow-hidden rounded-[1.25rem] border border-slate-200/80 bg-white shadow-[0_20px_48px_rgba(15,23,42,0.14),0_3px_10px_rgba(15,23,42,0.06)] animate-in fade-in slide-in-from-top-1 dark:border-slate-700 dark:bg-slate-900 dark:shadow-[0_20px_48px_rgba(0,0,0,0.35)]">
           <div className="max-h-[28rem] overflow-y-auto">
             {isLoading ? (
               <div className="flex items-center justify-center gap-2 px-4 py-8 text-sm font-medium text-slate-500 dark:text-slate-400">
