@@ -7,7 +7,6 @@ import {
   AlertCircle,
   ArrowLeft,
   BookOpen,
-  Clock,
   FileText,
   Loader2,
   Sparkles,
@@ -16,10 +15,8 @@ import { QuestionLatexRenderer } from '@/components/ui/QuestionLatexRenderer';
 import { examService } from '@/features/exams/services/exams.service';
 import type { SessionResultAnswer } from '@/features/exams/types/exams.types';
 
-function formatSeconds(seconds: number) {
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  return minutes > 0 ? `${minutes}m ${remainingSeconds}s` : `${remainingSeconds}s`;
+function formatWritingType(writingType: string | null) {
+  return (writingType?.replaceAll('_', ' ') ?? 'ESSAY').toUpperCase();
 }
 
 function FeedbackList({
@@ -120,14 +117,7 @@ export default function EssayFullReviewPage() {
   const feedback = answer.aiFeedback;
   const score = answer.overrideScore ?? answer.awardedMarks ?? answer.manualScore;
   const bandLabel = feedback?.bandLabel ?? (answer.reviewStatus === 'PENDING_REVIEW' ? 'Pending review' : 'Not assigned');
-  const statusLabel =
-    answer.reviewStatus === 'PENDING_REVIEW'
-      ? 'Pending Review'
-      : answer.isOverridden
-        ? 'Tutor Reviewed'
-        : answer.reviewStatus === 'MANUAL_GRADED'
-          ? 'Manually Graded'
-          : 'AI Graded';
+  const writingType = formatWritingType(answer.writingType);
   const overallFeedback = feedback?.overallFeedback ?? feedback?.feedback;
   const strengths = feedback?.strengths ?? [];
   const improvements = feedback?.improvements ?? [];
@@ -149,40 +139,48 @@ export default function EssayFullReviewPage() {
         </div>
       </header>
 
-      <section className="rounded-3xl border border-blue-100 bg-white p-5 shadow-sm dark:border-blue-900/30 dark:bg-slate-900 sm:p-6">
-        <div className="grid gap-3 sm:grid-cols-3">
-          <div className="rounded-2xl bg-blue-50 p-4 dark:bg-blue-900/10">
-            <p className="text-xs font-black uppercase text-slate-400">Band</p>
-            <p className="mt-2 text-lg font-black text-blue-700 dark:text-blue-300">{bandLabel}</p>
-            {feedback?.bandDescriptor && <p className="mt-1 text-xs font-medium text-blue-700/80 dark:text-blue-300/80">{feedback.bandDescriptor}</p>}
-          </div>
-          <div className="rounded-2xl bg-blue-50 p-4 dark:bg-blue-900/10">
-            <p className="text-xs font-black uppercase text-slate-400">Score</p>
-            <p className="mt-2 text-lg font-black text-blue-700 dark:text-blue-300">
-              {answer.reviewStatus === 'PENDING_REVIEW' || score === null ? 'Pending' : `${score}/${answer.maxMarks}`}
+      <section className="rounded-3xl border border-orange-100 bg-gradient-to-r from-orange-50/80 via-white to-orange-50/50 p-5 shadow-sm dark:border-orange-900/30 dark:from-orange-950/20 dark:via-slate-900 dark:to-slate-900 sm:p-6">
+        <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-start">
+          <div className="min-w-0">
+            <p className="inline-flex rounded-full bg-[#FF6900] px-4 py-1.5 text-xs font-black uppercase tracking-wide text-white">
+              {bandLabel}
             </p>
+            {feedback?.bandDescriptor && (
+              <p className="mt-3 max-w-lg text-sm font-semibold leading-relaxed text-orange-900/80 dark:text-orange-200">
+                {feedback.bandDescriptor}
+              </p>
+            )}
           </div>
-          <div className="rounded-2xl bg-slate-50 p-4 dark:bg-slate-800">
-            <p className="text-xs font-black uppercase text-slate-400">Status</p>
-            <p className="mt-2 text-sm font-black text-slate-800 dark:text-slate-100">{statusLabel}</p>
-            <p className="mt-1 flex items-center gap-1 text-xs font-medium text-slate-500">
-              <Clock size={12} /> {formatSeconds(answer.timeSpentSeconds)}
-            </p>
+          <div className="shrink-0 sm:text-right">
+            {answer.reviewStatus === 'PENDING_REVIEW' || score === null ? (
+              <p className="text-xl font-black text-orange-600 dark:text-orange-300">Pending</p>
+            ) : (
+              <p className="text-4xl font-black leading-none text-[#FF6900]">
+                {score}<span className="ml-1 text-lg text-orange-400">/ {answer.maxMarks}</span>
+              </p>
+            )}
+            <p className="mt-1 text-[11px] font-black uppercase tracking-wide text-orange-400">Marks</p>
+            <p className="text-xs font-black uppercase tracking-wide text-orange-500">{writingType}</p>
           </div>
         </div>
       </section>
 
       <section className="rounded-3xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900 sm:p-6">
-        <div className="flex items-center gap-2 text-sm font-black uppercase text-slate-400">
-          <FileText size={16} /> Question
+        <div className="flex flex-wrap items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-400">
+          <FileText size={14} />
+          <span>Question {answer.order}</span>
+          <span aria-hidden="true">&middot;</span>
+          <span>{answer.topicName}</span>
+          <span aria-hidden="true">&middot;</span>
+          <span>{answer.maxMarks} Marks</span>
         </div>
-        <div className="mt-3 text-base font-medium text-slate-800 dark:text-slate-200">
+        <div className="mt-4 text-base font-semibold leading-relaxed text-slate-800 dark:text-slate-200">
           <QuestionLatexRenderer text={answer.questionText} latexEnabled={answer.latexEnabled} />
         </div>
         {answer.promptText && (
-          <div className="mt-5 rounded-2xl border border-blue-100 bg-blue-50/50 p-4 dark:border-blue-900/30 dark:bg-blue-900/10">
-            <p className="text-xs font-black uppercase text-blue-600 dark:text-blue-400">Stimulus</p>
-            <div className="mt-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+          <div className="mt-5 rounded-2xl border border-blue-200 bg-blue-50/70 p-4 dark:border-blue-900/40 dark:bg-blue-900/10">
+            <p className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-400">Stimulus</p>
+            <div className="mt-2 text-sm font-semibold italic text-blue-800 dark:text-blue-200">
               <QuestionLatexRenderer text={answer.promptText} latexEnabled={answer.latexEnabled} />
             </div>
           </div>

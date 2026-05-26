@@ -146,6 +146,8 @@ export interface SessionResultAnswer {
   questionId: string;
   order: number;
   questionText: string;
+  writingType: string | null;
+  topicName: string;
   promptText: string | null;
   latexEnabled: boolean;
   type: 'MCQ' | 'ESSAY';
