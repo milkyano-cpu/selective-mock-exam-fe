@@ -57,7 +57,7 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
   const storeMarkAsRead = useNotificationStore((s) => s.markAsRead);
   const storeMarkAllAsRead = useNotificationStore((s) => s.markAllAsRead);
   const isStudent = user?.role === 'STUDENT';
-  const isAdmin = user?.role === 'ADMIN';
+  const isStaff = user?.role === 'ADMIN' || user?.role === 'TUTOR';
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Node;
@@ -104,7 +104,7 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
       'sticky top-0 z-30 flex items-center justify-between border-b px-3 sm:px-4 lg:px-8 lg:backdrop-blur-2xl',
       isStudent
         ? 'h-[4.75rem] border-white/70 bg-[#eefbff] shadow-[0_10px_28px_rgba(14,116,144,0.10)] dark:border-white/10 dark:bg-slate-950 lg:h-20 lg:border-white/45 lg:bg-white/38 lg:shadow-[0_18px_44px_rgba(14,116,144,0.12)] lg:supports-[backdrop-filter]:bg-white/28 lg:dark:bg-slate-950/42 lg:dark:supports-[backdrop-filter]:bg-slate-950/30'
-        : `${isAdmin ? 'h-[52px]' : ''} border-slate-200 bg-white/80 dark:border-slate-800 dark:bg-slate-950/80`,
+        : `${isStaff ? 'h-[52px]' : ''} border-slate-200 bg-white/80 dark:border-slate-800 dark:bg-slate-950/80`,
     ].join(' ')}>
       <div className="flex min-w-0 items-center gap-3 lg:gap-4">
         {isStudent && (
@@ -252,7 +252,7 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
         </div>
       )}
 
-      <div className={`flex shrink-0 items-center ${isAdmin ? 'gap-2' : 'gap-1 sm:gap-2 lg:gap-4'}`}>
+      <div className={`flex shrink-0 items-center ${isStaff ? 'gap-2' : 'gap-1 sm:gap-2 lg:gap-4'}`}>
         {/* Profile (Desktop Only) */}
         <div className="hidden lg:block relative" ref={profileRef}>
           <button
@@ -260,7 +260,7 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
             onClick={() => setIsProfileOpen((prev) => !prev)}
             className={[
               'flex items-center border transition-all duration-200',
-              isAdmin
+              isStaff
                 ? 'h-10 min-w-[176px] gap-3 rounded-xl border-slate-200/90 bg-white px-2.5 pr-3 shadow-[0_1px_3px_rgba(15,23,42,0.04)] hover:border-slate-300 hover:shadow-[0_4px_12px_rgba(15,23,42,0.07)] dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-600'
                 : isStudent
                 ? 'border-white/80 bg-white/75 shadow-sm hover:bg-white dark:border-white/10 dark:bg-slate-900/70 dark:hover:bg-slate-800'
@@ -272,15 +272,15 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
               <div className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500 dark:border-slate-900"></div>
             </div>
             <div className="flex flex-col overflow-hidden text-left flex-1">
-              <p className={`${isAdmin ? 'text-[13px] font-bold leading-4' : 'text-sm font-semibold'} truncate text-slate-900 dark:text-slate-100`}>
+              <p className={`${isStaff ? 'text-[13px] font-bold leading-4' : 'text-sm font-semibold'} truncate text-slate-900 dark:text-slate-100`}>
                 {user?.fullName || 'User'}
               </p>
-              <p className={`${isAdmin ? 'text-[10px] font-semibold uppercase tracking-[0.12em] leading-3' : 'text-xs font-medium'} truncate text-slate-500 dark:text-slate-400`}>
+              <p className={`${isStaff ? 'text-[10px] font-semibold uppercase tracking-[0.12em] leading-3' : 'text-xs font-medium'} truncate text-slate-500 dark:text-slate-400`}>
                 {user?.tier || 'BASIC'}
               </p>
             </div>
             <ChevronDown 
-              size={isAdmin ? 13 : 14}
+              size={isStaff ? 13 : 14}
               className={`shrink-0 text-slate-400 transition-transform duration-200 ${isProfileOpen ? 'rotate-180' : ''}`}
             />
           </button>
@@ -322,29 +322,29 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
           <RefreshCw size={20} />
         </button>
 
-        <div className={isAdmin ? 'flex items-center gap-1 pl-1' : 'contents'}>
+        <div className={isStaff ? 'flex items-center gap-1 pl-1' : 'contents'}>
           <button
             type="button"
             onClick={() => setTheme(isDarkMode ? 'light' : 'dark')}
             aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
-            className={isAdmin
+            className={isStaff
               ? 'flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 transition-all hover:bg-slate-100 hover:text-[#0A9AE2] dark:text-slate-300 dark:hover:bg-slate-800'
               : 'rounded-2xl p-2 text-slate-500 transition-colors hover:bg-white hover:text-[#FF6900] hover:shadow-sm dark:text-slate-300 dark:hover:bg-slate-800'}
           >
-            {isDarkMode ? <Sun size={isAdmin ? 18 : 20} /> : <Moon size={isAdmin ? 18 : 20} />}
+            {isDarkMode ? <Sun size={isStaff ? 18 : 20} /> : <Moon size={isStaff ? 18 : 20} />}
           </button>
 
           {/* Notifications */}
           <div className="relative" ref={notifRef}>
             <button
               onClick={() => setIsNotifOpen((prev) => !prev)}
-              className={isAdmin
+              className={isStaff
                 ? 'relative flex h-10 w-10 items-center justify-center rounded-xl text-slate-500 transition-all hover:bg-slate-100 hover:text-[#0A9AE2] dark:text-slate-300 dark:hover:bg-slate-800'
                 : 'relative rounded-2xl p-2 text-slate-500 transition-colors hover:bg-white hover:text-[#0A9AE2] hover:shadow-sm dark:text-slate-300 dark:hover:bg-slate-800'}
             >
-              <Bell size={isAdmin ? 18 : 20} />
+              <Bell size={isStaff ? 18 : 20} />
               {unreadCount > 0 && (
-                <span className={`absolute flex items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white ${isAdmin ? '-right-0.5 -top-0.5 h-5 min-w-5 border-2 border-white dark:border-slate-950' : '-right-0.5 -top-0.5 h-4.5 min-w-4.5'}`}>
+                <span className={`absolute flex items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white ${isStaff ? '-right-0.5 -top-0.5 h-5 min-w-5 border-2 border-white dark:border-slate-950' : '-right-0.5 -top-0.5 h-4.5 min-w-4.5'}`}>
                   {unreadCount > 99 ? '99+' : unreadCount}
                 </span>
               )}

@@ -21,6 +21,8 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
   const { resolvedTheme } = useTheme();
   const isStudent = user?.role === 'STUDENT';
   const isAdmin = user?.role === 'ADMIN';
+  const isTutor = user?.role === 'TUTOR';
+  const isStaff = isAdmin || isTutor;
   const studentTones = [
     'from-cyan-500 to-sky-500',
     'from-violet-500 to-fuchsia-500',
@@ -45,7 +47,7 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
     ].join(' ')}>
       <div className={[
         'relative flex flex-col',
-        isAdmin ? 'h-[52px] shrink-0 items-center justify-center border-b border-slate-200 px-4 dark:border-slate-800' : 'items-start px-6 pb-4 pt-6',
+        isStaff ? 'h-[52px] shrink-0 items-center justify-center border-b border-slate-200 px-4 dark:border-slate-800' : 'items-start px-6 pb-4 pt-6',
       ].join(' ')}>
         {isStudent && (
           <div className="absolute inset-x-4 top-4 h-24 rounded-[28px] bg-[linear-gradient(135deg,#0A9AE2_0%,#7C3AED_55%,#FF6900_100%)] opacity-12 dark:opacity-20" />
@@ -54,13 +56,13 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
           href="/dashboard" 
           className={[
             'relative flex items-center overflow-hidden transition-transform hover:scale-105 active:scale-95',
-            isAdmin ? 'h-10 justify-center' : '-ml-4 h-14',
+            isStaff ? 'h-10 justify-center' : '-ml-4 h-14',
           ].join(' ')}
         >
           <img 
             src={resolvedTheme === 'dark' ? '/logo-darkmode.png' : '/logo.png'} 
             alt="Aspire Academics" 
-            className={`${isAdmin ? 'w-36' : 'w-52'} h-auto object-contain`}
+            className={`${isStaff ? 'w-36' : 'w-52'} h-auto object-contain`}
           />
         </Link>
         {onClose && (
@@ -75,15 +77,19 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
 
       <nav className={[
         'flex-1 overflow-y-auto',
-        isAdmin ? 'min-h-0 px-2 pb-5 pt-3 lg:flex lg:flex-col lg:justify-between lg:pt-4' : 'space-y-1 px-4 py-2',
+        isAdmin
+          ? 'min-h-0 px-2 pb-5 pt-3 lg:flex lg:flex-col lg:justify-between lg:pt-4'
+          : isTutor
+            ? 'min-h-0 px-2 pb-5 pt-4'
+            : 'space-y-1 px-4 py-2',
       ].join(' ')}>
         {(user?.role === 'ADMIN' || user?.role === 'TUTOR') ? (
           (user?.role === 'ADMIN' ? adminMenuGroups : tutorMenuGroups).map((section, idx) => (
-            <div key={section.group ?? 'top'} className={idx > 0 ? (isAdmin ? 'pt-3 lg:pt-0' : 'pt-4') : ''}>
+            <div key={section.group ?? 'top'} className={idx > 0 ? (isAdmin ? 'pt-3 lg:pt-0' : isTutor ? 'pt-5' : 'pt-4') : ''}>
               {section.group && (
                 <p className={[
                   'font-semibold uppercase text-slate-400 dark:text-slate-500',
-                  isAdmin ? 'px-2 pb-1.5 text-[10px] leading-4 tracking-[0.12em]' : 'px-4 pb-1 text-[10px] tracking-wider',
+                  isStaff ? 'px-2 pb-1.5 text-[10px] leading-4 tracking-[0.12em]' : 'px-4 pb-1 text-[10px] tracking-wider',
                 ].join(' ')}>
                   {section.group}
                 </p>
@@ -99,8 +105,8 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
                     onClick={onClose}
                     className={[
                       'flex items-center font-medium transition-all duration-200',
-                      isAdmin ? 'h-10 gap-3.5 rounded-lg px-6 text-sm' : 'gap-3 rounded-xl px-4 py-2.5',
-                      isAdmin
+                      isStaff ? 'h-10 gap-3.5 rounded-lg px-6 text-sm' : 'gap-3 rounded-xl px-4 py-2.5',
+                      isStaff
                         ? isActive
                           ? 'bg-[#0A9AE2]/10 text-[#0A9AE2] dark:bg-[#0A9AE2]/15 dark:text-[#38BDF8]'
                           : 'text-slate-950 hover:bg-slate-50 dark:text-slate-100 dark:hover:bg-slate-900'
@@ -109,9 +115,9 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
                           : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-slate-100',
                     ].join(' ')}
                   >
-                    <item.icon size={isAdmin ? 18 : 20} />
+                    <item.icon size={isStaff ? 18 : 20} />
                     <span>{item.label}</span>
-                    {isActive && !isAdmin && (
+                    {isActive && !isStaff && (
                       <motion.div
                         layoutId="active-pill"
                         className="ml-auto h-1.5 w-1.5 rounded-full bg-[#0A9AE2]"
@@ -167,7 +173,7 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
         )}
       </nav>
 
-      {!isAdmin && (
+      {!isStaff && (
         <div className="mt-auto p-5">
           {isStudent ? (
             <div className="overflow-hidden rounded-3xl border border-white/70 bg-[linear-gradient(135deg,#ffffff_0%,#ecfeff_42%,#fff7ed_100%)] p-4 shadow-sm dark:border-white/10 dark:bg-[linear-gradient(135deg,#0f172a_0%,#082f49_52%,#27120a_100%)]">

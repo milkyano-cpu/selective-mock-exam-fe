@@ -99,14 +99,9 @@ export const adminMenuItems = adminMenuGroups.flatMap((g) => g.items);
 
 export const tutorMenuGroups = [
   {
-    group: null,
+    group: 'Main Menu',
     items: [
       { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
-    ],
-  },
-  {
-    group: 'User Management',
-    items: [
       { icon: Users, label: 'Students', href: '/dashboard/users' },
     ],
   },
