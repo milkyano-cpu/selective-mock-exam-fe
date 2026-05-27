@@ -19,7 +19,6 @@ import {
   FileText,
   TrendingUp,
   AlertCircle,
-  Loader2,
   ChevronRight,
   Medal,
 } from 'lucide-react';
@@ -367,8 +366,17 @@ export default function PerformancePage() {
 
             {/* List */}
             {lbLoading ? (
-              <div className="flex items-center justify-center py-10">
-                <Loader2 size={20} className="animate-spin text-[#FF6900]" />
+              <div className="divide-y divide-slate-100 animate-pulse dark:divide-slate-800">
+                {Array.from({ length: 5 }).map((_, index) => (
+                  <div key={index} className="flex items-center gap-2.5 px-4 py-2.5">
+                    <div className="h-6 w-6 shrink-0 rounded-full bg-slate-100 dark:bg-slate-800" />
+                    <div className="flex-1 space-y-1.5">
+                      <div className="h-3 w-3/5 rounded bg-slate-100 dark:bg-slate-800" />
+                      <div className="h-2.5 w-2/5 rounded bg-slate-100 dark:bg-slate-800" />
+                    </div>
+                    <div className="h-4 w-8 rounded bg-slate-100 dark:bg-slate-800" />
+                  </div>
+                ))}
               </div>
             ) : !leaderboard || leaderboard.entries.length === 0 ? (
               <div className="py-10 text-center">

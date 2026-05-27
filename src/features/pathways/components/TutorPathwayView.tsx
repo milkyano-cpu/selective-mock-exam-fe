@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Users, ClipboardList, Plus, ArrowUpDown, BookOpen, Loader2, TrendingUp } from 'lucide-react';
+import { Users, ClipboardList, Plus, ArrowUpDown, BookOpen, TrendingUp } from 'lucide-react';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
 import { adminService } from '@/features/admin/services/admin.service';
 import type { UserItem } from '@/features/admin/services/admin.service';
@@ -146,10 +146,7 @@ export function TutorPathwayView() {
               </div>
 
               {studentsLoading ? (
-                <div className="flex items-center gap-2 text-slate-400 text-sm">
-                  <Loader2 size={14} className="animate-spin" />
-                  Loading students…
-                </div>
+                <div className="h-11 w-full animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800" />
               ) : (
                 <SearchableSelect
                   value={selectedStudentId}
@@ -182,10 +179,7 @@ export function TutorPathwayView() {
               {!selectedStudentId ? (
                 <p className="text-sm text-slate-400">Select a student to view pathways.</p>
               ) : isLoading ? (
-                <div className="flex items-center gap-2 text-slate-400 text-sm">
-                  <Loader2 size={14} className="animate-spin" />
-                  Loading…
-                </div>
+                <div className="h-11 w-full animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800" />
               ) : pathways.length === 0 ? (
                 <p className="text-sm text-slate-400">No pathways assigned yet.</p>
               ) : (

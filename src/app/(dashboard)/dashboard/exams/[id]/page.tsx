@@ -9,6 +9,7 @@ import { questionsService } from '@/features/questions/services/questions.servic
 import { QuestionLatexRenderer } from '@/components/ui/QuestionLatexRenderer';
 import type { ExamItem, ExamQuestionItem, ManualGradingQueueStatus, ManualGradingSubmission } from '@/features/exams/types/exams.types';
 import { DeleteConfirmModal } from '@/features/subjects/components/DeleteConfirmModal';
+import { ExamDetailSkeleton } from './ExamDetailSkeleton';
 import {
   ArrowLeft,
   Loader2,
@@ -187,8 +188,18 @@ function AddQuestionsModal({
 
         <div className="flex-1 overflow-y-auto px-6">
           {isLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 size={24} className="animate-spin text-[#FF6900]" />
+            <div className="space-y-2 pb-4 animate-pulse">
+              {Array.from({ length: 5 }).map((_, index) => (
+                <div key={index} className="rounded-2xl border border-slate-200 p-4 dark:border-slate-700">
+                  <div className="flex items-start gap-3">
+                    <div className="h-4 w-4 shrink-0 rounded bg-slate-100 dark:bg-slate-800" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 w-4/5 rounded-lg bg-slate-100 dark:bg-slate-800" />
+                      <div className="h-3 w-1/2 rounded-lg bg-slate-100 dark:bg-slate-800" />
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           ) : filtered.length === 0 ? (
             <p className="py-8 text-center text-sm font-medium text-slate-400">
@@ -321,8 +332,25 @@ function SubmissionQueuePanel({
       )}
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-10">
-          <Loader2 size={24} className="animate-spin text-[#FF6900]" />
+        <div className="animate-pulse">
+          <div className="divide-y divide-slate-100 dark:divide-slate-800 md:hidden">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div key={index} className="space-y-3 px-4 py-4">
+                <div className="h-4 w-2/5 rounded-lg bg-slate-100 dark:bg-slate-800" />
+                <div className="h-3 w-3/5 rounded-lg bg-slate-100 dark:bg-slate-800" />
+                <div className="h-20 rounded-2xl bg-slate-100 dark:bg-slate-800" />
+              </div>
+            ))}
+          </div>
+          <div className="hidden divide-y divide-slate-100 dark:divide-slate-800 md:block">
+            {Array.from({ length: 5 }).map((_, rowIndex) => (
+              <div key={rowIndex} className="grid grid-cols-6 gap-4 px-4 py-4">
+                {Array.from({ length: 6 }).map((__, cellIndex) => (
+                  <div key={cellIndex} className={`h-4 rounded-lg bg-slate-100 dark:bg-slate-800 ${cellIndex === 0 ? 'w-4/5' : 'w-3/5'}`} />
+                ))}
+              </div>
+            ))}
+          </div>
         </div>
       ) : submissions.length === 0 ? (
         <div className="px-4 py-10 text-center">
@@ -568,27 +596,7 @@ export default function ExamDetailPage() {
   };
 
   if (isLoading) {
-    return (
-      <div className="w-full max-w-5xl space-y-6 animate-pulse">
-        <div className="flex items-center justify-between">
-          <div className="space-y-2">
-            <div className="h-4 w-20 rounded bg-slate-200/70 dark:bg-slate-800" />
-            <div className="h-7 w-56 rounded-lg bg-slate-200/70 dark:bg-slate-800" />
-          </div>
-          <div className="h-9 w-28 rounded-xl bg-slate-200/70 dark:bg-slate-800" />
-        </div>
-        <div className="grid gap-3 sm:grid-cols-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-20 rounded-2xl border border-slate-200/60 bg-white dark:border-slate-800 dark:bg-slate-900" />
-          ))}
-        </div>
-        <div className="space-y-2">
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-14 rounded-xl border border-slate-200/60 bg-white dark:border-slate-800 dark:bg-slate-900" />
-          ))}
-        </div>
-      </div>
-    );
+    return <ExamDetailSkeleton variant={isStudent ? 'student' : 'staff'} />;
   }
 
   if (error && !exam) {

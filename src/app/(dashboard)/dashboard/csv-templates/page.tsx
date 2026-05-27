@@ -175,11 +175,15 @@ export default function CsvTemplatesPage() {
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {isLoading ? (
-                <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center">
-                    <Loader2 className="mx-auto animate-spin text-[#0A9AE2]" />
-                  </td>
-                </tr>
+                Array.from({ length: 5 }).map((_, index) => (
+                  <tr key={index}>
+                    {Array.from({ length: 5 }).map((__, cellIndex) => (
+                      <td key={cellIndex} className="px-6 py-4">
+                        <div className={`h-4 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800 ${cellIndex === 0 ? 'w-3/5' : cellIndex === 4 ? 'ml-auto w-16' : 'w-2/5'}`} />
+                      </td>
+                    ))}
+                  </tr>
+                ))
               ) : templates.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-6 py-16 text-center text-sm font-bold text-slate-400">

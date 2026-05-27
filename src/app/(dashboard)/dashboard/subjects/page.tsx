@@ -5,7 +5,7 @@ import { useSubjects } from '@/features/subjects/hooks/useSubjects';
 import { Subject } from '@/features/subjects/types/subjects.types';
 import { SubjectModal } from '@/features/subjects/components/SubjectModal';
 import { DeleteConfirmModal } from '@/features/subjects/components/DeleteConfirmModal';
-import { Plus, Edit2, Trash2, BookOpen, ChevronRight, Search, Loader2 } from 'lucide-react';
+import { Plus, Edit2, Trash2, BookOpen, ChevronRight, Search } from 'lucide-react';
 import Link from 'next/link';
 
 export default function SubjectsPage() {
@@ -117,14 +117,25 @@ export default function SubjectsPage() {
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {isLoading && subjects.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-8 py-12 text-center">
-                    <div className="flex flex-col items-center gap-3">
-                      <Loader2 className="h-8 w-8 animate-spin text-[#0A9AE2]" />
-                      <span className="font-medium text-slate-400">Loading subjects...</span>
-                    </div>
-                  </td>
-                </tr>
+                Array.from({ length: 5 }).map((_, index) => (
+                  <tr key={index}>
+                    <td className="px-6 py-4">
+                      <div className="h-4 w-3/5 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />
+                    </td>
+                    <td className="hidden px-6 py-4 lg:table-cell">
+                      <div className="h-4 w-2/5 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />
+                    </td>
+                    <td className="hidden px-6 py-4 md:table-cell">
+                      <div className="h-4 w-3/4 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="mx-auto h-4 w-12 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="ml-auto h-4 w-12 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />
+                    </td>
+                  </tr>
+                ))
               ) : subjects.length === 0 ? (
                 <tr>
                   <td colSpan={5} className="px-8 py-12 text-center">

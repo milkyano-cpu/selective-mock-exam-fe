@@ -238,7 +238,11 @@ export default function FlashcardsPage() {
               <p className="text-sm font-bold text-slate-500 dark:text-slate-400">{label}</p>
               <Icon className="text-[#0A9AE2]" size={20} />
             </div>
-            <p className="mt-3 text-3xl font-black text-slate-900 dark:text-slate-100">{stats[statKey]}</p>
+            {isLoading ? (
+              <div className="mt-3 h-9 w-12 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />
+            ) : (
+              <p className="mt-3 text-3xl font-black text-slate-900 dark:text-slate-100">{stats[statKey]}</p>
+            )}
           </div>
         ))}
       </section>
@@ -257,7 +261,11 @@ export default function FlashcardsPage() {
 
           <div className="mt-6 min-h-80 rounded-[1.75rem] border border-slate-200 bg-slate-50 p-6 dark:border-slate-800 dark:bg-slate-950">
             {isLoading ? (
-              <p className="text-sm font-bold text-slate-500 dark:text-slate-400">Loading review queue...</p>
+              <div className="flex min-h-64 animate-pulse flex-col items-center justify-center rounded-[1.5rem] bg-white p-8 dark:bg-slate-900">
+                <div className="h-5 w-3/4 rounded-lg bg-slate-100 dark:bg-slate-800" />
+                <div className="mt-3 h-5 w-1/2 rounded-lg bg-slate-100 dark:bg-slate-800" />
+                <div className="mt-8 h-3 w-32 rounded-lg bg-slate-100 dark:bg-slate-800" />
+              </div>
             ) : activeCard ? (
               <button onClick={() => setIsFlipped((value) => !value)} className="flex min-h-64 w-full flex-col items-center justify-center whitespace-pre-wrap rounded-[1.5rem] bg-white p-8 text-center text-lg font-black leading-relaxed text-slate-900 shadow-sm transition hover:scale-[1.01] dark:bg-slate-900 dark:text-slate-100">
                 {isFlipped ? activeCard.backContent : activeCard.frontContent}
@@ -308,7 +316,15 @@ export default function FlashcardsPage() {
       <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <h2 className="text-xl font-black text-slate-900 dark:text-slate-100">Card Library</h2>
         <div className="mt-5 space-y-3">
-          {cards.length === 0 ? (
+          {isLoading ? (
+            Array.from({ length: 3 }).map((_, index) => (
+              <div key={index} className="animate-pulse rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+                <div className="h-5 w-24 rounded-full bg-slate-100 dark:bg-slate-800" />
+                <div className="mt-4 h-4 w-3/4 rounded-lg bg-slate-100 dark:bg-slate-800" />
+                <div className="mt-3 h-4 w-1/2 rounded-lg bg-slate-100 dark:bg-slate-800" />
+              </div>
+            ))
+          ) : cards.length === 0 ? (
             <p className="rounded-2xl bg-slate-50 p-5 text-sm font-bold text-slate-500 dark:bg-slate-950 dark:text-slate-400">No flashcards yet. Create one manually or generate from mistakes.</p>
           ) : (
             cards.map((card) => (

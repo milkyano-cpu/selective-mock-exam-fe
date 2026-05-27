@@ -303,12 +303,16 @@ export default function BroadcastsPage() {
               {errorMsg && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-400">{errorMsg}</div>}
 
               <div className="space-y-1.5">
-                <label className="text-sm font-bold text-slate-900 dark:text-slate-100">Title</label>
+                <label className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                  Title <span className="text-red-500">*</span>
+                </label>
                 <input value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} required className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-[#0A9AE2] focus:outline-none dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100" />
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-bold text-slate-900 dark:text-slate-100">Message</label>
+                <label className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                  Message <span className="text-red-500">*</span>
+                </label>
                 <textarea value={form.message} onChange={(e) => setForm((p) => ({ ...p, message: e.target.value }))} required rows={5} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-[#0A9AE2] focus:outline-none dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100" />
               </div>
 
@@ -331,7 +335,9 @@ export default function BroadcastsPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-sm font-bold text-slate-900 dark:text-slate-100">Target Audience</label>
+                <label className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                  Target Audience <span className="text-red-500">*</span>
+                </label>
                 <div className="flex gap-2">
                   {(['STUDENT', 'PARENT'] as const).map((target) => (
                     <button key={target} type="button" onClick={() => toggleTarget(target)} className={`flex-1 rounded-xl py-2.5 text-sm font-bold transition-all ${form.target.includes(target) ? 'bg-[#0A9AE2] text-white' : 'border border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400'}`}>

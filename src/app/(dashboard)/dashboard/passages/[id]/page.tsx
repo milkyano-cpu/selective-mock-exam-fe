@@ -3,7 +3,7 @@
 import { useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { use } from 'react';
-import { ArrowLeft, BookOpenText, Loader2, Image as ImageIcon, FileText, Hash, Layers, Calendar, Sparkles, MessageSquareQuote } from 'lucide-react';
+import { ArrowLeft, BookOpenText, Image as ImageIcon, FileText, Hash, Layers, Calendar, Sparkles, MessageSquareQuote } from 'lucide-react';
 import { usePassages } from '@/features/passages/hooks/usePassages';
 
 const STATUS_BADGES: Record<string, string> = {
@@ -68,10 +68,32 @@ export default function PassageDetailPage({ params }: { params: Promise<{ id: st
       )}
 
       {isLoading ? (
-        <div className="rounded-[2rem] border border-slate-200 bg-white px-8 py-16 text-center shadow-sm dark:border-slate-800 dark:bg-slate-900">
-          <div className="flex flex-col items-center gap-3">
-            <Loader2 className="h-10 w-10 animate-spin text-[#0A9AE2]" />
-            <span className="font-bold text-slate-400">Loading passage detail...</span>
+        <div className="space-y-6 animate-pulse">
+          <section className="rounded-[1.5rem] border border-slate-200 bg-white px-5 py-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:rounded-[2rem] sm:px-8">
+            <div className="h-8 w-72 max-w-full rounded-xl bg-slate-100 dark:bg-slate-800" />
+            <div className="mt-4 flex flex-wrap gap-2">
+              <div className="h-7 w-28 rounded-lg bg-slate-100 dark:bg-slate-800" />
+              <div className="h-7 w-20 rounded-lg bg-slate-100 dark:bg-slate-800" />
+              <div className="h-7 w-16 rounded-lg bg-slate-100 dark:bg-slate-800" />
+            </div>
+          </section>
+          <div className="grid gap-6 lg:grid-cols-[1fr_18rem]">
+            <div className="h-72 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <div className="h-5 w-40 rounded-lg bg-slate-100 dark:bg-slate-800" />
+              <div className="mt-6 space-y-3">
+                <div className="h-4 w-full rounded-lg bg-slate-100 dark:bg-slate-800" />
+                <div className="h-4 w-full rounded-lg bg-slate-100 dark:bg-slate-800" />
+                <div className="h-4 w-4/5 rounded-lg bg-slate-100 dark:bg-slate-800" />
+              </div>
+            </div>
+            <div className="h-72 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+              <div className="h-5 w-28 rounded-lg bg-slate-100 dark:bg-slate-800" />
+              <div className="mt-6 space-y-4">
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <div key={index} className="h-4 w-3/4 rounded-lg bg-slate-100 dark:bg-slate-800" />
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       ) : selectedPassage ? (

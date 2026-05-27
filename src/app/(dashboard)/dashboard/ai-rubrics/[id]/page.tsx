@@ -65,7 +65,36 @@ export default function AiRubricDetailPage() {
   }
 
   if (isLoading && !rubric) {
-    return <div className="flex min-h-[40vh] items-center justify-center"><Loader2 className="animate-spin text-[#0A9AE2]" size={32} /></div>;
+    return (
+      <div className="min-w-0 space-y-6 animate-pulse">
+        <div className="h-4 w-36 rounded-lg bg-slate-100 dark:bg-slate-800" />
+        <div className="space-y-3">
+          <div className="h-8 w-64 max-w-full rounded-xl bg-slate-100 dark:bg-slate-800" />
+          <div className="h-3 w-36 rounded-lg bg-slate-100 dark:bg-slate-800" />
+          <div className="flex gap-2">
+            <div className="h-6 w-20 rounded-full bg-slate-100 dark:bg-slate-800" />
+            <div className="h-6 w-14 rounded-full bg-slate-100 dark:bg-slate-800" />
+            <div className="h-6 w-16 rounded-full bg-slate-100 dark:bg-slate-800" />
+          </div>
+        </div>
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex gap-2 border-b border-slate-100 p-3 dark:border-slate-800">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div key={index} className="h-10 w-28 rounded-xl bg-slate-100 dark:bg-slate-800" />
+            ))}
+          </div>
+          <div className="space-y-4 p-6">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <div key={index} className="flex items-center gap-4">
+                <div className="h-4 flex-1 rounded-lg bg-slate-100 dark:bg-slate-800" />
+                <div className="h-4 w-20 rounded-lg bg-slate-100 dark:bg-slate-800" />
+                <div className="h-4 w-12 rounded-lg bg-slate-100 dark:bg-slate-800" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (!rubric) {

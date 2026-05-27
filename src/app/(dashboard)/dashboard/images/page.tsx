@@ -290,14 +290,24 @@ export default function ImagesPage() {
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {isLoading ? (
-                <tr>
-                  <td colSpan={6} className="px-8 py-12 text-center">
-                    <div className="flex flex-col items-center gap-3">
-                      <Loader2 className="h-8 w-8 animate-spin text-[#0A9AE2]" />
-                      <span className="font-medium text-slate-400">Loading images...</span>
-                    </div>
-                  </td>
-                </tr>
+                Array.from({ length: 5 }).map((_, index) => (
+                  <tr key={index}>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-3">
+                        <div className="h-16 w-20 shrink-0 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />
+                        <div className="w-full space-y-2">
+                          <div className="h-4 w-3/5 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />
+                          <div className="h-3 w-2/5 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />
+                        </div>
+                      </div>
+                    </td>
+                    {Array.from({ length: 5 }).map((__, cellIndex) => (
+                      <td key={cellIndex} className="px-6 py-4">
+                        <div className={`h-4 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800 ${cellIndex === 4 ? 'ml-auto w-12' : 'w-3/5'}`} />
+                      </td>
+                    ))}
+                  </tr>
+                ))
               ) : images.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-8 py-12 text-center">

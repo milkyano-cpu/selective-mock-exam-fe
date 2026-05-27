@@ -379,7 +379,11 @@ export default function ForumModerationPage() {
           </div>
 
           {bwLoading ? (
-            <div className="flex justify-center py-6"><Loader2 size={24} className="animate-spin" /></div>
+            <div className="flex flex-wrap gap-2 animate-pulse">
+              {Array.from({ length: 6 }).map((_, index) => (
+                <div key={index} className={`h-10 rounded-full bg-slate-100 dark:bg-slate-800 ${index % 2 === 0 ? 'w-24' : 'w-32'}`} />
+              ))}
+            </div>
           ) : bannedWords.length === 0 ? (
             <div className="rounded-[2rem] border border-dashed border-slate-200 p-8 text-center dark:border-slate-700">
               <p className="text-sm font-medium text-slate-400">No banned words configured yet.</p>

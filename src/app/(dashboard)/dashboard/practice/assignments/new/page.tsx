@@ -290,8 +290,16 @@ export default function NewAssignmentPage() {
                   />
                 </div>
                 {isLoadingStudents && (
-                  <div className="flex justify-center py-3">
-                    <Loader2 size={20} className="animate-spin text-[#0A9AE2]" />
+                  <div className="divide-y divide-slate-50 overflow-hidden rounded-2xl border border-slate-100 animate-pulse dark:divide-slate-800 dark:border-slate-800">
+                    {Array.from({ length: 3 }).map((_, index) => (
+                      <div key={index} className="flex items-center gap-3 px-4 py-3">
+                        <div className="h-8 w-8 shrink-0 rounded-xl bg-slate-100 dark:bg-slate-800" />
+                        <div className="flex-1 space-y-2">
+                          <div className="h-4 w-2/5 rounded-lg bg-slate-100 dark:bg-slate-800" />
+                          <div className="h-3 w-3/5 rounded-lg bg-slate-100 dark:bg-slate-800" />
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
                 {students.length > 0 && (
@@ -472,8 +480,16 @@ export default function NewAssignmentPage() {
             {/* Question list */}
             <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 overflow-hidden">
               {isLoadingQuestions ? (
-                <div className="flex justify-center py-12">
-                  <Loader2 size={28} className="animate-spin text-[#0A9AE2]" />
+                <div className="divide-y divide-slate-50 animate-pulse dark:divide-slate-800">
+                  {Array.from({ length: 5 }).map((_, index) => (
+                    <div key={index} className="flex items-start gap-3 px-5 py-4">
+                      <div className="mt-0.5 h-5 w-5 shrink-0 rounded-md bg-slate-100 dark:bg-slate-800" />
+                      <div className="flex-1 space-y-2">
+                        <div className="h-4 w-4/5 rounded-lg bg-slate-100 dark:bg-slate-800" />
+                        <div className="h-3 w-1/2 rounded-lg bg-slate-100 dark:bg-slate-800" />
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : questions.length === 0 ? (
                 <div className="py-12 text-center text-slate-400 text-sm">

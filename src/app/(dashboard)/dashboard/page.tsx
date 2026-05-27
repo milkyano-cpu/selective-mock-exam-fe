@@ -751,8 +751,14 @@ function AdminLeaderboardCard() {
         </div>
       </div>
       {isLoading ? (
-        <div className="h-[110px] flex items-center justify-center">
-          <span className="text-sm text-slate-400">Loading...</span>
+        <div className="space-y-2 animate-pulse">
+          {Array.from({ length: 5 }).map((_, index) => (
+            <div key={index} className="flex items-center gap-2 py-1">
+              <div className="h-5 w-5 rounded-full bg-slate-100 dark:bg-slate-800" />
+              <div className="h-3 flex-1 rounded bg-slate-100 dark:bg-slate-800" />
+              <div className="h-3 w-8 rounded bg-slate-100 dark:bg-slate-800" />
+            </div>
+          ))}
         </div>
       ) : entries.length === 0 ? (
         <div className="h-[110px] flex items-center justify-center">
@@ -788,6 +794,15 @@ function AdminLeaderboardCard() {
           })}
         </div>
       )}
+    </div>
+  );
+}
+
+function DashboardMetricSkeleton() {
+  return (
+    <div className="flex h-[130px] animate-pulse flex-col items-center justify-center gap-3">
+      <div className="h-20 w-20 rounded-full bg-slate-100 dark:bg-slate-800" />
+      <div className="h-3 w-28 rounded bg-slate-100 dark:bg-slate-800" />
     </div>
   );
 }
@@ -829,9 +844,7 @@ function AdminDashboard({ firstName }: { firstName: string }) {
         <div className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-2">Students by Gender</p>
           {isStatsLoading ? (
-            <div className="h-[130px] flex items-center justify-center">
-              <span className="text-sm text-slate-400">Loading...</span>
-            </div>
+            <DashboardMetricSkeleton />
           ) : stats?.studentGender ? (
             <>
               <div className="h-[100px]">
@@ -887,9 +900,7 @@ function AdminDashboard({ firstName }: { firstName: string }) {
         <div className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 overflow-hidden">
           <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-2">Students by Tier</p>
           {isStatsLoading ? (
-            <div className="h-[130px] flex items-center justify-center">
-              <span className="text-sm text-slate-400">Loading...</span>
-            </div>
+            <DashboardMetricSkeleton />
           ) : stats?.studentTier ? (
             <>
               <div className="h-[100px]">
@@ -944,9 +955,7 @@ function AdminDashboard({ firstName }: { firstName: string }) {
         <div className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 overflow-hidden">
           <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-2">Exam Participation</p>
           {isStatsLoading ? (
-            <div className="h-[130px] flex items-center justify-center">
-              <span className="text-sm text-slate-400">Loading...</span>
-            </div>
+            <DashboardMetricSkeleton />
           ) : stats?.examParticipation ? (
             <>
               <div className="h-[100px]">
@@ -1066,9 +1075,7 @@ function TutorDashboard({ firstName }: { firstName: string }) {
         <div className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-2">Students by Gender</p>
           {isStatsLoading ? (
-            <div className="h-[130px] flex items-center justify-center">
-              <span className="text-sm text-slate-400">Loading...</span>
-            </div>
+            <DashboardMetricSkeleton />
           ) : stats?.studentGender ? (
             <>
               <div className="h-[100px]">
@@ -1116,9 +1123,7 @@ function TutorDashboard({ firstName }: { firstName: string }) {
         <div className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 overflow-hidden">
           <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-2">Students by Tier</p>
           {isStatsLoading ? (
-            <div className="h-[130px] flex items-center justify-center">
-              <span className="text-sm text-slate-400">Loading...</span>
-            </div>
+            <DashboardMetricSkeleton />
           ) : stats?.studentTier ? (
             <>
               <div className="h-[100px]">
@@ -1173,9 +1178,7 @@ function TutorDashboard({ firstName }: { firstName: string }) {
         <div className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 overflow-hidden">
           <p className="text-xs font-black uppercase tracking-wide text-slate-400 mb-2">Exam Participation</p>
           {isStatsLoading ? (
-            <div className="h-[130px] flex items-center justify-center">
-              <span className="text-sm text-slate-400">Loading...</span>
-            </div>
+            <DashboardMetricSkeleton />
           ) : stats?.examParticipation ? (
             <>
               <div className="h-[100px]">

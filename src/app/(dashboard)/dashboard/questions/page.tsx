@@ -634,14 +634,40 @@ export default function QuestionsPage() {
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {isLoading && questions.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="px-8 py-16 text-center">
-                    <div className="flex flex-col items-center gap-3">
-                      <Loader2 className="h-10 w-10 animate-spin text-[#0A9AE2]" />
-                      <span className="font-bold text-slate-400">Loading Question Bank...</span>
-                    </div>
-                  </td>
-                </tr>
+                Array.from({ length: 5 }).map((_, index) => (
+                  <tr key={index}>
+                    <td className="px-6 py-4 align-top">
+                      <div className="h-4 w-4 animate-pulse rounded bg-slate-100 dark:bg-slate-800" />
+                    </td>
+                    <td className="hidden px-6 py-4 lg:table-cell">
+                      <div className="h-4 w-3/5 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="space-y-2">
+                        <div className="h-4 w-4/5 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />
+                        <div className="h-3 w-3/5 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />
+                      </div>
+                    </td>
+                    <td className="hidden px-6 py-4 lg:table-cell">
+                      <div className="h-4 w-3/5 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />
+                    </td>
+                    <td className="hidden px-6 py-4 xl:table-cell">
+                      <div className="h-4 w-3/5 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />
+                    </td>
+                    <td className="hidden px-6 py-4 lg:table-cell">
+                      <div className="h-4 w-3/5 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />
+                    </td>
+                    <td className="hidden px-6 py-4 md:table-cell">
+                      <div className="h-4 w-14 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />
+                    </td>
+                    <td className="hidden px-6 py-4 md:table-cell">
+                      <div className="h-4 w-14 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="ml-auto h-4 w-12 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />
+                    </td>
+                  </tr>
+                ))
               ) : questions.length === 0 ? (
                 <tr>
                   <td colSpan={9} className="px-8 py-16 text-center">

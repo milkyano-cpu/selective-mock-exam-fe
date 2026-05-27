@@ -6,7 +6,6 @@ import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { ServiceWorkerRegister } from "@/components/pwa/ServiceWorkerRegister";
 import { InstallPrompt } from "@/components/pwa/InstallPrompt";
 import { FeedbackBootstrap } from "@/components/feedback/FeedbackBootstrap";
-import { StaleDataBootstrap } from "@/components/feedback/StaleDataBootstrap";
 import { SessionExpiryBootstrap } from "@/components/feedback/SessionExpiryBootstrap";
 
 const geistSans = Geist({
@@ -120,7 +119,6 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} themes={["light", "dark"]} disableTransitionOnChange>
           <FeedbackBootstrap />
-          <StaleDataBootstrap />
           <SessionExpiryBootstrap />
           {children}
           <ServiceWorkerRegister />
