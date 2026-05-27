@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { isAxiosError } from 'axios';
-import Link from 'next/link';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { analyticsService } from '@/features/analytics/services/analytics.service';
 import { FeaturePaywall } from '@/components/billing/FeaturePaywall';
@@ -19,16 +18,10 @@ import {
   Award,
   ChevronDown,
   FileText,
-  BookOpen,
-  ClipboardList,
-  LibraryBig,
-  CreditCard,
-  ChevronRight,
+  Crown,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Label, BarChart, Bar, Legend } from 'recharts';
-
-const SUBJECT_COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316', '#6366f1', '#14b8a6', '#e11d48'];
 
 const RANKING_CONFIG: Record<string, { label: string; color: string; bg: string }> = {
   SUPERIOR: { label: 'Superior', color: 'text-yellow-700 dark:text-yellow-400', bg: 'bg-yellow-100 dark:bg-yellow-900/30' },
@@ -37,6 +30,600 @@ const RANKING_CONFIG: Record<string, { label: string; color: string; bg: string 
   AVERAGE: { label: 'Average', color: 'text-blue-700 dark:text-blue-400', bg: 'bg-blue-100 dark:bg-blue-900/30' },
   LOW_AVERAGE: { label: 'Low Average', color: 'text-slate-700 dark:text-slate-400', bg: 'bg-slate-100 dark:bg-slate-800' },
 };
+
+const AVATAR_PALETTE = [
+  'bg-rose-500',
+  'bg-orange-500',
+  'bg-amber-500',
+  'bg-emerald-500',
+  'bg-teal-500',
+  'bg-sky-500',
+  'bg-indigo-500',
+  'bg-violet-500',
+  'bg-fuchsia-500',
+  'bg-pink-500',
+];
+
+function getInitials(name: string | null | undefined): string {
+  if (!name) return '?';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
+  return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase();
+}
+
+function getAvatarColor(seed: string | null | undefined): string {
+  if (!seed) return AVATAR_PALETTE[0]!;
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  return AVATAR_PALETTE[hash % AVATAR_PALETTE.length]!;
+}
+
+function formatAvgTime(seconds: number): string {
+  if (seconds <= 0) return '—';
+  if (seconds < 60) return `${Math.round(seconds)}s`;
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  const remMin = minutes % 60;
+  return remMin === 0 ? `${hours}h` : `${hours}h ${remMin}m`;
+}
+
+function LeaderboardAvatar({
+  name,
+  src,
+  seed,
+  sizeClass,
+  textClass,
+}: {
+  name: string | null;
+  src: string | null;
+  seed: string;
+  sizeClass: string;
+  textClass: string;
+}) {
+  if (src) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <img src={src} alt={name ?? 'Avatar'} className={`${sizeClass} shrink-0 rounded-full object-cover`} />;
+  }
+  const color = getAvatarColor(seed);
+  return (
+    <div className={`${sizeClass} shrink-0 rounded-full ${color} flex items-center justify-center font-black text-white ${textClass}`}>
+      {getInitials(name)}
+    </div>
+  );
+}
+
+function PodiumRow({
+  entry,
+  isMe,
+  myPercentile,
+}: {
+  entry: import('@/features/analytics/types/analytics.types').LeaderboardEntry;
+  isMe: boolean;
+  myPercentile: number | null;
+}) {
+  if (entry.rank === 1) return <PodiumRowChampion entry={entry} isMe={isMe} myPercentile={myPercentile} />;
+  if (entry.rank === 2) return <PodiumRowSilver entry={entry} isMe={isMe} myPercentile={myPercentile} />;
+  return <PodiumRowBronze entry={entry} isMe={isMe} myPercentile={myPercentile} />;
+}
+
+function PodiumMeta({
+  entry,
+  toneClass,
+  isMe,
+  myPercentile,
+}: {
+  entry: import('@/features/analytics/types/analytics.types').LeaderboardEntry;
+  toneClass: string;
+  isMe: boolean;
+  myPercentile: number | null;
+}) {
+  const rankConfig = entry.rankingLevel ? RANKING_CONFIG[entry.rankingLevel] : null;
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px]">
+      {rankConfig && (
+        <span className={`rounded-md px-1.5 py-0.5 font-black ${rankConfig.bg} ${rankConfig.color}`}>
+          {rankConfig.label}
+        </span>
+      )}
+      <span className={`font-medium ${toneClass}`}>{entry.totalExams} exams</span>
+      {entry.avgTimeSeconds !== null && (
+        <span className={`font-medium ${toneClass}`}>· ⏱ {formatAvgTime(entry.avgTimeSeconds)}</span>
+      )}
+      {isMe && myPercentile !== null && (
+        <span className="rounded-md bg-sky-100 px-1.5 py-0.5 font-black text-[#0A9AE2] dark:bg-sky-900/30">
+          Top {(100 - myPercentile).toFixed(1)}%
+        </span>
+      )}
+    </div>
+  );
+}
+
+function PodiumRowChampion({
+  entry,
+  isMe,
+  myPercentile,
+}: {
+  entry: import('@/features/analytics/types/analytics.types').LeaderboardEntry;
+  isMe: boolean;
+  myPercentile: number | null;
+}) {
+  const meRingClass = isMe ? 'ring-2 ring-[#0A9AE2] ring-offset-2 dark:ring-offset-slate-900' : '';
+  return (
+    <div
+      className={`relative overflow-hidden rounded-2xl border-2 border-amber-300 bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50/70 p-4 shadow-lg shadow-amber-200/40 dark:border-amber-800 dark:from-amber-950/40 dark:via-yellow-950/30 dark:to-orange-950/30 dark:shadow-amber-950/20 ${meRingClass}`}
+    >
+      {/* Decorative giant "1" watermark */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute -right-3 -top-10 select-none text-[140px] font-black leading-none text-amber-300/40 dark:text-amber-700/30"
+      >
+        1
+      </span>
+      {/* Soft glow */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute -left-10 -top-10 h-32 w-32 rounded-full bg-amber-300/40 blur-3xl dark:bg-amber-600/20"
+      />
+      {/* Sparkle dots */}
+      <div aria-hidden className="pointer-events-none absolute right-8 top-3 h-1.5 w-1.5 rounded-full bg-amber-400" />
+      <div aria-hidden className="pointer-events-none absolute right-14 top-7 h-1 w-1 rounded-full bg-yellow-400" />
+      <div aria-hidden className="pointer-events-none absolute right-4 bottom-3 h-1 w-1 rounded-full bg-orange-400" />
+
+      <div className="relative flex items-center gap-3">
+        <div className="relative shrink-0">
+          <LeaderboardAvatar
+            name={entry.studentName}
+            src={entry.avatarUrl}
+            seed={entry.studentId}
+            sizeClass="h-14 w-14 ring-4 ring-amber-300 dark:ring-amber-700"
+            textClass="text-base"
+          />
+          {/* Tilted crown sitting on top-right of avatar */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute -right-2 -top-3 rotate-[25deg] text-amber-500 drop-shadow-[0_2px_4px_rgba(217,119,6,0.45)] dark:text-amber-400"
+          >
+            <Crown size={22} fill="currentColor" strokeWidth={1.5} />
+          </div>
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate text-xl font-black text-amber-900 dark:text-amber-100">
+            {entry.studentName}
+            {isMe && <span className="ml-1.5 text-[11px] font-bold text-[#0A9AE2]">(You)</span>}
+          </h3>
+          <PodiumMeta
+            entry={entry}
+            toneClass="text-amber-700/80 dark:text-amber-400/80"
+            isMe={isMe}
+            myPercentile={myPercentile}
+          />
+        </div>
+
+        <div className="shrink-0 text-right">
+          <div className="text-3xl font-black tracking-tight text-amber-700 dark:text-amber-400">
+            {entry.score.toFixed(0)}
+          </div>
+          <p className="text-[9px] font-black uppercase tracking-wide text-amber-600/70 dark:text-amber-500/70">
+            avg
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PodiumRowSilver({
+  entry,
+  isMe,
+  myPercentile,
+}: {
+  entry: import('@/features/analytics/types/analytics.types').LeaderboardEntry;
+  isMe: boolean;
+  myPercentile: number | null;
+}) {
+  const meRingClass = isMe ? 'ring-2 ring-[#0A9AE2] ring-offset-2 dark:ring-offset-slate-900' : '';
+  return (
+    <div
+      className={`relative overflow-hidden rounded-2xl border border-slate-300 bg-gradient-to-r from-slate-100 via-slate-50 to-white p-3.5 dark:border-slate-700 dark:from-slate-800/70 dark:via-slate-800/30 dark:to-slate-900 ${meRingClass}`}
+    >
+      <span
+        aria-hidden
+        className="pointer-events-none absolute -right-2 -top-6 select-none text-[88px] font-black leading-none text-slate-300/60 dark:text-slate-700/60"
+      >
+        2
+      </span>
+      <div className="relative flex items-center gap-3">
+        <LeaderboardAvatar
+          name={entry.studentName}
+          src={entry.avatarUrl}
+          seed={entry.studentId}
+          sizeClass="h-12 w-12 ring-2 ring-slate-200 dark:ring-slate-700"
+          textClass="text-xs"
+        />
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate text-lg font-black text-slate-900 dark:text-slate-100">
+            {entry.studentName}
+            {isMe && <span className="ml-1.5 text-[11px] font-bold text-[#0A9AE2]">(You)</span>}
+          </h3>
+          <PodiumMeta
+            entry={entry}
+            toneClass="text-slate-500 dark:text-slate-400"
+            isMe={isMe}
+            myPercentile={myPercentile}
+          />
+        </div>
+        <div className="shrink-0 text-right">
+          <div className="text-2xl font-black tracking-tight text-slate-700 dark:text-slate-200">
+            {entry.score.toFixed(0)}
+          </div>
+          <p className="text-[9px] font-black uppercase tracking-wide text-slate-400">avg</p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PodiumRowBronze({
+  entry,
+  isMe,
+  myPercentile,
+}: {
+  entry: import('@/features/analytics/types/analytics.types').LeaderboardEntry;
+  isMe: boolean;
+  myPercentile: number | null;
+}) {
+  const meRingClass = isMe ? 'ring-2 ring-[#0A9AE2] ring-offset-2 dark:ring-offset-slate-900' : '';
+  return (
+    <div
+      className={`relative overflow-hidden rounded-2xl border border-orange-300 bg-gradient-to-r from-orange-50 via-amber-50/70 to-white p-3.5 dark:border-orange-900/60 dark:from-orange-950/30 dark:via-amber-950/20 dark:to-slate-900 ${meRingClass}`}
+    >
+      <span
+        aria-hidden
+        className="pointer-events-none absolute -right-2 -top-6 select-none text-[88px] font-black leading-none text-orange-300/60 dark:text-orange-700/40"
+      >
+        3
+      </span>
+      <div className="relative flex items-center gap-3">
+        <LeaderboardAvatar
+          name={entry.studentName}
+          src={entry.avatarUrl}
+          seed={entry.studentId}
+          sizeClass="h-12 w-12 ring-2 ring-orange-200 dark:ring-orange-900/50"
+          textClass="text-xs"
+        />
+        <div className="min-w-0 flex-1">
+          <h3 className="truncate text-lg font-black text-orange-900 dark:text-orange-100">
+            {entry.studentName}
+            {isMe && <span className="ml-1.5 text-[11px] font-bold text-[#0A9AE2]">(You)</span>}
+          </h3>
+          <PodiumMeta
+            entry={entry}
+            toneClass="text-orange-700/80 dark:text-orange-400/80"
+            isMe={isMe}
+            myPercentile={myPercentile}
+          />
+        </div>
+        <div className="shrink-0 text-right">
+          <div className="text-2xl font-black tracking-tight text-orange-700 dark:text-orange-400">
+            {entry.score.toFixed(0)}
+          </div>
+          <p className="text-[9px] font-black uppercase tracking-wide text-orange-600/70 dark:text-orange-500/70">
+            avg
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CompactLeaderRow({
+  entry,
+  isMe,
+  myPercentile,
+}: {
+  entry: import('@/features/analytics/types/analytics.types').LeaderboardEntry;
+  isMe: boolean;
+  myPercentile: number | null;
+}) {
+  const rankConfig = entry.rankingLevel ? RANKING_CONFIG[entry.rankingLevel] : null;
+  return (
+    <div
+      className={`group flex items-center gap-3 rounded-xl px-3 py-2 transition-colors ${
+        isMe
+          ? 'bg-[#0A9AE2]/8 ring-1 ring-[#0A9AE2]/30 dark:bg-[#0A9AE2]/10 dark:ring-[#0A9AE2]/40'
+          : 'hover:bg-slate-50 dark:hover:bg-slate-800/40'
+      }`}
+    >
+      <span className="w-6 shrink-0 text-center text-xs font-black text-slate-400 dark:text-slate-500">
+        {entry.rank}
+      </span>
+      <LeaderboardAvatar
+        name={entry.studentName}
+        src={entry.avatarUrl}
+        seed={entry.studentId}
+        sizeClass="h-8 w-8"
+        textClass="text-[10px]"
+      />
+      <div className="min-w-0 flex-1">
+        <p className={`truncate text-sm font-bold ${isMe ? 'text-[#0A9AE2]' : 'text-slate-800 dark:text-slate-200'}`}>
+          {entry.studentName}
+          {isMe && <span className="ml-1 text-[10px] font-bold">(You)</span>}
+        </p>
+        <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[10px]">
+          {rankConfig && (
+            <span className={`rounded-md px-1.5 py-0.5 font-bold ${rankConfig.bg} ${rankConfig.color}`}>
+              {rankConfig.label}
+            </span>
+          )}
+          <span className="font-medium text-slate-500 dark:text-slate-400">
+            {entry.totalExams} exams
+          </span>
+          {entry.avgTimeSeconds !== null && (
+            <span className="font-medium text-slate-500 dark:text-slate-400">
+              · ⏱ {formatAvgTime(entry.avgTimeSeconds)}
+            </span>
+          )}
+          {isMe && myPercentile !== null && (
+            <span className="rounded-md bg-sky-100 px-1.5 py-0.5 font-black text-[#0A9AE2] dark:bg-sky-900/30">
+              Top {(100 - myPercentile).toFixed(1)}%
+            </span>
+          )}
+        </div>
+      </div>
+      <div className="shrink-0 text-right text-sm font-black text-slate-700 dark:text-slate-200">
+        {entry.score.toFixed(0)}
+      </div>
+    </div>
+  );
+}
+
+function YouCard({
+  myRank,
+}: {
+  myRank: import('@/features/analytics/types/analytics.types').Leaderboard['myRank'];
+}) {
+  const cfg = myRank.rankingLevel ? RANKING_CONFIG[myRank.rankingLevel] : null;
+  return (
+    <div className="mt-auto flex flex-col gap-2">
+      <div className="flex items-center justify-center gap-2 px-1">
+        <span className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
+        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Your position</span>
+        <span className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
+      </div>
+      <div className="relative overflow-hidden rounded-2xl border-2 border-[#0A9AE2] bg-gradient-to-br from-[#0A9AE2]/10 via-sky-50 to-white p-4 shadow-sm dark:from-[#0A9AE2]/15 dark:via-sky-900/10 dark:to-slate-900">
+        <div className="absolute -right-6 -top-6 h-24 w-24 rounded-full bg-[#0A9AE2]/10 blur-2xl" aria-hidden />
+        <div className="relative flex items-center gap-3">
+          <div className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-2xl bg-[#0A9AE2] text-white shadow-md">
+            <span className="text-[9px] font-black uppercase leading-none">Rank</span>
+            <span className="text-base font-black leading-tight">#{myRank.rank}</span>
+          </div>
+          <LeaderboardAvatar
+            name={myRank.studentName}
+            src={myRank.avatarUrl}
+            seed={myRank.studentId}
+            sizeClass="h-10 w-10"
+            textClass="text-xs"
+          />
+          <div className="min-w-0 flex-1">
+            <h3 className="truncate text-sm font-black text-slate-900 dark:text-slate-100">
+              {myRank.studentName} <span className="text-[10px] font-bold text-[#0A9AE2]">(You)</span>
+            </h3>
+            <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px]">
+              {cfg && (
+                <span className={`rounded-md px-1.5 py-0.5 font-black ${cfg.bg} ${cfg.color}`}>
+                  {cfg.label}
+                </span>
+              )}
+              <span className="font-medium text-slate-500 dark:text-slate-400">
+                {myRank.totalExams ?? 0} exams
+              </span>
+              {myRank.avgTimeSeconds !== null && (
+                <span className="font-medium text-slate-500 dark:text-slate-400">
+                  · ⏱ {formatAvgTime(myRank.avgTimeSeconds)}
+                </span>
+              )}
+              {myRank.percentile !== null && (
+                <span className="rounded-md bg-[#0A9AE2] px-1.5 py-0.5 font-black text-white">
+                  Top {(100 - myRank.percentile).toFixed(1)}%
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="shrink-0 text-right">
+            <div className="text-2xl font-black tracking-tight text-[#0A9AE2]">
+              {myRank.score?.toFixed(0) ?? '—'}
+            </div>
+            <p className="text-[9px] font-black uppercase tracking-wide text-slate-400">avg</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RankRace({
+  leaderboard,
+  currentUserId,
+}: {
+  leaderboard: import('@/features/analytics/types/analytics.types').Leaderboard;
+  currentUserId: string | undefined;
+}) {
+  type Entry = import('@/features/analytics/types/analytics.types').LeaderboardEntry;
+
+  const myEntryFromTop = leaderboard.entries.find((e) => e.studentId === currentUserId) ?? null;
+  // Build a "self" snapshot whether user is inside top10 or outside
+  const myScore = myEntryFromTop?.score ?? leaderboard.myRank.score;
+  const myRankNum = myEntryFromTop?.rank ?? leaderboard.myRank.rank;
+
+  if (myScore === null || myRankNum === null) return null;
+
+  // For "climb": entry just above me. For "defend": entry just below me.
+  // Source: leaderboard.entries (top 10). If user outside top 10, climbTarget
+  // is rank 10 (closest one to catch); defendThreat is null (no info beyond top 10).
+  let climbTarget: Entry | null = null;
+  let defendThreat: Entry | null = null;
+
+  const myIndexInTop = leaderboard.entries.findIndex((e) => e.studentId === currentUserId);
+
+  if (myIndexInTop > 0) {
+    climbTarget = leaderboard.entries[myIndexInTop - 1] ?? null;
+  } else if (myIndexInTop === -1) {
+    // Outside top 10 — closest known competitor is rank 10
+    climbTarget = leaderboard.entries[leaderboard.entries.length - 1] ?? null;
+  }
+
+  if (myIndexInTop >= 0 && myIndexInTop < leaderboard.entries.length - 1) {
+    defendThreat = leaderboard.entries[myIndexInTop + 1] ?? null;
+  }
+
+  const isAtTop = myRankNum === 1;
+  const hasNothingToShow = !climbTarget && !defendThreat && !isAtTop;
+  if (hasNothingToShow) return null;
+
+  return (
+    <div className="mt-2 flex flex-col gap-2">
+      <div className="flex items-center gap-2 px-1">
+        <span className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
+        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Race to the top</span>
+        <span className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
+      </div>
+
+      {isAtTop ? (
+        <div className="overflow-hidden rounded-2xl border border-amber-200 bg-gradient-to-br from-amber-50 via-yellow-50 to-orange-50/70 p-4 dark:border-amber-900/60 dark:from-amber-950/30 dark:via-yellow-950/20 dark:to-orange-950/20">
+          <div className="flex items-center gap-3">
+            <div className="text-2xl">🏆</div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-black text-amber-900 dark:text-amber-100">You&apos;re at the top</p>
+              {defendThreat && (
+                <p className="text-[11px] font-medium text-amber-700/80 dark:text-amber-400/80">
+                  Defending +{Math.max(0, Math.round(myScore - defendThreat.score))} pts gap from {defendThreat.studentName}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="grid gap-2 sm:grid-cols-2">
+          {climbTarget && (
+            <RankRaceTile
+              kind="climb"
+              targetEntry={climbTarget}
+              myScore={myScore}
+              myRank={myRankNum}
+              currentUserId={currentUserId}
+            />
+          )}
+          {defendThreat && (
+            <RankRaceTile
+              kind="defend"
+              targetEntry={defendThreat}
+              myScore={myScore}
+              myRank={myRankNum}
+              currentUserId={currentUserId}
+            />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RankRaceTile({
+  kind,
+  targetEntry,
+  myScore,
+  myRank,
+  currentUserId,
+}: {
+  kind: 'climb' | 'defend';
+  targetEntry: import('@/features/analytics/types/analytics.types').LeaderboardEntry;
+  myScore: number;
+  myRank: number;
+  currentUserId: string | undefined;
+}) {
+  const targetScore = targetEntry.score;
+  const isClimb = kind === 'climb';
+  const delta = Math.abs(myScore - targetScore);
+  const deltaRounded = Math.round(delta * 10) / 10;
+  const climbProgress = targetScore > 0 ? Math.min(100, Math.max(0, (myScore / targetScore) * 100)) : 0;
+  // For defend: how much "buffer" we have. Higher = safer. Cap at 100% visual.
+  const defendBuffer = targetScore > 0 ? Math.min(100, Math.max(0, ((myScore - targetScore) / Math.max(1, myScore)) * 100 + 30)) : 30;
+
+  const palette = isClimb
+    ? {
+        card: 'border-sky-200 bg-gradient-to-br from-sky-50 via-blue-50 to-white dark:border-sky-900/50 dark:from-sky-950/30 dark:via-blue-950/20 dark:to-slate-900',
+        eyebrow: 'text-sky-700 dark:text-sky-400',
+        bar: 'bg-gradient-to-r from-sky-400 to-[#0A9AE2]',
+        track: 'bg-sky-100 dark:bg-sky-950/50',
+        deltaText: 'text-sky-700 dark:text-sky-400',
+        icon: '↑',
+      }
+    : {
+        card: 'border-orange-200 bg-gradient-to-br from-orange-50 via-amber-50 to-white dark:border-orange-900/50 dark:from-orange-950/30 dark:via-amber-950/20 dark:to-slate-900',
+        eyebrow: 'text-orange-700 dark:text-orange-400',
+        bar: 'bg-gradient-to-r from-amber-400 to-orange-500',
+        track: 'bg-orange-100 dark:bg-orange-950/50',
+        deltaText: 'text-orange-700 dark:text-orange-400',
+        icon: '🛡',
+      };
+
+  const eyebrowText = isClimb ? `Climb to #${targetEntry.rank}` : `Defending #${myRank} from #${targetEntry.rank}`;
+  const widthPercent = isClimb ? climbProgress : defendBuffer;
+  const isMeTarget = targetEntry.studentId === currentUserId;
+
+  return (
+    <div className={`rounded-2xl border p-3 ${palette.card}`}>
+      <div className="flex items-center justify-between gap-2">
+        <p className={`flex items-center gap-1 text-[10px] font-black uppercase tracking-wider ${palette.eyebrow}`}>
+          <span className="text-sm leading-none">{palette.icon}</span>
+          {eyebrowText}
+        </p>
+        <span className={`text-xs font-black ${palette.deltaText}`}>
+          {isClimb ? '+' : '−'}{deltaRounded.toFixed(deltaRounded % 1 === 0 ? 0 : 1)} pts
+        </span>
+      </div>
+      <div className="mt-2 flex items-center gap-2.5">
+        <LeaderboardAvatar
+          name={targetEntry.studentName}
+          src={targetEntry.avatarUrl}
+          seed={targetEntry.studentId}
+          sizeClass="h-9 w-9"
+          textClass="text-[10px]"
+        />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-xs font-black text-slate-800 dark:text-slate-200">
+            {targetEntry.studentName}
+            {isMeTarget && <span className="ml-1 text-[10px] font-bold text-[#0A9AE2]">(You)</span>}
+          </p>
+          <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400">
+            avg {targetEntry.score.toFixed(0)} · {targetEntry.totalExams} exams
+          </p>
+        </div>
+      </div>
+      <div
+        className={`mt-2.5 h-2 w-full overflow-hidden rounded-full ${palette.track}`}
+        role="progressbar"
+        aria-valuenow={Math.round(widthPercent)}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label={isClimb ? 'Progress towards next rank' : 'Buffer over chaser'}
+      >
+        <div
+          className={`h-full rounded-full ${palette.bar} transition-[width] duration-700`}
+          style={{ width: `${widthPercent}%` }}
+        />
+      </div>
+      <p className="mt-1.5 text-[10px] font-medium text-slate-500 dark:text-slate-400">
+        {isClimb
+          ? `You: ${myScore.toFixed(0)}  •  Target: ${targetScore.toFixed(0)}`
+          : `You: ${myScore.toFixed(0)}  •  Behind: ${targetScore.toFixed(0)}`}
+      </p>
+    </div>
+  );
+}
 
 const EMPTY_ANALYTICS: MyAnalytics = {
   overallAvg: null,
@@ -651,100 +1238,78 @@ function StudentPerformanceAnalytics() {
             </div>
           ) : (
             (() => {
-              const myRank = leaderboard.myRank?.rank;
-              const isInTop10 = myRank != null && myRank <= 10;
-              const top10 = leaderboard.entries.slice(0, 10);
-              const showMyEntry = !isInTop10 && myRank != null && leaderboard.myRank.studentName;
+              const myRankNum = leaderboard.myRank?.rank;
+              const isInTop10 = myRankNum != null && myRankNum <= 10;
+              const top3 = leaderboard.entries.slice(0, 3);
+              const restOfTop10 = leaderboard.entries.slice(3, 10);
+              const showMyEntry = !isInTop10 && myRankNum != null && Boolean(leaderboard.myRank.studentName);
+              const myPercentile = leaderboard.myRank.percentile;
 
               return (
-                <>
-                  {top10.map((entry) => {
-                    const rankConfig = entry.rankingLevel ? RANKING_CONFIG[entry.rankingLevel] : null;
-                    const isFirst = entry.rank === 1;
-                    const isSecond = entry.rank === 2;
-                    const isThird = entry.rank === 3;
-                    const isMe = entry.studentId === currentUser?.id;
-
-                    return (
-                      <div
-                        key={entry.studentId}
-                        className={`flex items-center gap-4 rounded-2xl border p-4 transition-all ${isFirst ? 'border-yellow-200 bg-gradient-to-r from-yellow-50 to-white dark:border-yellow-900/50 dark:from-yellow-900/20 dark:to-slate-900' : isMe ? 'border-[#0A9AE2]/30 bg-[#0A9AE2]/5 dark:border-[#0A9AE2]/40 dark:bg-[#0A9AE2]/10' : 'border-slate-100 bg-white dark:border-slate-800 dark:bg-slate-900'}`}
-                      >
-                        <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full font-black text-lg ${isFirst ? 'bg-yellow-400 text-yellow-950 shadow-sm shadow-yellow-200 dark:bg-yellow-500 dark:shadow-none' : isSecond ? 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300' : isThird ? 'bg-orange-200 text-orange-800 dark:bg-orange-900/40 dark:text-orange-400' : 'bg-slate-100 text-slate-400 dark:bg-slate-800/80 dark:text-slate-500'}`}>
-                          {entry.rank}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <h3 className={`truncate font-bold ${isFirst ? 'text-yellow-900 dark:text-yellow-400' : 'text-slate-900 dark:text-slate-100'}`}>
-                            {entry.studentName}{isMe && ' (You)'}
-                          </h3>
-                          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
-                            {rankConfig && (
-                              <span className={`rounded-md px-1.5 py-0.5 font-bold ${rankConfig.bg} ${rankConfig.color}`}>
-                                {rankConfig.label}
-                              </span>
-                            )}
-                            <span className="hidden text-slate-300 dark:text-slate-600 sm:inline">·</span>
-                            <span className="font-medium text-slate-500 dark:text-slate-400">
-                              {entry.totalExams} Exams
-                            </span>
-                            {isMe && leaderboard.myRank.percentile !== null && (
-                              <span className="rounded-md bg-sky-100 px-1.5 py-0.5 font-bold text-[#0A9AE2] dark:bg-sky-900/30">
-                                Better than {leaderboard.myRank.percentile.toFixed(1)}%
-                              </span>
-                            )}
+                <div className="flex flex-1 flex-col gap-4">
+                  {/* PODIUM ZONE — top 3 (or fewer) with placeholders */}
+                  <div className="flex flex-col gap-2.5">
+                    {[0, 1, 2].map((idx) => {
+                      const entry = top3[idx];
+                      const rank = idx + 1;
+                      if (!entry) {
+                        return (
+                          <div
+                            key={`podium-empty-${rank}`}
+                            className="flex items-center gap-3 rounded-2xl border border-dashed border-slate-200 bg-slate-50/50 px-4 py-3 dark:border-slate-700/60 dark:bg-slate-800/20"
+                          >
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-dashed border-slate-300 text-xs font-black text-slate-400 dark:border-slate-600">
+                              #{rank}
+                            </div>
+                            <p className="text-xs font-medium text-slate-400">
+                              Waiting for more students to complete exams
+                            </p>
                           </div>
-                        </div>
-                        <div className="shrink-0 text-right">
-                          <div className={`text-2xl font-black tracking-tight ${isFirst ? 'text-yellow-600 dark:text-yellow-500' : 'text-slate-900 dark:text-slate-100'}`}>
-                            {entry.score.toFixed(0)}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                        );
+                      }
+                      return (
+                        <PodiumRow
+                          key={entry.studentId}
+                          entry={entry}
+                          isMe={entry.studentId === currentUser?.id}
+                          myPercentile={myPercentile}
+                        />
+                      );
+                    })}
+                  </div>
 
-                  {/* Show current student's position if outside top 10 */}
-                  {showMyEntry && (
+                  {/* Compact list — ranks 4-10 */}
+                  {restOfTop10.length > 0 && (
                     <>
-                      <div className="flex items-center justify-center py-1">
-                        <span className="text-xs font-bold text-slate-300 dark:text-slate-600">• • •</span>
+                      <div className="flex items-center gap-3 px-1 pt-1">
+                        <span className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
+                        <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Top 10</span>
+                        <span className="h-px flex-1 bg-slate-200 dark:bg-slate-800" />
                       </div>
-                      <div
-                        className="flex items-center gap-4 rounded-2xl border border-[#0A9AE2]/30 bg-[#0A9AE2]/5 p-4 dark:border-[#0A9AE2]/40 dark:bg-[#0A9AE2]/10"
-                      >
-                        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#0A9AE2]/10 font-black text-lg text-[#0A9AE2]">
-                          {leaderboard.myRank.rank}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <h3 className="truncate font-bold text-[#0A9AE2] dark:text-[#0A9AE2]">
-                            {leaderboard.myRank.studentName} (You)
-                          </h3>
-                          <div className="mt-1 flex flex-wrap items-center gap-2 text-xs">
-                            {leaderboard.myRank.rankingLevel && RANKING_CONFIG[leaderboard.myRank.rankingLevel] && (
-                              <span className={`rounded-md px-1.5 py-0.5 font-bold ${RANKING_CONFIG[leaderboard.myRank.rankingLevel]!.bg} ${RANKING_CONFIG[leaderboard.myRank.rankingLevel]!.color}`}>
-                                {RANKING_CONFIG[leaderboard.myRank.rankingLevel]!.label}
-                              </span>
-                            )}
-                            <span className="hidden text-slate-300 dark:text-slate-600 sm:inline">·</span>
-                            <span className="font-medium text-slate-500 dark:text-slate-400">
-                              {leaderboard.myRank.totalExams} Exams
-                            </span>
-                            {leaderboard.myRank.percentile !== null && (
-                              <span className="rounded-md bg-sky-100 px-1.5 py-0.5 font-bold text-[#0A9AE2] dark:bg-sky-900/30">
-                                Better than {leaderboard.myRank.percentile.toFixed(1)}%
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="shrink-0 text-right">
-                          <div className="text-2xl font-black tracking-tight text-[#0A9AE2]">
-                            {leaderboard.myRank.score?.toFixed(0)}
-                          </div>
-                        </div>
+                      <div className="flex flex-col">
+                        {restOfTop10.map((entry) => (
+                          <CompactLeaderRow
+                            key={entry.studentId}
+                            entry={entry}
+                            isMe={entry.studentId === currentUser?.id}
+                            myPercentile={myPercentile}
+                          />
+                        ))}
                       </div>
                     </>
                   )}
-                </>
+
+                  {/* Sticky "you" card — only when outside top 10 */}
+                  {showMyEntry && (
+                    <YouCard myRank={leaderboard.myRank} />
+                  )}
+
+                  {/* Rank Race — climb + defend tiles */}
+                  <RankRace
+                    leaderboard={leaderboard}
+                    currentUserId={currentUser?.id}
+                  />
+                </div>
               );
             })()
           )}
@@ -919,62 +1484,6 @@ function RoleMetricCard({
       <p className="text-3xl font-black text-slate-900 dark:text-slate-100">{value}</p>
       <p className="mt-1 text-xs font-black uppercase tracking-wide text-slate-400">{label}</p>
     </div>
-  );
-}
-
-function MiniStatCard({
-  label,
-  value,
-  icon: Icon,
-  color,
-}: {
-  label: string;
-  value: number;
-  icon: LucideIcon;
-  color: string;
-}) {
-  return (
-    <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3.5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-      <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-50 dark:bg-slate-800 ${color}`}>
-        <Icon size={16} />
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="text-lg font-black text-slate-900 dark:text-slate-100 leading-tight">{value.toLocaleString()}</p>
-        <p className="text-[11px] font-bold text-slate-400 dark:text-slate-500 truncate">{label}</p>
-      </div>
-    </div>
-  );
-}
-
-function QuickActionCard({
-  icon: Icon,
-  title,
-  description,
-  href,
-  tone,
-}: {
-  icon: LucideIcon;
-  title: string;
-  description: string;
-  href: string;
-  tone: string;
-}) {
-  return (
-    <Link
-      href={href}
-      className="group rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm transition-all hover:-translate-y-0.5 hover:border-[#0A9AE2]/50 hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
-    >
-      <div className={`mb-5 flex h-12 w-12 items-center justify-center rounded-2xl ${tone}`}>
-        <Icon size={22} />
-      </div>
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h3 className="font-black text-slate-900 dark:text-slate-100">{title}</h3>
-          <p className="mt-1 text-sm font-medium leading-relaxed text-slate-500 dark:text-slate-400">{description}</p>
-        </div>
-        <ChevronRight size={18} className="mt-1 shrink-0 text-slate-300 transition-transform group-hover:translate-x-1 group-hover:text-[#0A9AE2]" />
-      </div>
-    </Link>
   );
 }
 

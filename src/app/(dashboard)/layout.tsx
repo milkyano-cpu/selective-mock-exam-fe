@@ -108,7 +108,7 @@ export default function DashboardLayout({
       {isStudent && !isFocusedStudentWorkspace && (
         <div
           aria-hidden="true"
-          className="pointer-events-none fixed inset-0 bg-[linear-gradient(rgba(255,255,255,0.48)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.48)_1px,transparent_1px)] bg-[size:32px_32px] opacity-35 dark:bg-[linear-gradient(rgba(255,255,255,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.06)_1px,transparent_1px)] dark:opacity-45"
+          className="pointer-events-none fixed inset-0 bg-[linear-gradient(rgba(255,255,255,0.48)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.48)_1px,transparent_1px)] bg-[size:32px_32px] opacity-35 dark:hidden"
         />
       )}
       {/* Desktop Sidebar */}

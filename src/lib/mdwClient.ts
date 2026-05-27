@@ -287,6 +287,38 @@ function hasInteractiveSuccess(url: string | undefined, method: string | undefin
   ) {
     return false;
   }
+  // Billing endpoints return a Stripe redirect URL — they are not save actions,
+  // so the success outcome belongs to Stripe, not us. Suppress the generic toast.
+  if (
+    normalizedMethod === 'POST' &&
+    (url?.includes('/billing/checkout') || url?.includes('/billing/portal'))
+  ) {
+    return false;
+  }
+  // Notification read-state mutations are passive UI side effects triggered by
+  // clicking a notification. Showing "Saved successfully" there is misleading.
+  if (
+    normalizedMethod === 'PATCH' &&
+    (Boolean(url?.match(/\/notifications\/[^/]+\/read$/)) || url?.includes('/notifications/read-all'))
+  ) {
+    return false;
+  }
+  // Exam session lifecycle actions (start, retake, submit) navigate the user to
+  // the next page (exam runner / result page). The destination page is itself
+  // the confirmation, so a toast on top of that is redundant noise.
+  if (
+    normalizedMethod === 'POST' &&
+    (Boolean(url?.match(/\/exams\/[^/]+\/sessions$/)) ||
+      Boolean(url?.match(/\/exams\/[^/]+\/retake$/)))
+  ) {
+    return false;
+  }
+  if (
+    normalizedMethod === 'PATCH' &&
+    Boolean(url?.match(/\/exams\/sessions\/[^/]+\/submit$/))
+  ) {
+    return false;
+  }
   if (normalizedMethod === 'GET') return Boolean(url?.includes('/download'));
   return true;
 }

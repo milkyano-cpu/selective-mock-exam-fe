@@ -77,6 +77,7 @@ export interface LeaderboardEntry {
   score: number;
   rankingLevel: RankingLevel | null;
   totalExams: number;
+  avgTimeSeconds: number | null;
 }
 
 export interface Leaderboard {
@@ -90,6 +91,7 @@ export interface Leaderboard {
     score: number | null;
     rankingLevel: RankingLevel | null;
     totalExams: number | null;
+    avgTimeSeconds: number | null;
     percentile: number | null;
   };
 }
