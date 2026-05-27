@@ -22,6 +22,8 @@ import {
 
 const PAGE_LIMIT = 20;
 
+type BroadcastFormErrors = Partial<Record<'title' | 'message' | 'target', string>>;
+
 function formatDateTime(value: string | null) {
   if (!value) return '-';
   return new Date(value).toLocaleString('en-GB', {
@@ -47,6 +49,7 @@ export default function BroadcastsPage() {
   const [listError, setListError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [formErrors, setFormErrors] = useState<BroadcastFormErrors>({});
   const [form, setForm] = useState({
     title: '',
     message: '',
@@ -104,23 +107,36 @@ export default function BroadcastsPage() {
       scheduledAt: '',
     });
     setErrorMsg(null);
+    setFormErrors({});
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMsg(null);
+
+    const nextErrors: BroadcastFormErrors = {};
+    if (!form.title.trim()) {
+      nextErrors.title = 'Please enter a title for this broadcast.';
+    }
+    if (!form.message.trim()) {
+      nextErrors.message = 'Please enter a message to send.';
+    }
     if (form.target.length === 0) {
-      setErrorMsg('Select at least one target audience');
+      nextErrors.target = 'Please select at least one target audience.';
+    }
+    if (Object.keys(nextErrors).length > 0) {
+      setFormErrors(nextErrors);
       return;
     }
 
+    setFormErrors({});
     setIsSubmitting(true);
-    setErrorMsg(null);
     setSuccessMsg(null);
 
     try {
       const res = await announcementService.create({
-        title: form.title,
-        message: form.message,
+        title: form.title.trim(),
+        message: form.message.trim(),
         priority: form.priority,
         target: form.target,
         ...(form.scheduledAt ? { scheduledAt: new Date(form.scheduledAt).toISOString() } : {}),
@@ -299,21 +315,52 @@ export default function BroadcastsPage() {
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-5 p-6">
+            <form onSubmit={handleSubmit} noValidate className="space-y-5 p-6">
               {errorMsg && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-400">{errorMsg}</div>}
 
               <div className="space-y-1.5">
                 <label className="text-sm font-bold text-slate-900 dark:text-slate-100">
                   Title <span className="text-red-500">*</span>
                 </label>
-                <input value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} required className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-[#0A9AE2] focus:outline-none dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100" />
+                <input
+                  value={form.title}
+                  onChange={(e) => {
+                    setForm((p) => ({ ...p, title: e.target.value }));
+                    setFormErrors((p) => ({ ...p, title: undefined }));
+                  }}
+                  required
+                  aria-invalid={Boolean(formErrors.title)}
+                  aria-describedby={formErrors.title ? 'broadcast-title-error' : undefined}
+                  className={`w-full rounded-xl border bg-slate-50 px-4 py-3 text-sm focus:outline-none dark:bg-slate-950 dark:text-slate-100 ${
+                    formErrors.title
+                      ? 'border-red-400 focus:border-red-500 dark:border-red-500'
+                      : 'border-slate-200 focus:border-[#0A9AE2] dark:border-slate-800'
+                  }`}
+                />
+                {formErrors.title && <p id="broadcast-title-error" className="text-xs font-medium text-red-500">{formErrors.title}</p>}
               </div>
 
               <div className="space-y-1.5">
                 <label className="text-sm font-bold text-slate-900 dark:text-slate-100">
                   Message <span className="text-red-500">*</span>
                 </label>
-                <textarea value={form.message} onChange={(e) => setForm((p) => ({ ...p, message: e.target.value }))} required rows={5} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm focus:border-[#0A9AE2] focus:outline-none dark:border-slate-800 dark:bg-slate-950 dark:text-slate-100" />
+                <textarea
+                  value={form.message}
+                  onChange={(e) => {
+                    setForm((p) => ({ ...p, message: e.target.value }));
+                    setFormErrors((p) => ({ ...p, message: undefined }));
+                  }}
+                  required
+                  rows={5}
+                  aria-invalid={Boolean(formErrors.message)}
+                  aria-describedby={formErrors.message ? 'broadcast-message-error' : undefined}
+                  className={`w-full rounded-xl border bg-slate-50 px-4 py-3 text-sm focus:outline-none dark:bg-slate-950 dark:text-slate-100 ${
+                    formErrors.message
+                      ? 'border-red-400 focus:border-red-500 dark:border-red-500'
+                      : 'border-slate-200 focus:border-[#0A9AE2] dark:border-slate-800'
+                  }`}
+                />
+                {formErrors.message && <p id="broadcast-message-error" className="text-xs font-medium text-red-500">{formErrors.message}</p>}
               </div>
 
               <div className="grid gap-5 md:grid-cols-2">
@@ -340,11 +387,12 @@ export default function BroadcastsPage() {
                 </label>
                 <div className="flex gap-2">
                   {(['STUDENT', 'PARENT'] as const).map((target) => (
-                    <button key={target} type="button" onClick={() => toggleTarget(target)} className={`flex-1 rounded-xl py-2.5 text-sm font-bold transition-all ${form.target.includes(target) ? 'bg-[#0A9AE2] text-white' : 'border border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400'}`}>
+                    <button key={target} type="button" onClick={() => { toggleTarget(target); setFormErrors((p) => ({ ...p, target: undefined })); }} className={`flex-1 rounded-xl py-2.5 text-sm font-bold transition-all ${form.target.includes(target) ? 'bg-[#0A9AE2] text-white' : 'border border-slate-200 bg-slate-50 text-slate-500 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400'}`}>
                       {target === 'STUDENT' ? 'Students' : 'Parents'}
                     </button>
                   ))}
                 </div>
+                {formErrors.target && <p className="text-xs font-medium text-red-500">{formErrors.target}</p>}
               </div>
 
               <div className="flex gap-3 pt-2">

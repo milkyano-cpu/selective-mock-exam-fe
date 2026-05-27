@@ -1,14 +1,15 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { isAxiosError } from 'axios';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { analyticsService } from '@/features/analytics/services/analytics.service';
+import { adminService, type UserItem } from '@/features/admin/services/admin.service';
+import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/SearchableSelect';
 import type {
   MyAnalytics,
   Leaderboard,
-  LeaderboardPeriod,
   RankingLevel,
   TopicPerformanceItem,
   ExamHistoryItem,
@@ -21,7 +22,9 @@ import {
   AlertCircle,
   ChevronRight,
   Medal,
+  Users,
 } from 'lucide-react';
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -31,12 +34,6 @@ const RANKING_CONFIG: Record<RankingLevel, { label: string; color: string; bg: s
   HIGH_AVERAGE:  { label: 'High Average',  color: 'text-teal-700 dark:text-teal-400',    bg: 'bg-teal-100 dark:bg-teal-900/30',    border: 'border-teal-300 dark:border-teal-700' },
   AVERAGE:       { label: 'Average',       color: 'text-blue-700 dark:text-blue-400',    bg: 'bg-blue-100 dark:bg-blue-900/30',    border: 'border-blue-300 dark:border-blue-700' },
   LOW_AVERAGE:   { label: 'Low Average',   color: 'text-slate-600 dark:text-slate-400',  bg: 'bg-slate-100 dark:bg-slate-800',     border: 'border-slate-300 dark:border-slate-600' },
-};
-
-const PERIOD_LABELS: Record<LeaderboardPeriod, string> = {
-  WEEKLY: 'Weekly',
-  MONTHLY: 'Monthly',
-  ALL_TIME: 'All Time',
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -52,52 +49,93 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-// ── SVG Line Chart ────────────────────────────────────────────────────────────
+// ── Score history chart (Recharts) ────────────────────────────────────────────
+
+type ScoreChartPoint = {
+  index: number;
+  shortLabel: string;
+  examTitle: string;
+  score: number;
+  takenAt: string;
+};
+
+function ScoreChartTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: Array<{ payload: ScoreChartPoint }>;
+}) {
+  if (!active || !payload?.length) return null;
+  const point = payload[0].payload;
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-lg dark:border-slate-700 dark:bg-slate-900">
+      <p className="text-[11px] font-bold text-slate-900 dark:text-slate-100">{point.examTitle}</p>
+      <p className="mt-0.5 text-[10px] font-medium text-slate-400">{formatDate(point.takenAt)}</p>
+      <p className="mt-1 text-base font-black text-[#FF6900]">{point.score.toFixed(0)}<span className="text-[10px] text-slate-400">/100</span></p>
+    </div>
+  );
+}
 
 function ScoreLineChart({ history }: { history: ExamHistoryItem[] }) {
-  const scored = history.filter((h) => h.finalScore !== null).slice().reverse();
+  const scored = history
+    .filter((h): h is ExamHistoryItem & { finalScore: number } => h.finalScore !== null)
+    .slice()
+    .reverse();
+
   if (scored.length < 2) {
     return (
-      <div className="flex h-32 items-center justify-center rounded-2xl bg-slate-50 dark:bg-slate-800">
+      <div className="flex h-40 items-center justify-center rounded-2xl bg-slate-50 dark:bg-slate-800/50">
         <p className="text-xs font-medium text-slate-400">Need at least 2 exams to show trend</p>
       </div>
     );
   }
 
-  const W = 600, H = 120, PAD = 16;
-  const scores = scored.map((h) => h.finalScore as number);
-  const minS = Math.max(0, Math.min(...scores) - 10);
-  const maxS = Math.min(100, Math.max(...scores) + 10);
-  const range = maxS - minS || 1;
-
-  const pts = scores.map((s, i) => {
-    const x = PAD + (i / (scores.length - 1)) * (W - PAD * 2);
-    const y = PAD + (1 - (s - minS) / range) * (H - PAD * 2);
-    return { x, y, s, label: scored[i].examTitle };
-  });
-
-  const polyline = pts.map((p) => `${p.x},${p.y}`).join(' ');
-  const area = `${pts[0].x},${H} ` + pts.map((p) => `${p.x},${p.y}`).join(' ') + ` ${pts[pts.length - 1].x},${H}`;
+  const data: ScoreChartPoint[] = scored.map((h, index) => ({
+    index,
+    shortLabel: h.examTitle.length > 12 ? `${h.examTitle.slice(0, 12)}…` : h.examTitle,
+    examTitle: h.examTitle,
+    score: h.finalScore,
+    takenAt: h.takenAt,
+  }));
 
   return (
-    <div className="overflow-hidden rounded-2xl bg-slate-50 dark:bg-slate-800/50">
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" preserveAspectRatio="none" style={{ height: 120 }}>
-        <defs>
-          <linearGradient id="scoreGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#FF6900" stopOpacity="0.25" />
-            <stop offset="100%" stopColor="#FF6900" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        <polygon points={area} fill="url(#scoreGrad)" />
-        <polyline points={polyline} fill="none" stroke="#FF6900" strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
-        {pts.map((p, i) => (
-          <circle key={i} cx={p.x} cy={p.y} r="4" fill="#FF6900" stroke="white" strokeWidth="2" />
-        ))}
-      </svg>
-      <div className="flex items-center justify-between px-3 pb-2">
-        <span className="text-[10px] font-medium text-slate-400">{scored[0].examTitle.slice(0, 20)}</span>
-        <span className="text-[10px] font-medium text-slate-400">{scored[scored.length - 1].examTitle.slice(0, 20)}</span>
-      </div>
+    <div className="h-56 w-full overflow-hidden rounded-2xl bg-slate-50/60 px-2 pb-2 pt-4 dark:bg-slate-800/40">
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
+          <defs>
+            <linearGradient id="scoreGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#FF6900" stopOpacity={0.35} />
+              <stop offset="100%" stopColor="#FF6900" stopOpacity={0} />
+            </linearGradient>
+          </defs>
+          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" strokeOpacity={0.6} vertical={false} />
+          <XAxis
+            dataKey="shortLabel"
+            tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 600 }}
+            tickLine={false}
+            axisLine={false}
+            interval="preserveStartEnd"
+          />
+          <YAxis
+            domain={[0, 100]}
+            tick={{ fill: '#94a3b8', fontSize: 10, fontWeight: 600 }}
+            tickLine={false}
+            axisLine={false}
+            width={28}
+          />
+          <Tooltip content={<ScoreChartTooltip />} cursor={{ stroke: '#FF6900', strokeWidth: 1, strokeDasharray: '4 4' }} />
+          <Area
+            type="monotone"
+            dataKey="score"
+            stroke="#FF6900"
+            strokeWidth={2.5}
+            fill="url(#scoreGrad)"
+            dot={{ r: 4, fill: '#FF6900', stroke: '#fff', strokeWidth: 2 }}
+            activeDot={{ r: 6, fill: '#FF6900', stroke: '#fff', strokeWidth: 2 }}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
     </div>
   );
 }
@@ -133,37 +171,79 @@ function TopicBar({ topic }: { topic: TopicPerformanceItem }) {
 export default function PerformancePage() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
+  const isStaffViewer = user?.role === 'ADMIN' || user?.role === 'TUTOR';
 
   const [analytics, setAnalytics] = useState<MyAnalytics | null>(null);
   const [leaderboard, setLeaderboard] = useState<Leaderboard | null>(null);
-  const [lbPeriod, setLbPeriod] = useState<LeaderboardPeriod>('ALL_TIME');
+  const [lbExamId, setLbExamId] = useState<string>('');
   const [lbLoading, setLbLoading] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!isStaffViewer);
   const [error, setError] = useState<string | null>(null);
 
-  // Load personal analytics once
+  // ── Staff (admin/tutor) student selector state ──────────────────────────
+  const [students, setStudents] = useState<UserItem[]>([]);
+  const [isLoadingStudents, setIsLoadingStudents] = useState(false);
+  const [selectedStudentId, setSelectedStudentId] = useState('');
+
+  // Load student list for admin/tutor
   useEffect(() => {
+    if (!isStaffViewer) return;
+
+    let cancelled = false;
+    setIsLoadingStudents(true);
+    adminService
+      .listUsers({ role: 'STUDENT', page: 1, limit: 100 })
+      .then((res) => {
+        if (!cancelled && res.success) setStudents(res.data);
+      })
+      .catch(() => {
+        // mdwClient interceptor handles toast feedback
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingStudents(false);
+      });
+
+    return () => { cancelled = true; };
+  }, [isStaffViewer]);
+
+  // Load analytics: staff = by selected student; otherwise = self
+  useEffect(() => {
+    if (isStaffViewer && !selectedStudentId) {
+      setAnalytics(null);
+      setError(null);
+      setIsLoading(false);
+      return;
+    }
+
+    let cancelled = false;
     const load = async () => {
       setIsLoading(true);
+      setError(null);
       try {
-        const res = await analyticsService.getMyAnalytics();
+        const res = isStaffViewer
+          ? await analyticsService.getStudentAnalytics(selectedStudentId)
+          : await analyticsService.getMyAnalytics();
+        if (cancelled) return;
         if (res.success) setAnalytics(res.data);
         else setError(res.message);
       } catch (err) {
+        if (cancelled) return;
         setError(isAxiosError(err) ? err.response?.data?.message || 'Failed to load analytics' : 'Failed to load analytics');
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     };
     load();
-  }, []);
 
-  // Load leaderboard when period changes
+    return () => { cancelled = true; };
+  }, [isStaffViewer, selectedStudentId]);
+
+  // Leaderboard uses a single all-time ranking, optionally scoped to one exam.
   useEffect(() => {
     const load = async () => {
       setLbLoading(true);
       try {
-        const res = await analyticsService.getLeaderboard(lbPeriod);
+        const res = await analyticsService.getLeaderboard('ALL_TIME', lbExamId || undefined);
         if (res.success) setLeaderboard(res.data);
       } catch {
         // non-critical — keep previous leaderboard
@@ -172,25 +252,114 @@ export default function PerformancePage() {
       }
     };
     load();
-  }, [lbPeriod]);
+  }, [lbExamId]);
+
+  // Build unique exam options for leaderboard filter from analytics history
+  const examFilterOptions = useMemo<SearchableSelectOption[]>(() => {
+    if (!analytics) return [];
+    const seen = new Set<string>();
+    const options: SearchableSelectOption[] = [];
+    for (const h of analytics.examHistory) {
+      if (!seen.has(h.examId)) {
+        seen.add(h.examId);
+        options.push({ value: h.examId, label: h.examTitle, searchText: h.examTitle });
+      }
+    }
+    return options;
+  }, [analytics]);
+
+  // Reset exam filter when switching student (staff) or when filter exam no longer in current student's history
+  useEffect(() => {
+    if (lbExamId && !examFilterOptions.some((o) => o.value === lbExamId)) {
+      setLbExamId('');
+    }
+  }, [examFilterOptions, lbExamId]);
+
+  // For staff viewer, highlight the selected student in leaderboard;
+  // for student viewer, highlight themselves.
+  const highlightedStudentId = isStaffViewer ? selectedStudentId : user?.id;
+
+  const studentOptions = useMemo<SearchableSelectOption[]>(
+    () => students.map((s) => ({ value: s.id, label: s.fullName || s.email, searchText: `${s.fullName ?? ''} ${s.email}` })),
+    [students]
+  );
+
+  const selectedStudent = useMemo(
+    () => students.find((s) => s.id === selectedStudentId) ?? null,
+    [students, selectedStudentId]
+  );
+
+  // ── Staff selector header (shown above all states) ──────────────────────
+  const staffSelector = isStaffViewer ? (
+    <header className="space-y-3">
+      <div>
+        <p className="text-xs font-bold uppercase tracking-[0.24em] text-violet-600 dark:text-violet-400">Performance</p>
+        <h1 className="mt-0.5 text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100">Student Analytics</h1>
+        <p className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400">
+          Pick a student to view their performance, history, and topic breakdown.
+        </p>
+      </div>
+      <div className="max-w-md">
+        <SearchableSelect
+          value={selectedStudentId}
+          options={studentOptions}
+          onChange={setSelectedStudentId}
+          placeholder={isLoadingStudents ? 'Loading students…' : 'Select a student'}
+          searchPlaceholder="Search by name or email…"
+          emptyText={isLoadingStudents ? 'Loading…' : 'No students found.'}
+          disabled={isLoadingStudents || studentOptions.length === 0}
+        />
+        {selectedStudent && (
+          <p className="mt-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+            Viewing <span className="font-bold text-slate-700 dark:text-slate-300">{selectedStudent.fullName || selectedStudent.email}</span>
+            {' · '}
+            <span className="uppercase">{selectedStudent.tier}</span>
+          </p>
+        )}
+      </div>
+    </header>
+  ) : null;
+
+  // Staff hasn't picked a student yet → empty state with selector
+  if (isStaffViewer && !selectedStudentId) {
+    return (
+      <div className="w-full space-y-5">
+        {staffSelector}
+        <div className="flex flex-col items-center justify-center rounded-[2rem] border border-dashed border-slate-300 bg-white py-20 text-center dark:border-slate-700 dark:bg-slate-900">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-100 dark:bg-violet-900/20">
+            <Users size={26} className="text-violet-600 dark:text-violet-400" />
+          </div>
+          <p className="mt-4 text-base font-bold text-slate-700 dark:text-slate-300">Select a student to begin</p>
+          <p className="mt-1 max-w-xs text-sm font-medium text-slate-400">
+            Use the dropdown above to choose a student. Their exam history, score trend, and topic breakdown will appear here.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
-      <div className="space-y-6 animate-pulse">
-        <div className="flex items-center justify-between">
-          <div className="space-y-2">
-            <div className="h-7 w-40 rounded-lg bg-slate-200/70 dark:bg-slate-800" />
-            <div className="h-4 w-60 rounded bg-slate-100 dark:bg-slate-800/60" />
+      <div className="space-y-6">
+        {staffSelector}
+        <div className="space-y-6 animate-pulse">
+          {!isStaffViewer && (
+            <div className="flex items-center justify-between">
+              <div className="space-y-2">
+                <div className="h-7 w-40 rounded-lg bg-slate-200/70 dark:bg-slate-800" />
+                <div className="h-4 w-60 rounded bg-slate-100 dark:bg-slate-800/60" />
+              </div>
+            </div>
+          )}
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="h-24 rounded-2xl border border-slate-200/60 bg-white dark:border-slate-800 dark:bg-slate-900" />
+            ))}
           </div>
-        </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-24 rounded-2xl border border-slate-200/60 bg-white dark:border-slate-800 dark:bg-slate-900" />
-          ))}
-        </div>
-        <div className="grid gap-6 lg:grid-cols-2">
-          <div className="h-72 rounded-2xl border border-slate-200/60 bg-white dark:border-slate-800 dark:bg-slate-900" />
-          <div className="h-72 rounded-2xl border border-slate-200/60 bg-white dark:border-slate-800 dark:bg-slate-900" />
+          <div className="grid gap-6 lg:grid-cols-2">
+            <div className="h-72 rounded-2xl border border-slate-200/60 bg-white dark:border-slate-800 dark:bg-slate-900" />
+            <div className="h-72 rounded-2xl border border-slate-200/60 bg-white dark:border-slate-800 dark:bg-slate-900" />
+          </div>
         </div>
       </div>
     );
@@ -198,34 +367,45 @@ export default function PerformancePage() {
 
   if (error) {
     return (
-      <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 dark:border-red-800/50 dark:bg-red-900/20 dark:text-red-400">
-        <AlertCircle size={16} /> {error}
+      <div className="w-full space-y-5">
+        {staffSelector}
+        <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 dark:border-red-800/50 dark:bg-red-900/20 dark:text-red-400">
+          <AlertCircle size={16} /> {error}
+        </div>
       </div>
     );
   }
 
   const rankConfig = analytics?.rankingLevel ? RANKING_CONFIG[analytics.rankingLevel as RankingLevel] : null;
 
-  // ── Empty state ──────────────────────────────────────────────────────────
+  // ── Empty state (selected student/self has no exam data yet) ────────────
   if (!analytics || analytics.totalExams === 0) {
     return (
       <div className="w-full space-y-5">
-        <header>
-          <p className="text-xs font-bold uppercase tracking-[0.24em] text-violet-600 dark:text-violet-400">Performance</p>
-          <h1 className="mt-0.5 text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100">Analytics</h1>
-        </header>
+        {isStaffViewer ? staffSelector : (
+          <header>
+            <p className="text-xs font-bold uppercase tracking-[0.24em] text-violet-600 dark:text-violet-400">Performance</p>
+            <h1 className="mt-0.5 text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100">Analytics</h1>
+          </header>
+        )}
         <div className="flex flex-col items-center justify-center rounded-[2rem] border border-dashed border-slate-300 bg-white py-20 text-center dark:border-slate-700 dark:bg-slate-900">
           <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-violet-100 dark:bg-violet-900/20">
             <TrendingUp size={26} className="text-violet-600 dark:text-violet-400" />
           </div>
           <p className="mt-4 text-base font-bold text-slate-700 dark:text-slate-300">No data yet</p>
-          <p className="mt-1 max-w-xs text-sm font-medium text-slate-400">Complete at least one exam to see your performance analytics and leaderboard ranking.</p>
-          <button
-            onClick={() => router.push('/dashboard/exams')}
-            className="mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-[#0A9AE2] px-4 py-2.5 text-sm font-bold text-white shadow-sm shadow-blue-100 transition-all hover:bg-[#0864B6] dark:shadow-none"
-          >
-            Go to Exams <ChevronRight size={15} />
-          </button>
+          <p className="mt-1 max-w-xs text-sm font-medium text-slate-400">
+            {isStaffViewer
+              ? 'This student has not completed any exam yet. Charts and ranking will appear once they have results.'
+              : 'Complete at least one exam to see your performance analytics and leaderboard ranking.'}
+          </p>
+          {!isStaffViewer && (
+            <button
+              onClick={() => router.push('/dashboard/exams')}
+              className="mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-[#0A9AE2] px-4 py-2.5 text-sm font-bold text-white shadow-sm shadow-blue-100 transition-all hover:bg-[#0864B6] dark:shadow-none"
+            >
+              Go to Exams <ChevronRight size={15} />
+            </button>
+          )}
         </div>
       </div>
     );
@@ -235,10 +415,12 @@ export default function PerformancePage() {
     <div className="w-full space-y-5">
 
       {/* ── Header ── */}
-      <header>
-        <p className="text-xs font-bold uppercase tracking-[0.24em] text-violet-600 dark:text-violet-400">Performance</p>
-        <h1 className="mt-0.5 text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100">Analytics</h1>
-      </header>
+      {isStaffViewer ? staffSelector : (
+        <header>
+          <p className="text-xs font-bold uppercase tracking-[0.24em] text-violet-600 dark:text-violet-400">Performance</p>
+          <h1 className="mt-0.5 text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100">Analytics</h1>
+        </header>
+      )}
 
       {/* ── Body ── */}
       <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
@@ -340,29 +522,32 @@ export default function PerformancePage() {
 
         {/* ════════════════ RIGHT COLUMN: Leaderboard ════════════════ */}
         <div className="flex flex-col gap-4 lg:w-72 lg:shrink-0">
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+          <div className="relative z-10 overflow-visible rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
             {/* Header */}
-            <div className="flex items-center gap-2 border-b border-slate-100 px-4 py-3.5 dark:border-slate-800">
-              <Trophy size={15} className="text-amber-500" />
-              <p className="text-sm font-black text-slate-900 dark:text-slate-100">Leaderboard</p>
+            <div className="flex items-center justify-between gap-2 border-b border-slate-100 px-4 py-3.5 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <Trophy size={15} className="text-amber-500" />
+                <p className="text-sm font-black text-slate-900 dark:text-slate-100">Leaderboard</p>
+              </div>
+              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                {lbExamId ? 'Per Mock' : 'Overall'}
+              </span>
             </div>
 
-            {/* Period tabs */}
-            <div className="flex gap-1 border-b border-slate-100 px-3 py-2 dark:border-slate-800">
-              {(['WEEKLY', 'MONTHLY', 'ALL_TIME'] as const).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setLbPeriod(p)}
-                  className={`flex-1 rounded-lg px-2 py-1.5 text-[10px] font-bold transition-colors ${
-                    lbPeriod === p
-                      ? 'bg-[#FF6900] text-white'
-                      : 'text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
-                  }`}
-                >
-                  {PERIOD_LABELS[p]}
-                </button>
-              ))}
-            </div>
+            {/* Exam selector */}
+            {examFilterOptions.length > 0 && (
+              <div className="border-b border-slate-100 px-3 py-2 dark:border-slate-800">
+                <SearchableSelect
+                  value={lbExamId}
+                  options={[{ value: '', label: 'All exams (overall)' }, ...examFilterOptions]}
+                  onChange={setLbExamId}
+                  placeholder="All exams (overall)"
+                  searchPlaceholder="Search exams…"
+                  emptyText="No exams found."
+                  triggerClassName="text-xs"
+                />
+              </div>
+            )}
 
             {/* List */}
             {lbLoading ? (
@@ -380,17 +565,17 @@ export default function PerformancePage() {
               </div>
             ) : !leaderboard || leaderboard.entries.length === 0 ? (
               <div className="py-10 text-center">
-                <p className="text-xs font-medium text-slate-400">No data for this period yet.</p>
+                <p className="text-xs font-medium text-slate-400">No leaderboard data yet.</p>
               </div>
             ) : (
               <div className="divide-y divide-slate-100 dark:divide-slate-800">
                 {leaderboard.entries.slice(0, 10).map((entry) => {
-                  const isMe = entry.studentId === user?.id;
+                  const isHighlighted = entry.studentId === highlightedStudentId;
                   const medalColor = entry.rank === 1 ? 'text-yellow-500' : entry.rank === 2 ? 'text-slate-400' : entry.rank === 3 ? 'text-amber-600' : null;
                   return (
                     <div
                       key={entry.studentId}
-                      className={`flex items-center gap-2.5 px-4 py-2.5 transition-colors ${isMe ? 'bg-orange-50 dark:bg-orange-900/10' : ''}`}
+                      className={`flex items-center gap-2.5 px-4 py-2.5 transition-colors ${isHighlighted ? 'bg-orange-50 dark:bg-orange-900/10' : ''}`}
                     >
                       <div className="flex h-6 w-6 shrink-0 items-center justify-center">
                         {medalColor ? (
@@ -400,12 +585,12 @@ export default function PerformancePage() {
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
-                        <p className={`truncate text-xs font-bold ${isMe ? 'text-[#FF6900]' : 'text-slate-800 dark:text-slate-200'}`}>
-                          {isMe ? 'You' : entry.studentName}
+                        <p className={`truncate text-xs font-bold ${isHighlighted ? 'text-[#FF6900]' : 'text-slate-800 dark:text-slate-200'}`}>
+                          {isHighlighted && !isStaffViewer ? 'You' : entry.studentName}
                         </p>
                         <p className="text-[10px] text-slate-400">{entry.totalExams} exam{entry.totalExams !== 1 ? 's' : ''}</p>
                       </div>
-                      <span className={`shrink-0 text-sm font-black ${isMe ? 'text-[#FF6900]' : 'text-slate-900 dark:text-slate-100'}`}>
+                      <span className={`shrink-0 text-sm font-black ${isHighlighted ? 'text-[#FF6900]' : 'text-slate-900 dark:text-slate-100'}`}>
                         {entry.score.toFixed(0)}
                       </span>
                     </div>
@@ -414,8 +599,8 @@ export default function PerformancePage() {
               </div>
             )}
 
-            {/* My rank callout if not in top 10 */}
-            {leaderboard && leaderboard.myRank.rank !== null && leaderboard.myRank.rank > 10 && leaderboard.myRank.studentName && (
+            {/* My rank callout if not in top 10 — only for student viewing themselves */}
+            {!isStaffViewer && leaderboard && leaderboard.myRank.rank !== null && leaderboard.myRank.rank > 10 && leaderboard.myRank.studentName && (
               <>
                 <div className="flex items-center justify-center py-1">
                   <span className="text-[10px] font-bold text-slate-300 dark:text-slate-600">• • •</span>
@@ -435,7 +620,7 @@ export default function PerformancePage() {
               </>
             )}
 
-            {leaderboard && leaderboard.myRank.rank === null && (
+            {!isStaffViewer && leaderboard && leaderboard.myRank.rank === null && (
               <div className="border-t border-slate-100 px-4 py-2.5 dark:border-slate-800">
                 <p className="text-center text-xs font-medium text-slate-400">Complete an exam to rank</p>
               </div>
