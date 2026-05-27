@@ -59,12 +59,11 @@ export default function TopicsPage({ params }: { params: Promise<{ subjectId: st
   };
 
   const onConfirmDelete = async () => {
-    if (selectedTopic) {
-      const success = await deleteTopic(subjectId, selectedTopic.id);
-      if (success) {
-        setIsDeleteModalOpen(false);
-        fetchTopics(subjectId, { page, limit: 10, search });
-      }
+    if (!selectedTopic) return;
+    const success = await deleteTopic(subjectId, selectedTopic.id);
+    setIsDeleteModalOpen(false);
+    if (success) {
+      fetchTopics(subjectId, { page, limit: 10, search });
     }
   };
 
@@ -145,7 +144,9 @@ export default function TopicsPage({ params }: { params: Promise<{ subjectId: st
                   </td>
                 </tr>
               ) : (
-                topics.map((topic) => (
+                topics.map((topic) => {
+                  const hasRelatedQuestions = (topic._count?.questions ?? 0) > 0;
+                  return (
                   <tr key={topic.id} className="group transition-colors hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
                     <td className="px-4 sm:px-8 py-4 sm:py-5">
                       <div className="flex items-center gap-2 sm:gap-3">
@@ -181,15 +182,19 @@ export default function TopicsPage({ params }: { params: Promise<{ subjectId: st
                         </button>
                         <button
                           onClick={() => handleDelete(topic)}
-                          className="p-1.5 sm:p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg sm:rounded-xl transition-all dark:hover:bg-red-500/10"
-                          title="Delete Topic"
+                          disabled={hasRelatedQuestions}
+                          className="p-1.5 sm:p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg sm:rounded-xl transition-all disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-400 dark:hover:bg-red-500/10"
+                          title={hasRelatedQuestions
+                            ? "Cannot delete: this topic is used by one or more questions"
+                            : "Delete Topic"}
                         >
                           <Trash2 size={16} />
                         </button>
                       </div>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -233,7 +238,7 @@ export default function TopicsPage({ params }: { params: Promise<{ subjectId: st
         onClose={() => setIsDeleteModalOpen(false)}
         onConfirm={onConfirmDelete}
         title="Delete Topic"
-        message={`Are you sure you want to delete "${selectedTopic?.name}"? You must remove all associated questions first.`}
+        message={`Are you sure you want to delete "${selectedTopic?.name}"? This action cannot be undone.`}
         isLoading={isLoading}
       />
     </div>

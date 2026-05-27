@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { isAxiosError } from 'axios';
 import { subjectsService } from '../services/subjects.service';
+import { showClientErrorAlert } from '@/lib/errorAlert';
 import {
   Subject,
   CreateSubjectPayload,
@@ -25,6 +26,7 @@ export const useSubjects = () => {
         setMeta(response.meta);
       } else {
         setError(response.message || 'Failed to fetch subjects');
+        showClientErrorAlert('Failed to load. Please refresh and try again.', 'Failed to load');
       }
     } catch (err: unknown) {
       const msg = isAxiosError(err)
@@ -45,6 +47,7 @@ export const useSubjects = () => {
         return true;
       }
       setError(response.message || 'Failed to create subject');
+      showClientErrorAlert('Your changes could not be saved. Please try again.', 'Failed to save');
       return false;
     } catch (err: unknown) {
       const msg = isAxiosError(err)
@@ -66,6 +69,7 @@ export const useSubjects = () => {
         return true;
       }
       setError(response.message || 'Failed to update subject');
+      showClientErrorAlert('Your changes could not be saved. Please try again.', 'Failed to save');
       return false;
     } catch (err: unknown) {
       const msg = isAxiosError(err)
@@ -87,6 +91,7 @@ export const useSubjects = () => {
         return true;
       }
       setError(response.message || 'Failed to delete subject');
+      showClientErrorAlert('The item could not be deleted. Please try again.', 'Failed to delete');
       return false;
     } catch (err: unknown) {
       const msg = isAxiosError(err)

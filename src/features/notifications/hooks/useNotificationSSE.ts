@@ -3,6 +3,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { useNotificationStore } from '../store/notification.store';
 import { notificationService, type NotificationItem } from '../services/notification.service';
+import { showClientWarningToast } from '@/lib/errorAlert';
 
 const RECONNECT_DELAY_MS = 3_000;
 const MAX_RECONNECT_DELAY_MS = 30_000;
@@ -59,7 +60,13 @@ export function useNotificationSSE() {
         esRef.current = null;
         if (!mounted) return;
         retryCountRef.current += 1;
-        if (retryCountRef.current > MAX_RECONNECT_ATTEMPTS) return;
+        if (retryCountRef.current > MAX_RECONNECT_ATTEMPTS) {
+          void showClientWarningToast(
+            'Please refresh the page to receive new notifications again.',
+            'Live updates paused'
+          );
+          return;
+        }
         setTimeout(connect, retryRef.current);
         retryRef.current = Math.min(retryRef.current * 2, MAX_RECONNECT_DELAY_MS);
       };

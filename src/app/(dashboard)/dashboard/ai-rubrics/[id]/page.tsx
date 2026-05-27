@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { aiRubricsService } from '@/features/ai-rubrics/services/ai-rubrics.service';
 import { DeleteConfirmModal } from '@/features/subjects/components/DeleteConfirmModal';
+import { AccessDeniedScreen } from '@/components/feedback/AccessDeniedScreen';
 import type {
   AiCalibrationNote,
   AiCalibrationNoteInput,
@@ -23,7 +24,6 @@ import {
   Pencil,
   Plus,
   Save,
-  ShieldAlert,
   Trash2,
   X,
 } from 'lucide-react';
@@ -61,14 +61,7 @@ export default function AiRubricDetailPage() {
   useEffect(() => { if (canManage) void loadRubric(); }, [canManage, loadRubric]);
 
   if (!canManage) {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center">
-        <div className="text-center">
-          <ShieldAlert className="mx-auto mb-4 text-red-500" size={48} />
-          <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100">Access Denied</h2>
-        </div>
-      </div>
-    );
+    return <AccessDeniedScreen />;
   }
 
   if (isLoading && !rubric) {

@@ -2,6 +2,8 @@
 
 import { usePushSubscription } from '@/features/push/hooks/usePushSubscription';
 import { BellRing, CheckCircle2, Loader2, ShieldCheck, Smartphone } from 'lucide-react';
+import { isAxiosError } from 'axios';
+import { showClientErrorAlert } from '@/lib/errorAlert';
 
 export function PushNotificationSettingsCard() {
   const { isSupported, isSubscribed, isLoading, status, subscribe, unsubscribe } = usePushSubscription();
@@ -29,7 +31,9 @@ export function PushNotificationSettingsCard() {
       }
     } catch (err) {
       console.error('Failed to toggle push notifications:', err);
-      alert('Failed to update notification settings. Please check your browser permissions.');
+      if (!isAxiosError(err)) {
+        void showClientErrorAlert('Failed to update notification settings. Please check your browser permissions.');
+      }
     }
   };
 

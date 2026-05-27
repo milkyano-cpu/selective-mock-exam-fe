@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { isAxiosError } from 'axios';
 import { questionsService } from '../services/questions.service';
+import { showClientErrorAlert } from '@/lib/errorAlert';
 import type {
   Question,
   CreateQuestionPayload,
@@ -33,6 +34,7 @@ export const useQuestions = () => {
         setMeta(response.meta);
       } else {
         setError(response.message || 'Failed to fetch questions');
+        showClientErrorAlert('Failed to load. Please refresh and try again.', 'Failed to load');
       }
     } catch (err: unknown) {
       const msg = isAxiosError(err)
@@ -51,6 +53,7 @@ export const useQuestions = () => {
       const response = await questionsService.create(payload);
       if (response.success) return true;
       setError(response.message || 'Failed to create question');
+      showClientErrorAlert('Your changes could not be saved. Please try again.', 'Failed to save');
       return false;
     } catch (err: unknown) {
       const msg = isAxiosError(err)
@@ -70,6 +73,7 @@ export const useQuestions = () => {
       const response = await questionsService.update(id, payload);
       if (response.success) return true;
       setError(response.message || 'Failed to update question');
+      showClientErrorAlert('Your changes could not be saved. Please try again.', 'Failed to save');
       return false;
     } catch (err: unknown) {
       const msg = isAxiosError(err)
@@ -89,6 +93,7 @@ export const useQuestions = () => {
       const response = await questionsService.delete(id);
       if (response.success) return true;
       setError(response.message || 'Failed to delete question');
+      showClientErrorAlert('The item could not be deleted. Please try again.', 'Failed to delete');
       return false;
     } catch (err: unknown) {
       const msg = isAxiosError(err)
@@ -108,6 +113,7 @@ export const useQuestions = () => {
       const response = await questionsService.submit(id);
       if (response.success) return true;
       setError(response.message || 'Failed to submit question');
+      showClientErrorAlert('Your submission could not be processed. Please try again.', 'Failed to submit');
       return false;
     } catch (err: unknown) {
       const msg = isAxiosError(err)
@@ -175,6 +181,7 @@ export const useQuestions = () => {
       const response = await questionsService.approve(id);
       if (response.success) return true;
       setError(response.message || 'Failed to approve question');
+      showClientErrorAlert('This action could not be completed. Please try again.', 'Action failed');
       return false;
     } catch (err: unknown) {
       const msg = isAxiosError(err)
@@ -235,6 +242,7 @@ export const useQuestions = () => {
       const response = await questionsService.reject(id, payload);
       if (response.success) return true;
       setError(response.message || 'Failed to reject question');
+      showClientErrorAlert('This action could not be completed. Please try again.', 'Action failed');
       return false;
     } catch (err: unknown) {
       const msg = isAxiosError(err)
@@ -254,6 +262,7 @@ export const useQuestions = () => {
       const response = await questionsService.import(file);
       if (response.success) return response.data;
       setError(response.message || 'Import failed');
+      showClientErrorAlert('Import failed. Please check your file and try again.', 'Import failed');
       return null;
     } catch (err: unknown) {
       const msg = isAxiosError(err)

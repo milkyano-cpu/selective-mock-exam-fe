@@ -7,6 +7,7 @@ import { isAxiosError } from 'axios';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { canWriteForum } from '@/features/membership/access';
 import { forumService } from '@/features/forum/services/forum.service';
+import { showClientErrorAlert } from '@/lib/errorAlert';
 import type { ForumPost, ForumThreadDetail, FlagReason } from '@/features/forum/types/forum.types';
 import { DeleteConfirmModal } from '@/features/subjects/components/DeleteConfirmModal';
 import {
@@ -234,7 +235,9 @@ export default function ThreadDetailPage() {
       setDeletePostId(null);
       load(page);
     } catch (err) {
-      alert(isAxiosError(err) ? err.response?.data?.message ?? 'Failed to delete' : 'Failed to delete');
+      if (!isAxiosError(err)) {
+        void showClientErrorAlert('Failed to delete post.');
+      }
     } finally {
       setIsDeletingPost(false);
     }

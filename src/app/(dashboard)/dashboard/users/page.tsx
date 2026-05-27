@@ -8,11 +8,12 @@ import {
   type UserItem,
 } from '@/features/admin/services/admin.service';
 import {
-  UserPlus, Mail, Lock, ShieldAlert, Loader2, CheckCircle2, User,
+  UserPlus, Mail, Lock, Loader2, CheckCircle2, User,
   Search, ChevronLeft, ChevronRight, X, RefreshCw, Crown, Phone, Calendar, Clock,
   Trash2, AlertTriangle, ChevronsLeft, ChevronsRight,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { AccessDeniedScreen } from '@/components/feedback/AccessDeniedScreen';
 
 type RoleTab = 'STUDENT' | 'PARENT' | 'TUTOR' | 'ADMIN';
 
@@ -185,15 +186,7 @@ export default function ManageUsersPage() {
   };
 
   if (user?.role !== 'ADMIN' && user?.role !== 'TUTOR') {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center">
-        <div className="text-center">
-          <ShieldAlert className="mx-auto mb-4 text-red-500" size={48} />
-          <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100">Access Denied</h2>
-          <p className="mt-2 font-medium text-slate-500">You don&apos;t have permission to view this page.</p>
-        </div>
-      </div>
-    );
+    return <AccessDeniedScreen />;
   }
 
   return (

@@ -157,8 +157,8 @@ export default function PassagesPage() {
   const onConfirmDelete = async () => {
     if (!selectedPassage) return;
     const success = await deletePassage(selectedPassage.id);
+    setIsDeleteOpen(false);
     if (success) {
-      setIsDeleteOpen(false);
       setSelectedPassage(null);
       load();
     }

@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { isAxiosError } from 'axios';
 import { bannerService, type ListBannersParams } from '../services/banners.service';
 import type { Banner, CreateBannerPayload, UpdateBannerPayload, PaginationMeta } from '../types/banners.types';
+import { showClientErrorAlert } from '@/lib/errorAlert';
 
 export const useBanners = () => {
   const [banners, setBanners] = useState<Banner[]>([]);
@@ -19,6 +20,7 @@ export const useBanners = () => {
         setMeta(response.meta);
       } else {
         setError(response.message || 'Failed to fetch banners');
+        showClientErrorAlert('Failed to load. Please refresh and try again.', 'Failed to load');
       }
     } catch (err: unknown) {
       const msg = isAxiosError(err)
@@ -39,6 +41,7 @@ export const useBanners = () => {
         return response.data;
       }
       setError(response.message || 'Failed to create banner');
+      showClientErrorAlert('Your changes could not be saved. Please try again.', 'Failed to save');
       return null;
     } catch (err: unknown) {
       const msg = isAxiosError(err)
@@ -60,6 +63,7 @@ export const useBanners = () => {
         return true;
       }
       setError(response.message || 'Failed to update banner');
+      showClientErrorAlert('Your changes could not be saved. Please try again.', 'Failed to save');
       return false;
     } catch (err: unknown) {
       const msg = isAxiosError(err)
@@ -81,6 +85,7 @@ export const useBanners = () => {
         return true;
       }
       setError(response.message || 'Failed to delete banner');
+      showClientErrorAlert('The item could not be deleted. Please try again.', 'Failed to delete');
       return false;
     } catch (err: unknown) {
       const msg = isAxiosError(err)
@@ -102,6 +107,7 @@ export const useBanners = () => {
         return true;
       }
       setError(response.message || 'Failed to upload image');
+      showClientErrorAlert('The image could not be uploaded. Please try again.', 'Failed to upload');
       return false;
     } catch (err: unknown) {
       const msg = isAxiosError(err)

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { analyticsService } from '@/features/analytics/services/analytics.service';
+import { showApiErrorAlert } from '@/lib/errorAlert';
 import type { MyAnalytics, Leaderboard, StudentAnalytics } from '@/features/analytics/types/analytics.types';
 import {
   TrendingUp,
@@ -170,7 +171,7 @@ function StudentPerformanceAnalytics() {
         const analyticsRes = await analyticsService.getMyAnalytics();
         if (analyticsRes.success) setAnalytics(analyticsRes.data);
       } catch (err) {
-        console.error('Failed to load stats', err);
+        showApiErrorAlert(err, currentUser?.role, { context: 'load' });
       } finally {
         setIsLoading(false);
       }
@@ -186,7 +187,7 @@ function StudentPerformanceAnalytics() {
         const res = await analyticsService.getLeaderboard('ALL_TIME', selectedExamId || undefined);
         if (res.success) setLeaderboard(res.data);
       } catch (err) {
-        console.error('Failed to load leaderboard', err);
+        showApiErrorAlert(err, currentUser?.role, { context: 'load' });
       } finally {
         setIsLeaderboardLoading(false);
       }

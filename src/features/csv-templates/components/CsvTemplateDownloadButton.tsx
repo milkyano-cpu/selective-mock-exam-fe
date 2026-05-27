@@ -1,7 +1,9 @@
 'use client';
 
 import { Download, Loader2 } from 'lucide-react';
+import { isAxiosError } from 'axios';
 import { useState } from 'react';
+import { showClientErrorAlert } from '@/lib/errorAlert';
 import {
   csvTemplatesService,
   type CsvTemplateType,
@@ -33,8 +35,9 @@ export function CsvTemplateDownloadButton({
       link.click();
       link.remove();
     } catch (error: unknown) {
-      const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message;
-      alert(message || 'Template CSV belum tersedia.');
+      if (!isAxiosError(error)) {
+        void showClientErrorAlert('Template CSV belum tersedia.');
+      }
     } finally {
       setIsLoading(false);
     }

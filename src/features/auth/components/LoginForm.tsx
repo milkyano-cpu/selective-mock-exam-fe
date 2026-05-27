@@ -7,9 +7,10 @@ import { useAuth } from '../hooks/useAuth';
 import Link from 'next/link';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 import Image from 'next/image';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
+import { showClientErrorAlert } from '@/lib/errorAlert';
 
 export const LoginForm = () => {
   const { login, isLoading, error, resetError } = useAuth();
@@ -24,6 +25,16 @@ export const LoginForm = () => {
   });
 
   const router = useRouter();
+
+  useEffect(() => {
+    const reason = new URLSearchParams(window.location.search).get('reason');
+    if (reason === 'invalid-reset-link') {
+      void showClientErrorAlert(
+        'This reset link is invalid or has expired. Please request a new one.',
+        'Reset link unavailable'
+      );
+    }
+  }, []);
 
   const onSubmit = async (data: LoginValues) => {
     const result = await login(data);

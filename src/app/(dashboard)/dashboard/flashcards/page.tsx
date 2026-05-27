@@ -2,10 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Brain, CheckCircle2, Layers3, Plus, RotateCcw, Sparkles, Trash2, type LucideIcon } from "lucide-react";
+import { isAxiosError } from "axios";
 import { FeaturePaywall } from "@/components/billing/FeaturePaywall";
 import { useAuthStore } from "@/features/auth/store/auth.store";
 import { hasPremiumAccess } from "@/features/membership/access";
 import { DeleteConfirmModal } from "@/features/subjects/components/DeleteConfirmModal";
+import mdwClient from "@/lib/mdwClient";
 
 type Rating = "again" | "hard" | "good" | "easy";
 
@@ -42,12 +44,24 @@ const statCards: Array<[string, keyof Stats, LucideIcon]> = [
 ];
 
 async function readJson<T>(url: string, init?: RequestInit) {
-  const res = await fetch(url, init);
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok || data.success === false) {
+  const response = await mdwClient.request<T & { success?: boolean; message?: string }>({
+    url: url.startsWith("/api/") ? url.slice(4) : url,
+    method: init?.method ?? "GET",
+    headers: init?.headers ? Object.fromEntries(new Headers(init.headers).entries()) : undefined,
+    data: init?.body,
+  });
+  const data = response.data;
+  if (data.success === false) {
     throw new Error(data.message || "Request failed");
   }
-  return data as T;
+  return data;
+}
+
+function getVisibleError(error: unknown, fallback: string): string {
+  if (isAxiosError<{ message?: string }>(error)) {
+    return error.response?.data?.message || fallback;
+  }
+  return error instanceof Error ? error.message : fallback;
 }
 
 export default function FlashcardsPage() {
@@ -93,7 +107,7 @@ export default function FlashcardsPage() {
 
     const timer = window.setTimeout(() => {
       loadData()
-        .catch((err) => setError(err instanceof Error ? err.message : "Failed to load flashcards"))
+        .catch((err) => setError(getVisibleError(err, "Failed to load flashcards")))
         .finally(() => setIsLoading(false));
     }, 0);
 
@@ -124,7 +138,7 @@ export default function FlashcardsPage() {
       setEditingId(null);
       await loadData();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save flashcard");
+      setError(getVisibleError(err, "Failed to save flashcard"));
     }
   }
 
@@ -142,7 +156,7 @@ export default function FlashcardsPage() {
       setMessage("Review saved.");
       await loadData();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to save review");
+      setError(getVisibleError(err, "Failed to save review"));
     }
   }
 
@@ -158,7 +172,7 @@ export default function FlashcardsPage() {
       setMessage(`Generated ${res.data.created} card${res.data.created === 1 ? "" : "s"} from mistakes.`);
       await loadData();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to generate flashcards");
+      setError(getVisibleError(err, "Failed to generate flashcards"));
     }
   }
 
@@ -170,11 +184,11 @@ export default function FlashcardsPage() {
     try {
       await readJson(`/api/flashcards/${deletingId}`, { method: "DELETE" });
       setMessage("Flashcard deleted.");
-      setDeletingId(null);
       await loadData();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to delete flashcard");
+      setError(getVisibleError(err, "Failed to delete flashcard"));
     } finally {
+      setDeletingId(null);
       setIsDeleting(false);
     }
   }

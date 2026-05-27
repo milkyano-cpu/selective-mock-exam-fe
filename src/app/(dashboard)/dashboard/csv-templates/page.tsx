@@ -7,10 +7,10 @@ import {
   FileSpreadsheet,
   Loader2,
   Plus,
-  ShieldAlert,
 } from 'lucide-react';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { CsvTemplateDownloadButton } from '@/features/csv-templates/components/CsvTemplateDownloadButton';
+import { AccessDeniedScreen } from '@/components/feedback/AccessDeniedScreen';
 import {
   CSV_TEMPLATE_OPTIONS,
   csvTemplatesService,
@@ -91,15 +91,7 @@ export default function CsvTemplatesPage() {
   }
 
   if (!canManage) {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center">
-        <div className="text-center">
-          <ShieldAlert className="mx-auto mb-4 text-red-500" size={48} />
-          <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100">Access Denied</h2>
-          <p className="mt-2 font-medium text-slate-500">Only admins can manage CSV templates.</p>
-        </div>
-      </div>
-    );
+    return <AccessDeniedScreen />;
   }
 
   return (

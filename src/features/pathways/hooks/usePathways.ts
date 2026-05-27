@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { isAxiosError } from 'axios';
 import { pathwaysService } from '../services/pathways.service';
+import { showClientErrorAlert } from '@/lib/errorAlert';
 import type { PathwayItem, PathwayDetail, CreatePathwayPayload } from '../types/pathways.types';
 
 export function usePathways(studentId?: string) {
@@ -15,7 +16,10 @@ export function usePathways(studentId?: string) {
       try {
         const res = await pathwaysService.list(overrideStudentId ?? studentId);
         if (res.success) setPathways(res.data);
-        else setError(res.message);
+        else {
+          setError(res.message);
+          showClientErrorAlert('Failed to load. Please refresh and try again.', 'Failed to load');
+        }
       } catch (err) {
         setError(
           isAxiosError(err)
@@ -40,6 +44,7 @@ export function usePathways(studentId?: string) {
         return res.data;
       }
       setError(res.message);
+      showClientErrorAlert('Your changes could not be saved. Please try again.', 'Failed to save');
       return null;
     } catch (err) {
       setError(
@@ -60,6 +65,7 @@ export function usePathways(studentId?: string) {
         setPathways((prev) => prev.filter((p) => p.id !== id));
         return true;
       }
+      showClientErrorAlert('The item could not be deleted. Please try again.', 'Failed to delete');
       return false;
     } catch {
       return false;

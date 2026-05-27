@@ -1,9 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { useBanners } from '@/features/banners/hooks/useBanners';
-import { Image as ImageIcon, ShieldAlert, Plus, X, Loader2, ChevronLeft, ChevronRight, Trash2, Edit2, Upload } from 'lucide-react';
+import { showApiSuccessToast } from '@/lib/errorAlert';
+import { AccessDeniedScreen } from '@/components/feedback/AccessDeniedScreen';
+import { Image as ImageIcon, Plus, X, Loader2, ChevronLeft, ChevronRight, Trash2, Edit2, Upload } from 'lucide-react';
 import type { Banner, UpdateBannerPayload } from '@/features/banners/types/banners.types';
 import { DeleteConfirmModal } from '@/features/subjects/components/DeleteConfirmModal';
 
@@ -19,7 +21,6 @@ export default function BannersPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [form, setForm] = useState({ imageFile: null as File | null, imageUrl: '', targetUrl: '', isActive: true });
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -62,7 +63,6 @@ export default function BannersPage() {
         if (form.imageFile) {
           const uploadSuccess = await uploadBannerImage(editingId, form.imageFile);
           if (!uploadSuccess) {
-            setErrorMsg('Image upload failed');
             setIsSubmitting(false);
             return;
           }
@@ -75,17 +75,16 @@ export default function BannersPage() {
         });
 
         if (!success) {
-          setErrorMsg('Failed to update banner');
           setIsSubmitting(false);
           return;
         }
 
-        setSuccessMsg('Banner updated successfully');
+        void showApiSuccessToast('save');
         resetForm();
         setIsModalOpen(false);
         void fetchBanners({ page, limit: PAGE_LIMIT });
       } catch {
-        setErrorMsg('An error occurred');
+        // mdwClient interceptor handles toast for thrown errors
       } finally {
         setIsSubmitting(false);
       }
@@ -108,7 +107,6 @@ export default function BannersPage() {
         });
 
         if (!newBanner) {
-          setErrorMsg('Failed to create banner');
           setIsSubmitting(false);
           return;
         }
@@ -116,7 +114,6 @@ export default function BannersPage() {
         // Step 2: Upload the image to the newly created banner
         const uploadSuccess = await uploadBannerImage(newBanner.id, form.imageFile);
         if (!uploadSuccess) {
-          setErrorMsg('Banner created but image upload failed. Please upload image from table.');
           resetForm();
           setIsModalOpen(false);
           setIsSubmitting(false);
@@ -124,12 +121,12 @@ export default function BannersPage() {
           return;
         }
 
-        setSuccessMsg('Banner created successfully with image!');
+        void showApiSuccessToast('save');
         resetForm();
         setIsModalOpen(false);
         void fetchBanners({ page: 1, limit: PAGE_LIMIT });
       } catch {
-        setErrorMsg('An error occurred');
+        // mdwClient interceptor handles toast for thrown errors
       } finally {
         setIsSubmitting(false);
       }
@@ -150,13 +147,11 @@ export default function BannersPage() {
     try {
       const success = await uploadBannerImage(bannerId, file);
       if (success) {
-        setSuccessMsg('Image uploaded successfully');
+        void showApiSuccessToast('save');
         void fetchBanners({ page, limit: PAGE_LIMIT });
-      } else {
-        setErrorMsg('Failed to upload image');
       }
     } catch {
-      setErrorMsg('An error occurred during upload');
+      // mdwClient interceptor handles toast for thrown errors
     } finally {
       setIsSubmitting(false);
     }
@@ -168,21 +163,14 @@ export default function BannersPage() {
     try {
       await deleteBanner(deletingId);
       void fetchBanners({ page, limit: PAGE_LIMIT });
-      setDeletingId(null);
     } finally {
+      setDeletingId(null);
       setIsDeleting(false);
     }
   };
 
   if (!user || user.role !== 'ADMIN') {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center">
-        <div className="text-center">
-          <ShieldAlert className="mx-auto mb-4 text-red-500" size={48} />
-          <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100">Access Denied</h2>
-        </div>
-      </div>
-    );
+    return <AccessDeniedScreen />;
   }
 
   return (
@@ -203,12 +191,6 @@ export default function BannersPage() {
           <Plus size={16} /> New Banner
         </button>
       </header>
-
-      {successMsg && (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700 dark:border-emerald-500/20 dark:bg-emerald-500/10 dark:text-emerald-400">
-          {successMsg}
-        </div>
-      )}
 
       <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 overflow-hidden">
         <div className="overflow-x-auto">

@@ -14,6 +14,7 @@ import { NavigationProgress } from '@/components/dashboard/NavigationProgress';
 import { PageTransition } from '@/components/dashboard/PageTransition';
 import { useNotificationSSE } from '@/features/notifications/hooks/useNotificationSSE';
 import { usePathname } from 'next/navigation';
+import { isAxiosError } from 'axios';
 
 export default function DashboardLayout({
   children,
@@ -73,11 +74,11 @@ export default function DashboardLayout({
         if (!isCancelled && response.success) {
           setAuth(response.data);
         } else if (!isCancelled) {
-          window.location.replace('/login');
+          window.location.replace('/api/auth/logout');
         }
-      } catch {
-        if (!isCancelled) {
-          window.location.replace('/login');
+      } catch (error) {
+        if (!isCancelled && isAxiosError(error) && error.response?.status === 403) {
+          window.location.replace('/api/auth/logout');
         }
       }
     };

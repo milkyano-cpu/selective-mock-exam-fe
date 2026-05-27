@@ -116,9 +116,9 @@ export function PassageModal({ isOpen, onClose, onSubmit, initialData, isLoading
     if (!isOpen) return;
     let cancelled = false;
     setLoadingSubjects(true);
-    subjectsService.listSubjects({ limit: 100 }).then((res) => {
+    subjectsService.listSubjects({ limit: 100 }, { feedbackContext: 'options' }).then((res) => {
       if (!cancelled && res.success) setSubjects(res.data);
-    }).catch(() => {}).finally(() => {
+    }).catch(() => { /* mdwClient interceptor fires the toast */ }).finally(() => {
       if (!cancelled) setLoadingSubjects(false);
     });
     return () => { cancelled = true; };
@@ -132,9 +132,9 @@ export function PassageModal({ isOpen, onClose, onSubmit, initialData, isLoading
     }
     let cancelled = false;
     setLoadingTopics(true);
-    subjectsService.listTopics(subjectIdValue, { limit: 100 }).then((res) => {
+    subjectsService.listTopics(subjectIdValue, { limit: 100 }, { feedbackContext: 'options' }).then((res) => {
       if (!cancelled && res.success) setTopics(res.data);
-    }).catch(() => {}).finally(() => {
+    }).catch(() => { /* mdwClient interceptor fires the toast */ }).finally(() => {
       if (!cancelled) setLoadingTopics(false);
     });
     return () => { cancelled = true; };

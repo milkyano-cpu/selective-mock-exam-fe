@@ -79,22 +79,22 @@ export default function NewAssignmentPage() {
   // Load subjects once
   useEffect(() => {
     subjectsService
-      .listSubjects({ limit: 100, publishedOnly: true, practiceOnly: true })
+      .listSubjects({ limit: 100, publishedOnly: true, practiceOnly: true }, { feedbackContext: 'options' })
       .then((res) => {
         if (res.success) setSubjects(res.data);
       })
-      .catch(() => {});
+      .catch(() => { /* mdwClient interceptor fires the toast */ });
   }, []);
 
   // Load topics when subject changes
   useEffect(() => {
     if (!selectedSubjectId) { setTopics([]); setSelectedTopicId(''); return; }
     subjectsService
-      .listTopics(selectedSubjectId, { limit: 100, publishedOnly: true, practiceOnly: true })
+      .listTopics(selectedSubjectId, { limit: 100, publishedOnly: true, practiceOnly: true }, { feedbackContext: 'options' })
       .then((res) => {
         if (res.success) { setTopics(res.data); setSelectedTopicId(''); }
       })
-      .catch(() => {});
+      .catch(() => { /* mdwClient interceptor fires the toast */ });
   }, [selectedSubjectId]);
 
   // Student search with debounce

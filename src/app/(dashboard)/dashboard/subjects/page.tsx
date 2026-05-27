@@ -58,12 +58,11 @@ export default function SubjectsPage() {
   };
 
   const onConfirmDelete = async () => {
-    if (selectedSubject) {
-      const success = await deleteSubject(selectedSubject.id);
-      if (success) {
-        setIsDeleteModalOpen(false);
-        fetchSubjects({ page, limit: 10, search });
-      }
+    if (!selectedSubject) return;
+    const success = await deleteSubject(selectedSubject.id);
+    setIsDeleteModalOpen(false);
+    if (success) {
+      fetchSubjects({ page, limit: 10, search });
     }
   };
 
@@ -136,7 +135,9 @@ export default function SubjectsPage() {
                   </td>
                 </tr>
               ) : (
-                subjects.map((subject) => (
+                subjects.map((subject) => {
+                  const hasRelatedQuestions = (subject._count?.questions ?? 0) > 0;
+                  return (
                   <tr key={subject.id} className="group transition-colors hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
@@ -182,15 +183,19 @@ export default function SubjectsPage() {
                         </button>
                         <button
                           onClick={() => handleDelete(subject)}
-                          className="rounded-lg p-2 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
-                          title="Delete Subject"
+                          disabled={hasRelatedQuestions}
+                          className="rounded-lg p-2 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-slate-400 dark:hover:bg-red-500/10"
+                          title={hasRelatedQuestions
+                            ? "Cannot delete: this subject is used by one or more questions"
+                            : "Delete Subject"}
                         >
                           <Trash2 size={16} />
                         </button>
                       </div>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>
@@ -235,7 +240,11 @@ export default function SubjectsPage() {
         onClose={() => setIsDeleteModalOpen(false)}
         onConfirm={onConfirmDelete}
         title="Delete Subject"
-        message={`Are you sure you want to delete "${selectedSubject?.name}"? All topics inside must be deleted first.`}
+        message={
+          (selectedSubject?._count?.topics ?? 0) > 0
+            ? `Are you sure you want to delete "${selectedSubject?.name}"? All topics inside must be deleted first.`
+            : `Are you sure you want to delete "${selectedSubject?.name}"? This action cannot be undone.`
+        }
         isLoading={isLoading}
       />
     </div>

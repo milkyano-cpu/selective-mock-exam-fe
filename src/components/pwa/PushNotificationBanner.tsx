@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { BellRing, X, Loader2 } from 'lucide-react';
+import { isAxiosError } from 'axios';
 import { usePushSubscription } from '@/features/push/hooks/usePushSubscription';
+import { showClientErrorAlert } from '@/lib/errorAlert';
 
 export function PushNotificationBanner() {
   const { isSupported, permission, isSubscribed, subscribe, isLoading } = usePushSubscription();
@@ -39,6 +41,9 @@ export function PushNotificationBanner() {
       setIsVisible(false);
     } catch (err) {
       console.error('Subscription failed', err);
+      if (!isAxiosError(err)) {
+        void showClientErrorAlert('Please allow notifications in your browser settings and try again.', 'Notifications not enabled');
+      }
       // Let the user try again later, or hide it if denied
       if (Notification.permission === 'denied') {
         setIsVisible(false);

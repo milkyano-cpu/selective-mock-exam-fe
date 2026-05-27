@@ -10,8 +10,9 @@ import {
 import { useNotificationStore } from '@/features/notifications/store/notification.store';
 import {
   Bell, CheckCheck, ChevronLeft, ChevronRight, FileQuestion,
-  ShieldAlert, Filter, MessageSquare, Map, ClipboardList,
+  Filter, MessageSquare, Map, ClipboardList,
 } from 'lucide-react';
+import { AccessDeniedScreen } from '@/components/feedback/AccessDeniedScreen';
 
 const PAGE_LIMIT = 20;
 
@@ -106,14 +107,7 @@ export default function NotificationsPage() {
   };
 
   if (!user) {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center">
-        <div className="text-center">
-          <ShieldAlert className="mx-auto mb-4 text-red-500" size={48} />
-          <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100">Access Denied</h2>
-        </div>
-      </div>
-    );
+    return <AccessDeniedScreen />;
   }
 
   return (

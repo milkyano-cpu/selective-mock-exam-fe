@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react';
 import { isAxiosError } from 'axios';
 import { passagesService } from '../services/passages.service';
+import { showClientErrorAlert } from '@/lib/errorAlert';
 import type {
   CreatePassagePayload,
   ListPassagesQuery,
@@ -28,6 +29,7 @@ export const usePassages = () => {
         setMeta(response.meta);
       } else {
         setError(response.message || 'Failed to fetch passages');
+        showClientErrorAlert('Failed to load. Please refresh and try again.', 'Failed to load');
       }
     } catch (err: unknown) {
       const message = isAxiosError(err)
@@ -49,6 +51,7 @@ export const usePassages = () => {
         return response.data;
       }
       setError(response.message || 'Failed to fetch passage detail');
+      showClientErrorAlert('Failed to load. Please refresh and try again.', 'Failed to load');
       return null;
     } catch (err: unknown) {
       const message = isAxiosError(err)
@@ -70,6 +73,7 @@ export const usePassages = () => {
         return response.data;
       }
       setError(response.message || 'Failed to create passage');
+      showClientErrorAlert('Your changes could not be saved. Please try again.', 'Failed to save');
       return null;
     } catch (err: unknown) {
       const message = isAxiosError(err)
@@ -92,6 +96,7 @@ export const usePassages = () => {
         return response.data;
       }
       setError(response.message || 'Failed to update passage');
+      showClientErrorAlert('Your changes could not be saved. Please try again.', 'Failed to save');
       return null;
     } catch (err: unknown) {
       const message = isAxiosError(err)
@@ -116,6 +121,7 @@ export const usePassages = () => {
         return true;
       }
       setError(response.message || 'Failed to delete passage');
+      showClientErrorAlert('The item could not be deleted. Please try again.', 'Failed to delete');
       return false;
     } catch (err: unknown) {
       const message = isAxiosError(err)

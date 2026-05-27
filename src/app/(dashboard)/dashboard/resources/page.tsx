@@ -7,6 +7,7 @@ import { resourceService } from '@/features/resources/services/resources.service
 import type { Resource, ResourceType, Tier } from '@/features/resources/types/resources.types';
 import { AlertTriangle, ExternalLink, FileText, FolderOpen, Loader2, Pencil, Plus, Search, Trash2, Upload, Video, X } from 'lucide-react';
 import { DeleteConfirmModal } from '@/features/subjects/components/DeleteConfirmModal';
+import { showApiSuccessToast, showClientErrorAlert } from '@/lib/errorAlert';
 
 type FilterType = 'ALL' | ResourceType;
 type VideoInputMode = 'UPLOAD' | 'URL';
@@ -204,6 +205,7 @@ export default function ResourcesPage() {
         if (abortController.signal.aborted) return;
         const isBlocked = err instanceof TypeError && err.message === 'Failed to fetch';
         setPreviewError(isBlocked ? 'blocked' : 'error');
+        void showClientErrorAlert('We could not open this preview. Please try again.', 'Preview unavailable');
       })
       .finally(() => {
         if (!abortController.signal.aborted) setIsPreviewLoading(false);
@@ -262,6 +264,7 @@ export default function ResourcesPage() {
         await resourceService.uploadFile(created.data.id, file);
       }
 
+      await showApiSuccessToast('save');
       await loadResources();
       closeModal();
     } catch (error) {

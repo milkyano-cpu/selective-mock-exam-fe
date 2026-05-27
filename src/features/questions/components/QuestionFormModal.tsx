@@ -192,7 +192,7 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
   const initialPassageId  = initialData?.passageId ?? '';
 
   const loadTopicsForSubject = useCallback(async (subjectId: string) => {
-    const firstPage = await subjectsService.listTopics(subjectId, { page: 1, limit: TOPICS_PAGE_LIMIT });
+    const firstPage = await subjectsService.listTopics(subjectId, { page: 1, limit: TOPICS_PAGE_LIMIT }, { feedbackContext: 'options' });
 
     if (!firstPage.success) {
       setTopics([]);
@@ -206,7 +206,7 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
 
     const remainingPages = await Promise.all(
       Array.from({ length: firstPage.meta.totalPages - 1 }, (_, index) =>
-        subjectsService.listTopics(subjectId, { page: index + 2, limit: TOPICS_PAGE_LIMIT })
+        subjectsService.listTopics(subjectId, { page: index + 2, limit: TOPICS_PAGE_LIMIT }, { feedbackContext: 'options' })
       )
     );
 
@@ -222,10 +222,10 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
     if (!isOpen) return;
 
     Promise.all([
-      subjectsService.listSubjects({ page: 1, limit: 100 }),
-      passagesService.list({ page: 1, limit: 100 }),
-      aiRubricsService.list({ page: 1, limit: 100, activeOnly: true }),
-      aiRubricWritingTypesService.list(),
+      subjectsService.listSubjects({ page: 1, limit: 100 }, { feedbackContext: 'options' }),
+      passagesService.list({ page: 1, limit: 100 }, { feedbackContext: 'options' }),
+      aiRubricsService.list({ page: 1, limit: 100, activeOnly: true }, { feedbackContext: 'options' }),
+      aiRubricWritingTypesService.list({ feedbackContext: 'options' }),
     ]).then(async ([subjectsRes, passagesRes, aiRubricsRes, writingTypesRes]) => {
       if (subjectsRes.success) setSubjects(subjectsRes.data);
       if (aiRubricsRes.success) setAiRubrics(aiRubricsRes.data);
@@ -241,9 +241,7 @@ export function QuestionFormModal({ isOpen, onClose, onSubmit, initialData, isLo
         }
         setPassages(nextPassages);
       }
-    }).catch((error) => {
-      console.error('Failed to load subjects, passages, and aiRubrics:', error);
-    });
+    }).catch(() => { /* mdwClient interceptor fires the toast */ });
   }, [initialPassageId, isOpen]);
 
   // Load topics when subjectId changes

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { isAxiosError } from 'axios';
 import { useAuthStore } from '@/features/auth/store/auth.store';
+import { showClientErrorAlert } from '@/lib/errorAlert';
 import { examService } from '@/features/exams/services/exams.service';
 import type { ExamItem, GradingType, PaginationMeta, SessionSummary, ExamAttemptSummary } from '@/features/exams/types/exams.types';
 import { DeleteConfirmModal } from '@/features/subjects/components/DeleteConfirmModal';
@@ -186,12 +187,12 @@ function AdminExamView() {
       const res = await examService.remove(id);
       if (res.success) {
         setSuccessMsg('Exam deleted');
-        setDeleteTargetId(null);
         loadExams(page);
       }
     } catch (err) {
       setListError(isAxiosError(err) ? err.response?.data?.message || 'Failed to delete exam' : 'Failed to delete exam');
     } finally {
+      setDeleteTargetId(null);
       setDeletingId(null);
     }
   };
@@ -873,8 +874,9 @@ function StudentExamView() {
         router.push(`/dashboard/exams/${examId}/session`);
       }
     } catch (err) {
-      const msg = isAxiosError(err) ? err.response?.data?.message || 'Failed to start retake' : 'Failed to start retake';
-      alert(msg);
+      if (!isAxiosError(err)) {
+        void showClientErrorAlert('Failed to start retake.');
+      }
     } finally {
       setIsStartingRetake(false);
     }

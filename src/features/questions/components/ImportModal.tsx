@@ -12,6 +12,7 @@ import { subjectsService } from '@/features/subjects/services/subjects.service';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { CsvTemplateDownloadButton } from '@/features/csv-templates/components/CsvTemplateDownloadButton';
 import { QuestionFormModal } from './QuestionFormModal';
+import { showClientErrorAlert } from '@/lib/errorAlert';
 
 type Phase = 'upload' | 'review';
 type ReviewTableView = 'attention' | 'all';
@@ -190,7 +191,7 @@ export function ImportModal({
   const handleFileChange = (file: File | null) => {
     if (!file) return;
     if (!file.name.endsWith('.csv')) {
-      alert('Please select a .csv file.');
+      void showClientErrorAlert('Please select a .csv file.');
       return;
     }
     setSelectedFile(file);

@@ -36,10 +36,11 @@ export function AddPathwayModal({
     const timeoutId = window.setTimeout(() => {
       setIsFetching(true);
       subjectsService
-        .listSubjects({ limit: 100 })
+        .listSubjects({ limit: 100 }, { feedbackContext: 'options' })
         .then((res) => {
           if (!isCancelled && res.success) setSubjects(res.data);
         })
+        .catch(() => { /* mdwClient interceptor fires the toast */ })
         .finally(() => {
           if (!isCancelled) setIsFetching(false);
         });

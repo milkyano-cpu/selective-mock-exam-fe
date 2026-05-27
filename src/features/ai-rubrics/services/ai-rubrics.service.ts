@@ -1,4 +1,4 @@
-import mdwClient from '@/lib/mdwClient';
+import mdwClient, { buildFeedbackHeaders, type MdwRequestOptions } from '@/lib/mdwClient';
 import type {
   AiCalibrationNote,
   AiCalibrationNoteInput,
@@ -25,8 +25,8 @@ function csvFormData(file: File): FormData {
 }
 
 export const aiRubricsService = {
-  list: async (query?: ListAiRubricsQuery): Promise<PaginatedResponse<AiRubric>> => {
-    const response = await mdwClient.get('/ai-rubrics', { params: query });
+  list: async (query?: ListAiRubricsQuery, options?: MdwRequestOptions): Promise<PaginatedResponse<AiRubric>> => {
+    const response = await mdwClient.get('/ai-rubrics', { params: query, headers: buildFeedbackHeaders(options) });
     return response.data;
   },
 

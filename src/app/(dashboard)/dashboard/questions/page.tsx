@@ -109,7 +109,7 @@ export default function QuestionsPage() {
   const selectAllRef = useRef<HTMLInputElement | null>(null);
 
   const loadTopicsForSubject = useCallback(async (subjectId: string) => {
-    const firstPage = await subjectsService.listTopics(subjectId, { page: 1, limit: TOPICS_PAGE_LIMIT });
+    const firstPage = await subjectsService.listTopics(subjectId, { page: 1, limit: TOPICS_PAGE_LIMIT }, { feedbackContext: 'options' });
 
     if (!firstPage.success) {
       setTopics([]);
@@ -123,7 +123,7 @@ export default function QuestionsPage() {
 
     const remainingPages = await Promise.all(
       Array.from({ length: firstPage.meta.totalPages - 1 }, (_, index) =>
-        subjectsService.listTopics(subjectId, { page: index + 2, limit: TOPICS_PAGE_LIMIT })
+        subjectsService.listTopics(subjectId, { page: index + 2, limit: TOPICS_PAGE_LIMIT }, { feedbackContext: 'options' })
       )
     );
 
@@ -151,7 +151,7 @@ export default function QuestionsPage() {
 
     const hydrateSubjects = async () => {
       try {
-        const firstPage = await subjectsService.listSubjects({ page: 1, limit: SUBJECTS_PAGE_LIMIT });
+        const firstPage = await subjectsService.listSubjects({ page: 1, limit: SUBJECTS_PAGE_LIMIT }, { feedbackContext: 'options' });
 
         if (!isActive || !firstPage.success) {
           if (isActive) setSubjects([]);
@@ -165,7 +165,7 @@ export default function QuestionsPage() {
 
         const remainingPages = await Promise.all(
           Array.from({ length: firstPage.meta.totalPages - 1 }, (_, index) =>
-            subjectsService.listSubjects({ page: index + 2, limit: SUBJECTS_PAGE_LIMIT })
+            subjectsService.listSubjects({ page: index + 2, limit: SUBJECTS_PAGE_LIMIT }, { feedbackContext: 'options' })
           )
         );
 
@@ -290,8 +290,8 @@ export default function QuestionsPage() {
   const onConfirmDelete = async () => {
     if (!selected) return;
     const success = await deleteQuestion(selected.id);
+    setIsDeleteOpen(false);
     if (success) {
-      setIsDeleteOpen(false);
       load();
     }
   };

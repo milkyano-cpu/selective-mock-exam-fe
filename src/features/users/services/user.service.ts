@@ -1,4 +1,4 @@
-import mdwClient from '@/lib/mdwClient';
+import mdwClient, { buildFeedbackHeaders } from '@/lib/mdwClient';
 import { User } from '@/features/auth/types';
 
 type ApiResponse<T> = {
@@ -31,7 +31,9 @@ export const userService = {
   },
 
   getMyProfilePhoto: async (): Promise<ApiResponse<ProfilePhotoAccess>> => {
-    const response = await mdwClient.get('/users/me/profile-photo');
+    const response = await mdwClient.get('/users/me/profile-photo', {
+      headers: buildFeedbackHeaders({ suppressNotFoundToast: true }),
+    });
     return response.data;
   },
 

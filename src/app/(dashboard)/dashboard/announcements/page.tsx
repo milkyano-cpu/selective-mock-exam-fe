@@ -6,9 +6,10 @@ import {
   announcementService,
   type AnnouncementItem,
 } from '@/features/announcements/services/announcement.service';
+import { showApiErrorAlert, showClientErrorAlert } from '@/lib/errorAlert';
+import { AccessDeniedScreen } from '@/components/feedback/AccessDeniedScreen';
 import {
   Megaphone,
-  ShieldAlert,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
@@ -33,11 +34,9 @@ export default function AnnouncementsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const fetchFeed = useCallback(async (pg: number) => {
     setIsLoading(true);
-    setErrorMsg(null);
     try {
       const res = await announcementService.feed({ page: pg, limit: PAGE_LIMIT });
       if (res.success) {
@@ -46,30 +45,22 @@ export default function AnnouncementsPage() {
         setTotalPages(res.meta.totalPages);
       } else {
         setItems([]);
-        setErrorMsg(res.message || 'Failed to load announcements');
+        showClientErrorAlert('Failed to load. Please refresh and try again.', 'Failed to load');
       }
     } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       setItems([]);
-      setErrorMsg(msg || 'Failed to load announcements');
+      showApiErrorAlert(err, user?.role, { context: 'load' });
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [user?.role]);
 
   useEffect(() => {
     void fetchFeed(page);
   }, [page, fetchFeed]);
 
   if (!user || (user.role !== 'STUDENT' && user.role !== 'PARENT')) {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center">
-        <div className="text-center">
-          <ShieldAlert className="mx-auto mb-4 text-red-500" size={48} />
-          <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100">Access Denied</h2>
-        </div>
-      </div>
-    );
+    return <AccessDeniedScreen />;
   }
 
   return (
@@ -82,12 +73,6 @@ export default function AnnouncementsPage() {
           Latest updates from your tutors and admins.
         </p>
       </header>
-
-      {errorMsg && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-400">
-          {errorMsg}
-        </div>
-      )}
 
       <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 overflow-hidden">
         <div className="divide-y divide-slate-100 dark:divide-slate-800">

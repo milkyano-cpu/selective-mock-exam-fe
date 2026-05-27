@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { isAxiosError } from 'axios';
 import { forumService } from '@/features/forum/services/forum.service';
+import { showClientErrorAlert } from '@/lib/errorAlert';
 import type { ForumFlag, ForumWarning, ForumBannedWord } from '@/features/forum/types/forum.types';
 import { DeleteConfirmModal } from '@/features/subjects/components/DeleteConfirmModal';
 import {
@@ -163,7 +164,9 @@ export default function ForumModerationPage() {
       showSuccess(action === 'APPROVE' ? 'Post removed' : 'Flag dismissed');
       loadFlags();
     } catch (err) {
-      alert(isAxiosError(err) ? err.response?.data?.message : 'Error');
+      if (!isAxiosError(err)) {
+        void showClientErrorAlert('Failed to update the reported post.');
+      }
     }
   };
 
@@ -189,7 +192,9 @@ export default function ForumModerationPage() {
       setDeleteWordId(null);
       loadBannedWords();
     } catch (err) {
-      alert(isAxiosError(err) ? err.response?.data?.message : 'Error');
+      if (!isAxiosError(err)) {
+        void showClientErrorAlert('Failed to remove the banned word.');
+      }
     } finally {
       setIsDeletingWord(false);
     }

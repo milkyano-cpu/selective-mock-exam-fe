@@ -1,4 +1,4 @@
-import mdwClient from '@/lib/mdwClient';
+import mdwClient, { buildFeedbackHeaders, type MdwRequestOptions } from '@/lib/mdwClient';
 import type {
   PassageListItem,
   PassageDetail,
@@ -12,8 +12,8 @@ import type {
 } from '../types/passages.types';
 
 export const passagesService = {
-  list: async (query?: ListPassagesQuery): Promise<PaginatedResponse<PassageListItem>> => {
-    const response = await mdwClient.get('/passages', { params: query });
+  list: async (query?: ListPassagesQuery, options?: MdwRequestOptions): Promise<PaginatedResponse<PassageListItem>> => {
+    const response = await mdwClient.get('/passages', { params: query, headers: buildFeedbackHeaders(options) });
     return response.data;
   },
 

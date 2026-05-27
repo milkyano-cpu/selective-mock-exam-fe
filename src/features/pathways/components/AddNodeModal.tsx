@@ -35,13 +35,14 @@ export function AddNodeModal({
     if (!isOpen) return;
     setIsFetching(true);
     subjectsService
-      .listTopics(subjectId, { limit: 100 })
+      .listTopics(subjectId, { limit: 100 }, { feedbackContext: 'options' })
       .then((res) => {
         if (res.success) {
           // Filter out topics already in the pathway
           setTopics(res.data.filter((t) => !existingTopicIds.includes(t.id)));
         }
       })
+      .catch(() => { /* mdwClient interceptor fires the toast */ })
       .finally(() => setIsFetching(false));
   }, [isOpen, subjectId, existingTopicIds]);
 

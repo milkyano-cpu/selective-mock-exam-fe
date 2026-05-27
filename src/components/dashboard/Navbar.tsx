@@ -263,19 +263,19 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
               isStaff
                 ? 'h-10 min-w-[176px] gap-3 rounded-xl border-slate-200/90 bg-white px-2.5 pr-3 shadow-[0_1px_3px_rgba(15,23,42,0.04)] hover:border-slate-300 hover:shadow-[0_4px_12px_rgba(15,23,42,0.07)] dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-600'
                 : isStudent
-                ? 'border-white/80 bg-white/75 shadow-sm hover:bg-white dark:border-white/10 dark:bg-slate-900/70 dark:hover:bg-slate-800'
+                ? 'h-12 min-w-[168px] max-w-[220px] gap-2.5 rounded-full border-white/80 bg-white/75 py-1.5 pl-1.5 pr-3 shadow-[0_4px_16px_rgba(14,116,144,0.08)] hover:border-white hover:bg-white hover:shadow-[0_8px_22px_rgba(14,116,144,0.13)] dark:border-white/10 dark:bg-slate-900/70 dark:hover:border-white/15 dark:hover:bg-slate-800'
                 : 'min-w-[180px] gap-4 rounded-2xl border-slate-200 bg-slate-50 py-2 pl-2.5 pr-5 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900/50 dark:hover:bg-slate-800',
             ].join(' ')}
           >
             <div className="relative shrink-0">
-              <ProfileAvatar name={user?.fullName || user?.name} photoUrl={photoUrl} isLoading={isLoading} className="h-8 w-8 rounded-[10px]" iconSize={16} textClassName="text-xs" />
+              <ProfileAvatar name={user?.fullName || user?.name} photoUrl={photoUrl} isLoading={isLoading} className={`h-8 w-8 ${isStudent ? 'rounded-full' : 'rounded-[10px]'}`} iconSize={16} textClassName="text-xs" />
               <div className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500 dark:border-slate-900"></div>
             </div>
             <div className="flex flex-col overflow-hidden text-left flex-1">
               <p className={`${isStaff ? 'text-[13px] font-bold leading-4' : 'text-sm font-semibold'} truncate text-slate-900 dark:text-slate-100`}>
                 {user?.fullName || 'User'}
               </p>
-              <p className={`${isStaff ? 'text-[10px] font-semibold uppercase tracking-[0.12em] leading-3' : 'text-xs font-medium'} truncate text-slate-500 dark:text-slate-400`}>
+              <p className={`${isStaff ? 'text-[10px] font-semibold uppercase tracking-[0.12em] leading-3 text-slate-500 dark:text-slate-400' : isStudent ? 'text-[10px] font-bold uppercase tracking-[0.12em] leading-3 text-[#0A9AE2] dark:text-cyan-400' : 'text-xs font-medium text-slate-500 dark:text-slate-400'} truncate`}>
                 {user?.tier || 'BASIC'}
               </p>
             </div>

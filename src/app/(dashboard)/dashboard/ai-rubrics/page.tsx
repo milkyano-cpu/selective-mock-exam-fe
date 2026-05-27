@@ -10,6 +10,7 @@ import type { AiRubricWritingType } from '@/features/ai-rubric-writing-types/typ
 import { CsvTemplateDownloadButton } from '@/features/csv-templates/components/CsvTemplateDownloadButton';
 import type { CsvTemplateType } from '@/features/csv-templates/services/csv-templates.service';
 import { DeleteConfirmModal } from '@/features/subjects/components/DeleteConfirmModal';
+import { AccessDeniedScreen } from '@/components/feedback/AccessDeniedScreen';
 import {
   AlertTriangle,
   CheckCircle2,
@@ -21,7 +22,6 @@ import {
   RefreshCw,
   Save,
   Search,
-  ShieldAlert,
   Trash2,
   Upload,
   X,
@@ -97,9 +97,9 @@ export default function AiRubricsPage() {
   useEffect(() => {
     if (!canManage) return;
     const t = window.setTimeout(() => void loadAiRubrics(), 0);
-    void aiRubricWritingTypesService.list().then((res) => {
+    void aiRubricWritingTypesService.list({ feedbackContext: 'options' }).then((res) => {
       if (res.success) setWritingTypes(res.data);
-    }).catch(() => {});
+    }).catch(() => { /* mdwClient interceptor fires the toast */ });
     return () => window.clearTimeout(t);
   }, [canManage, loadAiRubrics]);
 
@@ -227,15 +227,7 @@ export default function AiRubricsPage() {
   };
 
   if (!canManage) {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center">
-        <div className="text-center">
-          <ShieldAlert className="mx-auto mb-4 text-red-500" size={48} />
-          <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100">Access Denied</h2>
-          <p className="mt-2 font-medium text-slate-500">You don&apos;t have permission to manage rubrics.</p>
-        </div>
-      </div>
-    );
+    return <AccessDeniedScreen />;
   }
 
   return (

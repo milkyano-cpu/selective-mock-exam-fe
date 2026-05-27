@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { isAxiosError } from 'axios';
 import { examService } from '@/features/exams/services/exams.service';
+import { showClientErrorAlert } from '@/lib/errorAlert';
 import { QuestionLatexRenderer } from '@/components/ui/QuestionLatexRenderer';
 import type { SessionResult, SessionResultAnswer, SessionInsightsResponse } from '@/features/exams/types/exams.types';
 import type { ExamAttemptSummary } from '@/features/exams/types/exams.types';
@@ -249,8 +250,9 @@ export default function ExamResultPage() {
         router.push(`/dashboard/exams/${examId}/session`);
       }
     } catch (err) {
-      const msg = isAxiosError(err) ? err.response?.data?.message || 'Failed to start retake' : 'Failed to start retake';
-      alert(msg);
+      if (!isAxiosError(err)) {
+        void showClientErrorAlert('Failed to start retake.');
+      }
     } finally {
       setIsStartingRetake(false);
     }

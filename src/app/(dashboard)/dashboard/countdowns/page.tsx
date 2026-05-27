@@ -5,9 +5,9 @@ import { useAuthStore } from '@/features/auth/store/auth.store';
 import { countdownService } from '@/features/countdowns/services/countdown.service';
 import type { CountdownItem } from '@/features/countdowns/types/countdowns.types';
 import { DeleteConfirmModal } from '@/features/subjects/components/DeleteConfirmModal';
+import { AccessDeniedScreen } from '@/components/feedback/AccessDeniedScreen';
 import {
   Clock3,
-  ShieldAlert,
   Plus,
   X,
   Loader2,
@@ -198,7 +198,6 @@ export default function CountdownsPage() {
       const res = await countdownService.remove(deletingId);
       if (res.success) {
         setSuccessMsg(res.message);
-        setDeletingId(null);
         void fetchCountdowns(page);
       } else {
         setErrorMsg(res.message || 'Failed to delete countdown');
@@ -207,19 +206,13 @@ export default function CountdownsPage() {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
       setErrorMsg(msg || 'Failed to delete countdown');
     } finally {
+      setDeletingId(null);
       setIsDeleting(false);
     }
   };
 
   if (!user || user.role !== 'ADMIN') {
-    return (
-      <div className="flex min-h-[50vh] items-center justify-center">
-        <div className="text-center">
-          <ShieldAlert className="mx-auto mb-4 text-red-500" size={48} />
-          <h2 className="text-2xl font-black text-slate-900 dark:text-slate-100">Access Denied</h2>
-        </div>
-      </div>
-    );
+    return <AccessDeniedScreen />;
   }
 
   return (

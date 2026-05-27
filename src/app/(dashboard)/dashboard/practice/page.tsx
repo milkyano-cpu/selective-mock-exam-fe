@@ -161,7 +161,7 @@ export default function PracticeHubPage() {
 
   const loadSubjects = useCallback(async () => {
     try {
-      const res = await subjectsService.listSubjects({ limit: 100, publishedOnly: true, practiceOnly: true });
+      const res = await subjectsService.listSubjects({ limit: 100, publishedOnly: true, practiceOnly: true }, { feedbackContext: 'options' });
       if (res.success) {
         const availableSubjects = res.data.filter((subject) => (subject._count?.questions ?? 0) > 0);
         setSubjects(availableSubjects);
@@ -180,7 +180,7 @@ export default function PracticeHubPage() {
   const loadTopics = useCallback(async (subjectId: string) => {
     setIsLoadingTopics(true);
     try {
-      const res = await subjectsService.listTopics(subjectId, { limit: 100, publishedOnly: true, practiceOnly: true });
+      const res = await subjectsService.listTopics(subjectId, { limit: 100, publishedOnly: true, practiceOnly: true }, { feedbackContext: 'options' });
       if (res.success) setTopics(res.data.filter((topic) => (topic._count?.questions ?? 0) > 0));
       else setTopics([]);
     } catch {
