@@ -1,9 +1,12 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { isAxiosError } from 'axios';
 import Link from 'next/link';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { analyticsService } from '@/features/analytics/services/analytics.service';
+import { FeaturePaywall } from '@/components/billing/FeaturePaywall';
+import { hasFullPracticeAccess, hasPremiumAccess } from '@/features/membership/access';
 import { showApiErrorAlert } from '@/lib/errorAlert';
 import type { MyAnalytics, Leaderboard, StudentAnalytics } from '@/features/analytics/types/analytics.types';
 import {
@@ -34,6 +37,62 @@ const RANKING_CONFIG: Record<string, { label: string; color: string; bg: string 
   AVERAGE: { label: 'Average', color: 'text-blue-700 dark:text-blue-400', bg: 'bg-blue-100 dark:bg-blue-900/30' },
   LOW_AVERAGE: { label: 'Low Average', color: 'text-slate-700 dark:text-slate-400', bg: 'bg-slate-100 dark:bg-slate-800' },
 };
+
+const EMPTY_ANALYTICS: MyAnalytics = {
+  overallAvg: null,
+  totalExams: 0,
+  totalTimeSeconds: 0,
+  rankingLevel: null,
+  examHistory: [],
+  topicPerformance: [],
+  subjectPerformance: [],
+  scoreHistory: [],
+  percentile: null,
+  writingPerformance: [],
+};
+
+type ScoreHistoryTooltipPayload = {
+  fullName?: string;
+  score?: number;
+  attemptNumber?: number;
+  rankingLevel?: string | null;
+  takenAt?: string;
+  sessionId?: string;
+};
+
+function ScoreHistoryTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: Array<{ payload?: ScoreHistoryTooltipPayload }>;
+}) {
+  if (!active || !payload || payload.length === 0) return null;
+  const item = payload[0]?.payload;
+  if (!item) return null;
+  const cfg = item.rankingLevel ? RANKING_CONFIG[item.rankingLevel] : null;
+  const dateStr = item.takenAt ? new Date(item.takenAt).toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' }) : null;
+
+  return (
+    <div className="rounded-xl border border-slate-700/50 bg-slate-900/95 px-3 py-2 text-white shadow-xl backdrop-blur-sm">
+      <p className="text-xs font-black">
+        {item.fullName ?? ''}
+        {item.attemptNumber && item.attemptNumber > 1 && (
+          <span className="ml-1 font-bold text-slate-400">(Attempt {item.attemptNumber})</span>
+        )}
+      </p>
+      <p className="mt-1 text-sm font-black text-[#0A9AE2]">
+        Score: {item.score?.toFixed(1) ?? '—'}%
+      </p>
+      <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] font-bold">
+        {cfg && (
+          <span className={`rounded-md px-1.5 py-0.5 ${cfg.bg} ${cfg.color}`}>{cfg.label}</span>
+        )}
+        {dateStr && <span className="text-slate-300">{dateStr}</span>}
+      </div>
+    </div>
+  );
+}
 
 function TopicMasteryChart({ strongList, averageList, weakList, total }: {
   strongList: { topicId: string; topicName: string; subjectName: string; scoreAvg: number }[];
@@ -149,11 +208,14 @@ function StudentPerformanceAnalytics() {
   const [analytics, setAnalytics] = useState<MyAnalytics | null>(null);
   const [leaderboard, setLeaderboard] = useState<Leaderboard | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isBasicLimited, setIsBasicLimited] = useState(false);
   const [isLeaderboardLoading, setIsLeaderboardLoading] = useState(false);
   const [selectedExamId, setSelectedExamId] = useState<string>('');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const currentUser = useAuthStore((state) => state.user);
+  const canViewStandardAnalytics = !isBasicLimited && hasFullPracticeAccess(currentUser);
+  const canViewWritingAnalytics = !isBasicLimited && hasPremiumAccess(currentUser);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -167,33 +229,44 @@ function StudentPerformanceAnalytics() {
 
   useEffect(() => {
     const fetchData = async () => {
+      setIsLoading(true);
+      setIsBasicLimited(false);
       try {
         const analyticsRes = await analyticsService.getMyAnalytics();
         if (analyticsRes.success) setAnalytics(analyticsRes.data);
       } catch (err) {
-        showApiErrorAlert(err, currentUser?.role, { context: 'load' });
+        if (
+          isAxiosError<{ error?: string }>(err) &&
+          err.response?.status === 403 &&
+          err.response.data?.error === 'tier_required'
+        ) {
+          setAnalytics(null);
+          setIsBasicLimited(true);
+        } else {
+          void showApiErrorAlert(err, currentUser?.role, { context: 'load' });
+        }
       } finally {
         setIsLoading(false);
       }
     };
-    fetchData();
-  }, []);
+    void fetchData();
+  }, [currentUser?.role, currentUser?.tier]);
 
   useEffect(() => {
-    if (isLoading || !analytics) return;
+    if (!canViewStandardAnalytics || isLoading || !analytics) return;
     const fetchLeaderboard = async () => {
       setIsLeaderboardLoading(true);
       try {
         const res = await analyticsService.getLeaderboard('ALL_TIME', selectedExamId || undefined);
         if (res.success) setLeaderboard(res.data);
       } catch (err) {
-        showApiErrorAlert(err, currentUser?.role, { context: 'load' });
+        void showApiErrorAlert(err, currentUser?.role, { context: 'load' });
       } finally {
         setIsLeaderboardLoading(false);
       }
     };
-    fetchLeaderboard();
-  }, [selectedExamId, isLoading, analytics]);
+    void fetchLeaderboard();
+  }, [selectedExamId, isLoading, analytics, canViewStandardAnalytics, currentUser?.role]);
 
   const uniqueExams = useMemo(() => {
     if (!analytics) return [];
@@ -206,7 +279,7 @@ function StudentPerformanceAnalytics() {
     return Array.from(map.values());
   }, [analytics]);
 
-  if (isLoading || !analytics || !leaderboard) {
+  if (isLoading || (!analytics && !isBasicLimited) || (canViewStandardAnalytics && !leaderboard)) {
     return (
       <div className="grid w-full min-w-0 grid-cols-1 gap-6 lg:grid-cols-2 animate-pulse">
         {/* Analytics skeleton */}
@@ -251,8 +324,11 @@ function StudentPerformanceAnalytics() {
     );
   }
 
-  const { totalExams, overallAvg, totalTimeSeconds, examHistory, topicPerformance } = analytics;
-  const chrono = [...examHistory].sort((a, b) => new Date(a.takenAt).getTime() - new Date(b.takenAt).getTime());
+  const visibleAnalytics = analytics ?? EMPTY_ANALYTICS;
+  const { totalExams, overallAvg, totalTimeSeconds, topicPerformance } = visibleAnalytics;
+  const scoreHistory = visibleAnalytics.scoreHistory ?? [];
+  const subjectPerformance = visibleAnalytics.subjectPerformance ?? [];
+  const writingPerformance = visibleAnalytics.writingPerformance ?? [];
 
   // Strength and Weakness
   const sortedTopics = [...topicPerformance].sort((a, b) => b.scoreAvg - a.scoreAvg);
@@ -297,17 +373,31 @@ function StudentPerformanceAnalytics() {
         </div>
 
         {/* Personal Analytics Donut - Strengths vs Weaknesses */}
-        {topicPerformance.length > 0 && (() => {
-          const strongList = topicPerformance.filter(t => t.scoreAvg >= 70);
-          const averageList = topicPerformance.filter(t => t.scoreAvg >= 50 && t.scoreAvg < 70);
-          const weakList = topicPerformance.filter(t => t.scoreAvg < 50);
-          const total = topicPerformance.length;
+        {canViewStandardAnalytics ? (
+          topicPerformance.length > 0 ? (() => {
+            const strongList = topicPerformance.filter(t => t.scoreAvg >= 70);
+            const averageList = topicPerformance.filter(t => t.scoreAvg >= 50 && t.scoreAvg < 70);
+            const weakList = topicPerformance.filter(t => t.scoreAvg < 50);
+            const total = topicPerformance.length;
 
-          return <TopicMasteryChart strongList={strongList} averageList={averageList} weakList={weakList} total={total} />;
-        })()}
+            return <TopicMasteryChart strongList={strongList} averageList={averageList} weakList={weakList} total={total} />;
+          })() : (
+            <div className="flex min-h-[180px] items-center justify-center rounded-2xl border border-dashed border-slate-200 dark:border-slate-800">
+              <p className="text-xs font-medium text-slate-400">No topic performance yet</p>
+            </div>
+          )
+        ) : (
+          <FeaturePaywall
+            compact
+            requiredTier="STANDARD"
+            title="Topic mastery requires Standard"
+            description="Upgrade to unlock your mastery breakdown by topic."
+          />
+        )}
 
         {/* Strength & Weakness */}
-        <div className="grid grid-cols-2 gap-4">
+        {canViewStandardAnalytics ? (
+          <div className="grid grid-cols-2 gap-4">
           <div className="rounded-2xl border border-emerald-100 bg-emerald-50/50 p-4 dark:border-emerald-900/30 dark:bg-emerald-900/10">
             <h3 className="mb-3 flex items-center gap-1.5 text-[11px] font-black uppercase tracking-wide text-emerald-700 dark:text-emerald-500">
               <Target size={14} /> Strengths
@@ -343,19 +433,100 @@ function StudentPerformanceAnalytics() {
               <p className="text-xs font-medium text-rose-600/60 dark:text-rose-500/60">No major weak spots found yet!</p>
             )}
           </div>
-        </div>
+          </div>
+        ) : (
+          <FeaturePaywall
+            compact
+            requiredTier="STANDARD"
+            title="Strength insights require Standard"
+            description="Upgrade to identify strengths and topics that need attention."
+          />
+        )}
           
+        {/* Subject Performance */}
+        {canViewStandardAnalytics ? (
+          <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/50">
+            <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wide text-slate-400 mb-3">Subject Performance</p>
+            {subjectPerformance.length > 0 ? (
+              <div className="flex flex-col gap-3">
+                {subjectPerformance.map((subject) => {
+                  const cfg = RANKING_CONFIG[subject.bandLevel] ?? null;
+                  const widthPercent = Math.max(0, Math.min(100, subject.scoreAvg));
+                  const barColor =
+                    subject.scoreAvg >= 70
+                      ? 'bg-emerald-500'
+                      : subject.scoreAvg >= 50
+                      ? 'bg-amber-500'
+                      : 'bg-rose-500';
+                  return (
+                    <div key={subject.subjectId} className="flex flex-col gap-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <p className="truncate text-xs font-bold text-slate-800 dark:text-slate-200">
+                            {subject.subjectName}
+                          </p>
+                          {cfg && (
+                            <span className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-black ${cfg.bg} ${cfg.color}`}>
+                              {cfg.label}
+                            </span>
+                          )}
+                        </div>
+                        <span className="shrink-0 text-xs font-black text-slate-700 dark:text-slate-300">
+                          {Math.round(subject.scoreAvg)}%
+                        </span>
+                      </div>
+                      <div
+                        className="h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800"
+                        role="progressbar"
+                        aria-valuenow={Math.round(subject.scoreAvg)}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-label={`${subject.subjectName} average score`}
+                      >
+                        <div
+                          className={`h-full rounded-full ${barColor} transition-[width] duration-500`}
+                          style={{ width: `${widthPercent}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="flex min-h-[80px] items-center justify-center">
+                <p className="text-xs font-medium text-slate-400">No subject data yet</p>
+              </div>
+            )}
+          </div>
+        ) : (
+          <FeaturePaywall
+            compact
+            requiredTier="STANDARD"
+            title="Subject performance requires Standard"
+            description="Upgrade to see how you perform across each subject."
+          />
+        )}
+
         {/* Score Trend */}
-        <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/50 mt-auto">
+        {canViewStandardAnalytics ? (
+          <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/50 mt-auto">
           <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wide text-slate-400 mb-4">Mock Exam Scores</p>
-          {chrono.length > 0 ? (
-            <ResponsiveContainer width="100%" height={140} minWidth={0} minHeight={0}>
+          {scoreHistory.length > 0 ? (
+            <ResponsiveContainer width="100%" height={160} minWidth={0} minHeight={0}>
               <AreaChart
-                data={chrono.map((s) => ({
-                  name: s.examTitle.length > 12 ? s.examTitle.slice(0, 12) + '…' : s.examTitle,
-                  score: s.finalScore ?? 0,
-                  fullName: s.examTitle,
-                }))}
+                data={scoreHistory.map((s) => {
+                  const baseName = s.examTitle.length > 12 ? s.examTitle.slice(0, 12) + '…' : s.examTitle;
+                  const attemptSuffix = s.attemptNumber > 1 ? ` #${s.attemptNumber}` : '';
+                  return {
+                    name: `${baseName}${attemptSuffix}`,
+                    score: s.score,
+                    fullName: s.examTitle,
+                    attemptNumber: s.attemptNumber,
+                    sessionId: s.sessionId,
+                    rankingLevel: s.rankingLevel,
+                    takenAt: s.takenAt,
+                  };
+                })}
                 margin={{ top: 5, right: 5, left: -20, bottom: 0 }}
               >
                 <defs>
@@ -378,16 +549,8 @@ function StudentPerformanceAnalytics() {
                   tickLine={false}
                 />
                 <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#0f172a',
-                    border: 'none',
-                    borderRadius: '0.75rem',
-                    fontSize: '12px',
-                    fontWeight: 700,
-                    color: '#fff',
-                  }}
-                  formatter={(value) => [`${value}%`, 'Score']}
-                  labelFormatter={(_, payload) => payload?.[0]?.payload?.fullName ?? ''}
+                  cursor={{ stroke: '#0A9AE2', strokeOpacity: 0.2, strokeWidth: 1 }}
+                  content={<ScoreHistoryTooltip />}
                 />
                 <Area
                   type="monotone"
@@ -395,8 +558,8 @@ function StudentPerformanceAnalytics() {
                   stroke="#0A9AE2"
                   strokeWidth={2}
                   fill="url(#scoreGradient)"
-                  dot={{ r: 3, fill: '#0A9AE2', strokeWidth: 0 }}
-                  activeDot={{ r: 5, fill: '#0A9AE2', stroke: '#fff', strokeWidth: 2 }}
+                  dot={{ r: 4, fill: '#0A9AE2', strokeWidth: 0 }}
+                  activeDot={{ r: 6, fill: '#0A9AE2', stroke: '#fff', strokeWidth: 2 }}
                 />
               </AreaChart>
             </ResponsiveContainer>
@@ -405,11 +568,20 @@ function StudentPerformanceAnalytics() {
               <p className="text-xs font-medium text-slate-400">No exams completed yet</p>
             </div>
           )}
-        </div>
+          </div>
+        ) : (
+          <FeaturePaywall
+            compact
+            requiredTier="STANDARD"
+            title="Score trends require Standard"
+            description="Upgrade to see how your exam scores change over time."
+          />
+        )}
       </div>
 
       {/* Leaderboard Card */}
-      <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-8 flex flex-col">
+      {canViewStandardAnalytics && leaderboard ? (
+        <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-8 flex flex-col">
         <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h2 className="text-xl font-black text-slate-900 dark:text-slate-100 flex items-center gap-2">
@@ -515,6 +687,11 @@ function StudentPerformanceAnalytics() {
                             <span className="font-medium text-slate-500 dark:text-slate-400">
                               {entry.totalExams} Exams
                             </span>
+                            {isMe && leaderboard.myRank.percentile !== null && (
+                              <span className="rounded-md bg-sky-100 px-1.5 py-0.5 font-bold text-[#0A9AE2] dark:bg-sky-900/30">
+                                Better than {leaderboard.myRank.percentile.toFixed(1)}%
+                              </span>
+                            )}
                           </div>
                         </div>
                         <div className="shrink-0 text-right">
@@ -552,6 +729,11 @@ function StudentPerformanceAnalytics() {
                             <span className="font-medium text-slate-500 dark:text-slate-400">
                               {leaderboard.myRank.totalExams} Exams
                             </span>
+                            {leaderboard.myRank.percentile !== null && (
+                              <span className="rounded-md bg-sky-100 px-1.5 py-0.5 font-bold text-[#0A9AE2] dark:bg-sky-900/30">
+                                Better than {leaderboard.myRank.percentile.toFixed(1)}%
+                              </span>
+                            )}
                           </div>
                         </div>
                         <div className="shrink-0 text-right">
@@ -567,7 +749,144 @@ function StudentPerformanceAnalytics() {
             })()
           )}
         </div>
+        </div>
+      ) : (
+        <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-8">
+          <FeaturePaywall
+            compact
+            requiredTier="STANDARD"
+            title="Leaderboard requires Standard"
+            description="Upgrade to compare your rank and percentile with other students."
+          />
+        </div>
+      )}
+
+      {/* Writing Performance */}
+      <WritingPerformanceSection
+        canView={canViewWritingAnalytics}
+        sessions={writingPerformance}
+      />
+    </div>
+  );
+}
+
+function criterionBarColor(scorePercent: number): { bar: string; text: string } {
+  if (scorePercent >= 70) return { bar: 'bg-emerald-500', text: 'text-emerald-600 dark:text-emerald-400' };
+  if (scorePercent >= 50) return { bar: 'bg-amber-500', text: 'text-amber-600 dark:text-amber-400' };
+  return { bar: 'bg-rose-500', text: 'text-rose-600 dark:text-rose-400' };
+}
+
+function WritingPerformanceSection({
+  canView,
+  sessions,
+}: {
+  canView: boolean;
+  sessions: import('@/features/analytics/types/analytics.types').WritingPerformanceItem[];
+}) {
+  if (!canView) {
+    return (
+      <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-8 lg:col-span-2">
+        <FeaturePaywall
+          compact
+          requiredTier="PREMIUM"
+          title="Writing performance requires Premium"
+          description="Upgrade to unlock rubric-level writing feedback, strengths, and improvements."
+        />
       </div>
+    );
+  }
+
+  return (
+    <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-8 lg:col-span-2">
+      <div className="mb-5">
+        <h2 className="flex items-center gap-2 text-xl font-black text-slate-900 dark:text-slate-100">
+          <FileText className="text-[#0A9AE2]" /> Writing Performance
+        </h2>
+        <p className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400">
+          Rubric feedback from graded essay answers
+        </p>
+      </div>
+      {sessions.length === 0 ? (
+        <div className="flex min-h-[150px] items-center justify-center rounded-2xl border border-dashed border-slate-200 px-4 text-center dark:border-slate-800">
+          <p className="text-sm font-medium text-slate-400">
+            Complete essay exams to see your writing analytics
+          </p>
+        </div>
+      ) : (
+        <div className="flex flex-col gap-4">
+          {sessions.map((session) => (
+            <div key={session.sessionId} className="rounded-2xl border border-slate-100 p-4 dark:border-slate-800">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 className="font-black text-slate-900 dark:text-slate-100">{session.examTitle}</h3>
+                  <p className="mt-1 text-xs font-medium text-slate-400">
+                    {new Date(session.takenAt).toLocaleDateString()}
+                  </p>
+                </div>
+                {session.bandLabel && (
+                  <span className="rounded-xl bg-[#0A9AE2]/10 px-3 py-1 text-xs font-black text-[#0A9AE2]">
+                    {session.bandLabel}
+                  </span>
+                )}
+              </div>
+              {session.bandDescriptor && (
+                <p className="mt-3 text-sm font-medium text-slate-500 dark:text-slate-400">{session.bandDescriptor}</p>
+              )}
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                {session.criteria.map((criterion) => {
+                  const colors = criterionBarColor(criterion.scorePercent);
+                  const widthPercent = Math.max(0, Math.min(100, criterion.scorePercent));
+                  return (
+                    <div
+                      key={`${session.sessionId}-${criterion.criterionName}`}
+                      className="rounded-xl bg-slate-50 p-3 dark:bg-slate-800/50"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="truncate text-sm font-bold text-slate-800 dark:text-slate-200">
+                          {criterion.criterionName}
+                        </p>
+                        <span className={`shrink-0 text-xs font-black ${colors.text}`}>
+                          {criterion.score}/{criterion.maxScore} ({criterion.scorePercent.toFixed(0)}%)
+                        </span>
+                      </div>
+                      <div
+                        className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-200/70 dark:bg-slate-700/50"
+                        role="progressbar"
+                        aria-valuenow={Math.round(criterion.scorePercent)}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                        aria-label={`${criterion.criterionName} score`}
+                      >
+                        <div
+                          className={`h-full rounded-full ${colors.bar} transition-[width] duration-500`}
+                          style={{ width: `${widthPercent}%` }}
+                        />
+                      </div>
+                      {criterion.feedback && (
+                        <p className="mt-2 text-xs font-medium leading-5 text-slate-500 dark:text-slate-400">
+                          {criterion.feedback}
+                        </p>
+                      )}
+                      {criterion.strengths.length > 0 && (
+                        <p className="mt-2 text-xs text-emerald-700 dark:text-emerald-400">
+                          <span className="font-black">Strengths: </span>
+                          {criterion.strengths.join(', ')}
+                        </p>
+                      )}
+                      {criterion.improvements.length > 0 && (
+                        <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+                          <span className="font-black">Improve: </span>
+                          {criterion.improvements.join(', ')}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -1355,7 +1674,7 @@ function ParentDashboard({ firstName }: { firstName: string }) {
           <RoleMetricCard icon={FileText} label="Completed exams" value={selectedChild.totalExams} tone="bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-300" />
           <RoleMetricCard icon={Trophy} label="Average score" value={selectedChild.overallAvg !== null ? `${selectedChild.overallAvg.toFixed(0)}%` : '-'} tone="bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-300" />
           <RoleMetricCard icon={Clock} label="Study time" value={formatRoleTime(selectedChild.totalTimeSeconds)} tone="bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-300" />
-          <RoleMetricCard icon={Target} label="Subjects covered" value={selectedChild.subjectPerformance.length} tone="bg-violet-50 text-violet-600 dark:bg-violet-900/20 dark:text-violet-300" />
+          <RoleMetricCard icon={Target} label="Subjects covered" value={subjectPerf.length} tone="bg-violet-50 text-violet-600 dark:bg-violet-900/20 dark:text-violet-300" />
         </div>
       )}
 

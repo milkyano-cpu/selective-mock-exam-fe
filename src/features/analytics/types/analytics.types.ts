@@ -25,6 +25,35 @@ export interface SubjectPerformanceItem {
   subjectName: string;
   scoreAvg: number;
   topicCount: number;
+  bandLevel: RankingLevel;
+}
+
+export interface ScoreHistoryItem {
+  sessionId: string;
+  examTitle: string;
+  score: number;
+  rankingLevel: RankingLevel | null;
+  takenAt: string;
+  attemptNumber: number;
+}
+
+export interface WritingPerformanceCriterion {
+  criterionName: string;
+  score: number;
+  maxScore: number;
+  scorePercent: number;
+  feedback: string | null;
+  strengths: string[];
+  improvements: string[];
+}
+
+export interface WritingPerformanceItem {
+  sessionId: string;
+  examTitle: string;
+  takenAt: string;
+  bandLabel: string | null;
+  bandDescriptor: string | null;
+  criteria: WritingPerformanceCriterion[];
 }
 
 export interface MyAnalytics {
@@ -34,7 +63,10 @@ export interface MyAnalytics {
   rankingLevel: RankingLevel | null;
   examHistory: ExamHistoryItem[];
   topicPerformance: TopicPerformanceItem[];
-  subjectPerformance: SubjectPerformanceItem[];
+  subjectPerformance?: SubjectPerformanceItem[];
+  scoreHistory?: ScoreHistoryItem[];
+  percentile?: number | null;
+  writingPerformance?: WritingPerformanceItem[];
 }
 
 export interface LeaderboardEntry {
@@ -58,6 +90,7 @@ export interface Leaderboard {
     score: number | null;
     rankingLevel: RankingLevel | null;
     totalExams: number | null;
+    percentile: number | null;
   };
 }
 

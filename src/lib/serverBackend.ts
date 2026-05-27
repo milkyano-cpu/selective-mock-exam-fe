@@ -18,6 +18,7 @@ export async function fetchFromBackend(req: Request, path: string, options: Requ
 
   const authHeader = req.headers.get("authorization");
   const cookieHeader = req.headers.get('cookie');
+  const originHeader = req.headers.get('origin');
   const accessTokenFromCookie = getCookieValue(cookieHeader, ACCESS_TOKEN_COOKIE);
   const refreshTokenFromCookie = getCookieValue(cookieHeader, REFRESH_TOKEN_COOKIE);
   const isFormDataBody = typeof FormData !== 'undefined' && options.body instanceof FormData;
@@ -30,6 +31,13 @@ export async function fetchFromBackend(req: Request, path: string, options: Requ
 
   if (hasBody && !isFormDataBody) {
     defaultHeaders["Content-Type"] = "application/json";
+  }
+
+  // Forward the request's Origin so backend handlers (e.g. Stripe checkout)
+  // can build success/cancel URLs that point back to the same environment
+  // the request came from. Falls back to backend's env.APP_URL when absent.
+  if (originHeader) {
+    defaultHeaders["Origin"] = originHeader;
   }
 
   if (authHeader) {
