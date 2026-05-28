@@ -1,4 +1,4 @@
-import mdwClient from '@/lib/mdwClient';
+import mdwClient, { buildFeedbackHeaders } from '@/lib/mdwClient';
 import type {
   Question,
   CreateQuestionPayload,
@@ -52,6 +52,20 @@ export const questionsService = {
 
   reject: async (id: string, payload: RejectQuestionPayload): Promise<SingleResponse<Question>> => {
     const response = await mdwClient.patch(`/questions/${id}/reject`, payload);
+    return response.data;
+  },
+
+  unpublish: async (id: string): Promise<SingleResponse<Question>> => {
+    // 409 here is an expected "used in exam" branch — the page handles it
+    // by suggesting Archive, so suppress the global error toast.
+    const response = await mdwClient.patch(`/questions/${id}/unpublish`, {}, {
+      headers: buildFeedbackHeaders({ suppressConflictToast: true }),
+    });
+    return response.data;
+  },
+
+  archive: async (id: string): Promise<SingleResponse<Question>> => {
+    const response = await mdwClient.patch(`/questions/${id}/archive`, {});
     return response.data;
   },
 

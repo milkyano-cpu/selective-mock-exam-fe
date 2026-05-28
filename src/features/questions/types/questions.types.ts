@@ -2,7 +2,7 @@ import type { ImageSummary } from '@/features/images/types/images.types';
 
 export type QuestionType       = 'MCQ' | 'ESSAY';
 export type QuestionDifficulty = 'EASY' | 'MEDIUM' | 'HARD';
-export type QuestionStatus     = 'DRAFT' | 'PENDING_APPROVAL' | 'PUBLISHED';
+export type QuestionStatus     = 'DRAFT' | 'PENDING_APPROVAL' | 'PUBLISHED' | 'ARCHIVED';
 export type QuestionMarkingType = 'AUTO' | 'AI' | 'MANUAL';
 export type EssayWritingType = 'CREATIVE' | 'PERSUASIVE';
 
@@ -49,6 +49,7 @@ export type Question = {
   skillTags:        string[];
   status:           QuestionStatus;
   rejectionNote:    string | null;
+  usedInExam:       boolean;
   createdAt:        string;
   updatedAt:        string;
 };

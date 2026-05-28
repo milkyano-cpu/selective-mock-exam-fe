@@ -28,18 +28,29 @@ import {
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
+  RotateCcw,
+  Archive,
+  AlertTriangle,
+  X,
 } from 'lucide-react';
 import { LatexRenderer } from '@/components/ui/LatexRenderer';
 import { SearchableSelect } from '@/components/ui/SearchableSelect';
+import { useAuthStore } from '@/features/auth/store/auth.store';
 
 const STATUS_TABS: { label: string; value: QuestionStatus }[] = [
   { label: 'Draft', value: 'DRAFT' },
   { label: 'Pending Review', value: 'PENDING_APPROVAL' },
   { label: 'Published', value: 'PUBLISHED' },
+  { label: 'Archived', value: 'ARCHIVED' },
 ];
 
 function parseQuestionStatus(status: string | null): QuestionStatus | null {
-  if (status === 'DRAFT' || status === 'PENDING_APPROVAL' || status === 'PUBLISHED') {
+  if (
+    status === 'DRAFT'
+    || status === 'PENDING_APPROVAL'
+    || status === 'PUBLISHED'
+    || status === 'ARCHIVED'
+  ) {
     return status;
   }
   return null;
@@ -49,6 +60,7 @@ const STATUS_BADGE: Record<QuestionStatus, { label: string; className: string }>
   DRAFT: { label: 'Draft', className: 'bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300' },
   PENDING_APPROVAL: { label: 'Pending', className: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-400' },
   PUBLISHED: { label: 'Published', className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-400' },
+  ARCHIVED: { label: 'Archived', className: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400' },
 };
 
 const DIFFICULTY_BADGE: Record<string, string> = {
@@ -71,6 +83,8 @@ export default function QuestionsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const statusFromUrl = parseQuestionStatus(searchParams.get('status'));
+  const currentUser = useAuthStore((state) => state.user);
+  const isAdmin = currentUser?.role === 'ADMIN';
   const {
     questions,
     meta,
@@ -107,6 +121,16 @@ export default function QuestionsPage() {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selected, setSelected]         = useState<Question | null>(null);
   const selectAllRef = useRef<HTMLInputElement | null>(null);
+
+  // Unpublish + archive flow state. The same question can be the subject of
+  // an unpublish attempt (which surfaces a 409 if it's used in an exam) or a
+  // direct archive confirm; we keep both modals separate for clarity.
+  const [isUnpublishOpen, setIsUnpublishOpen] = useState(false);
+  const [isArchiveOpen, setIsArchiveOpen] = useState(false);
+  const [actionTarget, setActionTarget] = useState<Question | null>(null);
+  const [unpublishStep, setUnpublishStep] = useState<'confirm' | 'archive-fallback'>('confirm');
+  const [actionErrorMsg, setActionErrorMsg] = useState<string | null>(null);
+  const [isProcessingAction, setIsProcessingAction] = useState(false);
 
   const loadTopicsForSubject = useCallback(async (subjectId: string) => {
     const firstPage = await subjectsService.listTopics(subjectId, { page: 1, limit: TOPICS_PAGE_LIMIT }, { feedbackContext: 'options' });
@@ -269,6 +293,79 @@ export default function QuestionsPage() {
   const handleRejectOpen = (q: Question) => {
     setSelected(q);
     setIsRejectOpen(true);
+  };
+
+  const openUnpublishModal = (q: Question) => {
+    setActionTarget(q);
+    setUnpublishStep('confirm');
+    setActionErrorMsg(null);
+    setIsUnpublishOpen(true);
+  };
+
+  const openArchiveModal = (q: Question) => {
+    setActionTarget(q);
+    setActionErrorMsg(null);
+    setIsArchiveOpen(true);
+  };
+
+  const closeUnpublishModal = () => {
+    setIsUnpublishOpen(false);
+    setActionTarget(null);
+    setUnpublishStep('confirm');
+    setActionErrorMsg(null);
+  };
+
+  const closeArchiveModal = () => {
+    setIsArchiveOpen(false);
+    setActionTarget(null);
+    setActionErrorMsg(null);
+  };
+
+  const handleUnpublishConfirm = async () => {
+    if (!actionTarget) return;
+    setIsProcessingAction(true);
+    setActionErrorMsg(null);
+    try {
+      await questionsService.unpublish(actionTarget.id);
+      closeUnpublishModal();
+      load();
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 409) {
+        // BE blocked the unpublish because the question is referenced by at
+        // least one exam — pivot the modal to suggest Archive instead.
+        setUnpublishStep('archive-fallback');
+        setActionErrorMsg('This question is used in existing exams. Archive it instead.');
+      } else {
+        const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+        setActionErrorMsg(msg || 'Failed to unpublish question. Please try again.');
+      }
+    } finally {
+      setIsProcessingAction(false);
+    }
+  };
+
+  const handleSwitchToArchiveFromUnpublish = () => {
+    if (!actionTarget) return;
+    const target = actionTarget;
+    closeUnpublishModal();
+    openArchiveModal(target);
+  };
+
+  const handleArchiveConfirm = async () => {
+    if (!actionTarget) return;
+    setIsProcessingAction(true);
+    setActionErrorMsg(null);
+    try {
+      await questionsService.archive(actionTarget.id);
+      closeArchiveModal();
+      load();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setActionErrorMsg(msg || 'Failed to archive question. Please try again.');
+    } finally {
+      setIsProcessingAction(false);
+    }
   };
 
   const onFormSubmit = async (payload: CreateQuestionPayload) => {
@@ -711,6 +808,14 @@ export default function QuestionsPage() {
                             <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[8px] font-black ${badge.className}`}>
                               {badge.label}
                             </span>
+                            {q.status === 'PUBLISHED' && q.usedInExam && (
+                              <span
+                                className="inline-flex items-center rounded-full px-2 py-0.5 text-[8px] font-black bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-300"
+                                title="This question is attached to one or more exams — Unpublish will be blocked; use Archive instead."
+                              >
+                                Used in exam
+                              </span>
+                            )}
                             <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[8px] font-black border ${DIFFICULTY_BADGE[q.difficulty]}`}>
                               {q.difficulty}
                             </span>
@@ -815,9 +920,19 @@ export default function QuestionsPage() {
 
                       {/* Status */}
                       <td className="hidden px-6 py-4 md:table-cell">
-                        <span className={`inline-flex items-center rounded-full px-3 py-1 text-[10px] font-black ${badge.className}`}>
-                          {badge.label}
-                        </span>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className={`inline-flex items-center rounded-full px-3 py-1 text-[10px] font-black ${badge.className}`}>
+                            {badge.label}
+                          </span>
+                          {q.status === 'PUBLISHED' && q.usedInExam && (
+                            <span
+                              className="inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-black bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-300"
+                              title="This question is attached to one or more exams — Unpublish will be blocked; use Archive instead."
+                            >
+                              Used in exam
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       {/* Actions */}
@@ -827,7 +942,7 @@ export default function QuestionsPage() {
                             <Loader2 className="animate-spin text-[#0A9AE2]" size={16} />
                           ) : (
                             <>
-                              {q.status !== 'PUBLISHED' && (
+                              {q.status !== 'PUBLISHED' && q.status !== 'ARCHIVED' && (
                                 <button
                                   onClick={() => handleEdit(q)}
                                   className="rounded-lg p-2 text-slate-400 transition-all hover:bg-emerald-50 hover:text-emerald-600 dark:hover:bg-emerald-500/10"
@@ -867,7 +982,7 @@ export default function QuestionsPage() {
                                 </button>
                               )}
 
-                              {q.status !== 'PUBLISHED' && (
+                              {q.status !== 'PUBLISHED' && q.status !== 'ARCHIVED' && (
                                 <button
                                   onClick={() => handleDeleteOpen(q)}
                                   className="rounded-lg p-2 text-slate-400 transition-all hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
@@ -875,6 +990,25 @@ export default function QuestionsPage() {
                                 >
                                   <Trash2 size={16} />
                                 </button>
+                              )}
+
+                              {isAdmin && q.status === 'PUBLISHED' && (
+                                <>
+                                  <button
+                                    onClick={() => openUnpublishModal(q)}
+                                    className="rounded-lg p-2 text-slate-400 transition-all hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-500/10"
+                                    title={q.usedInExam ? 'Used in exam — Unpublish will be blocked. Archive instead.' : 'Unpublish'}
+                                  >
+                                    <RotateCcw size={16} />
+                                  </button>
+                                  <button
+                                    onClick={() => openArchiveModal(q)}
+                                    className="rounded-lg p-2 text-slate-400 transition-all hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-700/50"
+                                    title="Archive"
+                                  >
+                                    <Archive size={16} />
+                                  </button>
+                                </>
                               )}
                             </>
                           )}
@@ -1003,6 +1137,134 @@ export default function QuestionsPage() {
         message="Are you sure you want to delete this question? This action cannot be undone."
         isLoading={actionLoading === selected?.id}
       />
+
+      {/* Unpublish Question Modal */}
+      {isUnpublishOpen && actionTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900">
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <RotateCcw size={18} className="text-amber-500" />
+                <h2 className="text-base font-black text-slate-900 dark:text-slate-100">
+                  {unpublishStep === 'confirm' ? 'Unpublish Question' : 'Cannot Unpublish'}
+                </h2>
+              </div>
+              <button
+                onClick={closeUnpublishModal}
+                disabled={isProcessingAction}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="px-6 py-5 space-y-3">
+              {unpublishStep === 'confirm' ? (
+                <>
+                  <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                    Move this question back to <span className="font-bold text-slate-900 dark:text-slate-100">Draft</span> so it can be edited?
+                    {' '}This will hide it from any new exam or practice session.
+                  </p>
+                  {actionTarget.usedInExam && (
+                    <div className="flex items-start gap-2 rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs font-bold text-sky-700 dark:border-sky-900/50 dark:bg-sky-950/20 dark:text-sky-300">
+                      <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+                      <span>This question is already used in at least one exam. Unpublish will be rejected — use Archive instead.</span>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-bold text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-300">
+                  <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+                  <span>{actionErrorMsg ?? 'This question is used in existing exams. Archive it instead.'}</span>
+                </div>
+              )}
+              {unpublishStep === 'confirm' && actionErrorMsg && (
+                <div className="p-3 bg-red-50 border border-red-100 text-red-600 rounded-xl text-sm font-medium dark:bg-red-500/10 dark:border-red-500/20 dark:text-red-400">
+                  {actionErrorMsg}
+                </div>
+              )}
+            </div>
+            <div className="flex items-center justify-end gap-2 border-t border-slate-100 px-6 py-4 dark:border-slate-800">
+              <button
+                onClick={closeUnpublishModal}
+                disabled={isProcessingAction}
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+              >
+                Cancel
+              </button>
+              {unpublishStep === 'confirm' ? (
+                <button
+                  onClick={handleUnpublishConfirm}
+                  disabled={isProcessingAction}
+                  className="inline-flex items-center gap-2 rounded-xl bg-amber-600 px-4 py-2 text-sm font-bold text-white hover:bg-amber-700 disabled:opacity-50"
+                >
+                  {isProcessingAction && <Loader2 size={14} className="animate-spin" />}
+                  Unpublish
+                </button>
+              ) : (
+                <button
+                  onClick={handleSwitchToArchiveFromUnpublish}
+                  className="inline-flex items-center gap-2 rounded-xl bg-slate-700 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800"
+                >
+                  <Archive size={14} />
+                  Archive Instead
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Archive Question Modal */}
+      {isArchiveOpen && actionTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900">
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <Archive size={18} className="text-slate-500" />
+                <h2 className="text-base font-black text-slate-900 dark:text-slate-100">Archive Question</h2>
+              </div>
+              <button
+                onClick={closeArchiveModal}
+                disabled={isProcessingAction}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="px-6 py-5 space-y-3">
+              <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                Archive <span className="font-bold text-slate-900 dark:text-slate-100">{actionTarget.questionId ?? 'this question'}</span>?
+              </p>
+              <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-bold text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-300">
+                <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+                <span>Archived questions cannot be used in new exams. This action cannot be undone.</span>
+              </div>
+              {actionErrorMsg && (
+                <div className="p-3 bg-red-50 border border-red-100 text-red-600 rounded-xl text-sm font-medium dark:bg-red-500/10 dark:border-red-500/20 dark:text-red-400">
+                  {actionErrorMsg}
+                </div>
+              )}
+            </div>
+            <div className="flex items-center justify-end gap-2 border-t border-slate-100 px-6 py-4 dark:border-slate-800">
+              <button
+                onClick={closeArchiveModal}
+                disabled={isProcessingAction}
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleArchiveConfirm}
+                disabled={isProcessingAction}
+                className="inline-flex items-center gap-2 rounded-xl bg-slate-700 px-4 py-2 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-50"
+              >
+                {isProcessingAction && <Loader2 size={14} className="animate-spin" />}
+                Archive
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
