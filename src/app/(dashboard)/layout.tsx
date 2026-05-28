@@ -27,6 +27,8 @@ export default function DashboardLayout({
   const user = useAuthStore((state) => state.user);
   const isAdminOrTutor = user?.role === 'ADMIN' || user?.role === 'TUTOR';
   const isStudent = user?.role === 'STUDENT';
+  const isParent = user?.role === 'PARENT';
+  const isStudentLike = isStudent || isParent;
   const setAuth = useAuthStore((state) => state.setAuth);
   const studentRailRoutes = [
     '/dashboard',
@@ -34,7 +36,6 @@ export default function DashboardLayout({
     '/dashboard/practice',
     '/dashboard/forum',
     '/dashboard/flashcards',
-    '/dashboard/billing',
     '/dashboard/exams',
     '/dashboard/resources',
   ];
@@ -47,6 +48,7 @@ export default function DashboardLayout({
     pathname.startsWith('/dashboard/pathways/practice')
   );
   const shouldShowStudentRail = Boolean(isStudent && isStudentRailRoute && !isFocusedStudentWorkspace);
+  const isFocusedWorkspace = isStudentLike && isFocusedStudentWorkspace;
 
   useEffect(() => {
     const checkHydration = () => {
@@ -101,18 +103,18 @@ export default function DashboardLayout({
   return (
     <div className={[
       'relative flex min-h-screen max-w-full overflow-x-clip text-slate-900 transition-colors dark:text-slate-100',
-      isStudent
+      isStudentLike
         ? 'bg-[#eefbff] bg-[linear-gradient(135deg,#eefbff_0%,#fff7ed_34%,#eef2ff_68%,#ecfdf5_100%)] dark:bg-slate-950 dark:bg-[linear-gradient(135deg,#020617_0%,#101827_42%,#161328_70%,#071a17_100%)]'
         : 'bg-white dark:bg-slate-950 lg:bg-slate-50',
     ].join(' ')}>
-      {isStudent && !isFocusedStudentWorkspace && (
+      {isStudentLike && !isFocusedWorkspace && (
         <div
           aria-hidden="true"
           className="pointer-events-none fixed inset-0 bg-[linear-gradient(rgba(255,255,255,0.48)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.48)_1px,transparent_1px)] bg-[size:32px_32px] opacity-35 dark:hidden"
         />
       )}
       {/* Desktop Sidebar */}
-      {!isStudent && (
+      {!isStudentLike && (
         <aside className="fixed inset-y-0 left-0 z-40 hidden lg:block">
           <Sidebar />
         </aside>
@@ -150,17 +152,17 @@ export default function DashboardLayout({
         className={[
           'relative z-10 flex min-h-screen min-w-0 max-w-full flex-1 flex-col overflow-x-clip',
           isAdminOrTutor ? '' : 'pb-28',
-          isStudent ? 'lg:pb-0' : 'lg:ml-64 lg:pb-0',
+          isStudentLike ? 'lg:pb-0' : 'lg:ml-64 lg:pb-0',
         ].join(' ')}
       >
-        {!(isStudent && isFocusedStudentWorkspace) && (
+        {!(isStudentLike && isFocusedWorkspace) && (
           <Navbar onMenuClick={isAdminOrTutor ? () => setIsMobileSidebarOpen(true) : undefined} />
         )}
         <main
           className={[
             'mx-auto w-full min-w-0 flex-1 overflow-x-clip',
-            isStudent && isFocusedStudentWorkspace ? 'max-w-full p-0' : 'p-4',
-            isStudent && !isFocusedStudentWorkspace ? 'max-w-[1760px] lg:px-8 lg:py-8' : !isStudent ? 'max-w-[1600px] lg:p-8' : '',
+            isStudentLike && isFocusedWorkspace ? 'max-w-full p-0' : 'p-4',
+            isStudent && !isFocusedWorkspace ? 'max-w-[1760px] lg:px-8 lg:py-8' : isParent ? 'max-w-5xl lg:px-8 lg:py-8' : !isStudentLike ? 'max-w-[1600px] lg:p-8' : '',
           ].join(' ')}
         >
           <PageTransition>
@@ -176,7 +178,7 @@ export default function DashboardLayout({
         </main>
       </div>
 
-      {!isAdminOrTutor && !(isStudent && isFocusedStudentWorkspace) && <BottomNav />}
+      {!isAdminOrTutor && !(isStudentLike && isFocusedWorkspace) && <BottomNav />}
       <NavigationProgress />
       <InstallPrompt />
       <PushNotificationBanner />

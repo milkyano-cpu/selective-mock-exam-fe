@@ -289,9 +289,16 @@ function hasInteractiveSuccess(url: string | undefined, method: string | undefin
   }
   // Billing endpoints return a Stripe redirect URL — they are not save actions,
   // so the success outcome belongs to Stripe, not us. Suppress the generic toast.
+  // Covers both student (/billing/checkout, /billing/portal) and parent
+  // (/billing/parent/checkout, /billing/parent/portal) variants.
   if (
     normalizedMethod === 'POST' &&
-    (url?.includes('/billing/checkout') || url?.includes('/billing/portal'))
+    (
+      url?.includes('/billing/checkout') ||
+      url?.includes('/billing/portal') ||
+      url?.includes('/billing/parent/checkout') ||
+      url?.includes('/billing/parent/portal')
+    )
   ) {
     return false;
   }

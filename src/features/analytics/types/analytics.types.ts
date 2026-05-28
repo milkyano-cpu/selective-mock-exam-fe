@@ -104,10 +104,29 @@ export interface Leaderboard {
   };
 }
 
+export interface ChildActiveSubscription {
+  id: string;
+  tier: 'STANDARD' | 'PREMIUM';
+  status: string;
+  currentPeriodEnd: string;
+  cancelAtPeriodEnd: boolean;
+}
+
+// Lightweight item used in the parent child selector.
+export interface ChildSummary {
+  studentId: string;
+  studentName: string;
+  avatarUrl: string | null;
+  tier: 'BASIC' | 'STANDARD' | 'PREMIUM';
+  activeSubscription: ChildActiveSubscription | null;
+}
+
 export interface StudentAnalytics extends MyAnalytics {
   studentId: string;
   studentName: string;
   avatarUrl: string | null;
+  tier?: 'BASIC' | 'STANDARD' | 'PREMIUM';
+  activeSubscription?: ChildActiveSubscription | null;
 }
 
 // API responses
@@ -127,6 +146,13 @@ export interface StudentAnalyticsResponse {
   success: boolean;
   message: string;
   data: StudentAnalytics;
+}
+
+// Lightweight list — used to populate the parent's child selector.
+export interface ChildrenListResponse {
+  success: boolean;
+  message: string;
+  data: ChildSummary[];
 }
 
 export interface ChildrenAnalyticsResponse {

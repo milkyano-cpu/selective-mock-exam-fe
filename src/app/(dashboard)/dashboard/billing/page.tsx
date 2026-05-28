@@ -1,10 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { isAxiosError } from 'axios';
 import { Crown, CreditCard, Download, ExternalLink, Loader2, ReceiptText, ShieldCheck, Sparkles } from 'lucide-react';
 import { billingService } from '@/features/billing/services/billing.service';
 import type { BillingInvoice, BillingOverview, BillingPrice, BillingTier } from '@/features/billing/types/billing.types';
+import { analyticsService } from '@/features/analytics/services/analytics.service';
+import type { ChildSummary } from '@/features/analytics/types/analytics.types';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 
 const tiers: Array<{
@@ -73,20 +76,48 @@ function formatMinorCurrency(amount: number, currency: string) {
   }).format(amount / 100);
 }
 
+// Stripe invoice status → tailwind badge classes.
+// paid → green, open → amber, void/uncollectible → red, anything else → gray.
+function invoiceStatusBadgeClass(status: string) {
+  const normalized = status.toLowerCase();
+  if (normalized === 'paid') {
+    return 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300';
+  }
+  if (normalized === 'open') {
+    return 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300';
+  }
+  if (normalized === 'void' || normalized === 'uncollectible') {
+    return 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300';
+  }
+  return 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300';
+}
+
 export default function BillingPage() {
+  const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const updateUser = useAuthStore((s) => s.updateUser);
   const [overview, setOverview] = useState<BillingOverview | null>(null);
   const [invoices, setInvoices] = useState<BillingInvoice[]>([]);
+  const [children, setChildren] = useState<ChildSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [busyTier, setBusyTier] = useState<BillingTier | 'PORTAL' | null>(null);
+  // Track which (studentId × action) is in-flight so only that button spins.
+  const [busyChild, setBusyChild] = useState<string | null>(null);
+  // Tracks which child is currently in the "pick a tier" step.
+  // Null means the default state with just the "Subscribe for X" button.
+  const [tierPickerStudentId, setTierPickerStudentId] = useState<string | null>(null);
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const isStudent = user?.role === 'STUDENT';
   const isParent = user?.role === 'PARENT';
-  const canUseBilling = isStudent || isParent;
+  // Billing is parent-only — students are redirected away from this page.
+  const canUseBilling = isParent;
 
   useEffect(() => {
+    if (isStudent) {
+      router.replace('/dashboard');
+      return;
+    }
     if (!canUseBilling) {
       return;
     }
@@ -110,6 +141,15 @@ export default function BillingPage() {
       );
     }
 
+    if (isParent) {
+      requests.push(
+        analyticsService.getChildren().then((res) => {
+          if (cancelled || !res.success) return;
+          setChildren(res.data);
+        })
+      );
+    }
+
     Promise.all(requests)
       .catch((err) => {
         if (cancelled) return;
@@ -122,7 +162,7 @@ export default function BillingPage() {
     return () => {
       cancelled = true;
     };
-  }, [canUseBilling, isStudent, updateUser]);
+  }, [canUseBilling, isStudent, isParent, updateUser, router]);
 
   const handleCheckout = async (tier: BillingTier) => {
     setBusyTier(tier);
@@ -145,6 +185,30 @@ export default function BillingPage() {
     } catch (err) {
       setError(isAxiosError(err) ? err.response?.data?.message ?? 'Failed to open billing portal' : 'Failed to open billing portal');
       setBusyTier(null);
+    }
+  };
+
+  const handleParentCheckout = async (studentId: string, tier: BillingTier) => {
+    setBusyChild(`${studentId}:${tier}`);
+    setError(null);
+    try {
+      const res = await billingService.parentCheckout(studentId, tier);
+      window.location.assign(res.data.url);
+    } catch (err) {
+      setError(isAxiosError(err) ? err.response?.data?.message ?? 'Failed to start checkout' : 'Failed to start checkout');
+      setBusyChild(null);
+    }
+  };
+
+  const handleParentPortal = async (studentId: string) => {
+    setBusyChild(`${studentId}:PORTAL`);
+    setError(null);
+    try {
+      const res = await billingService.parentPortal(studentId);
+      window.location.assign(res.data.url);
+    } catch (err) {
+      setError(isAxiosError(err) ? err.response?.data?.message ?? 'Failed to open billing portal' : 'Failed to open billing portal');
+      setBusyChild(null);
     }
   };
 
@@ -177,27 +241,16 @@ export default function BillingPage() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto w-full max-w-6xl space-y-6 animate-pulse">
-        <div className="overflow-hidden rounded-3xl border border-slate-200/60 bg-white dark:border-slate-800 dark:bg-slate-900">
-          <div className="p-6 md:p-8 space-y-4">
-            <div className="h-5 w-28 rounded-full bg-slate-200/70 dark:bg-slate-800" />
-            <div className="h-8 w-32 rounded-lg bg-slate-200/70 dark:bg-slate-800" />
-            <div className="h-4 w-64 rounded bg-slate-100 dark:bg-slate-800/60" />
-          </div>
-        </div>
-        <div className="grid gap-4 md:grid-cols-3">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="rounded-3xl border border-slate-200/60 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
-              <div className="h-5 w-20 rounded bg-slate-200/70 dark:bg-slate-800" />
-              <div className="mt-3 h-8 w-24 rounded bg-slate-200/70 dark:bg-slate-800" />
-              <div className="mt-4 space-y-2">
-                {Array.from({ length: 3 }).map((_, j) => (
-                  <div key={j} className="h-3 w-full rounded bg-slate-100 dark:bg-slate-800/60" />
-                ))}
-              </div>
-              <div className="mt-6 h-10 rounded-xl bg-slate-200/70 dark:bg-slate-800" />
-            </div>
-          ))}
+      <div className="space-y-6">
+        <header>
+          <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100 sm:text-3xl">Billing</h1>
+          <p className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400">
+            Manage subscriptions and view invoices for your linked students.
+          </p>
+        </header>
+        <div className="space-y-4 animate-pulse">
+          <div className="h-44 rounded-3xl border border-slate-200/60 bg-white dark:border-slate-800 dark:bg-slate-900" />
+          <div className="h-56 rounded-3xl border border-slate-200/60 bg-white dark:border-slate-800 dark:bg-slate-900" />
         </div>
       </div>
     );
@@ -207,45 +260,13 @@ export default function BillingPage() {
   const activeSubscription = overview?.activeSubscription ?? null;
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6">
-      <section className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div className="grid gap-6 p-6 md:grid-cols-[1fr_auto] md:items-center md:p-8">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full bg-[#0A9AE2]/10 px-3 py-1 text-xs font-black uppercase tracking-wide text-[#0A9AE2]">
-              <CreditCard size={14} />
-              Membership
-            </div>
-            <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-950 dark:text-white">Billing</h1>
-            <p className="mt-2 max-w-2xl text-sm font-medium leading-6 text-slate-500 dark:text-slate-400">
-              {isStudent
-                ? 'Manage your Aspire membership and unlock the learning tools that match your study plan.'
-                : 'View and download invoices for your linked student accounts.'}
-            </p>
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-950">
-            <p className="text-xs font-black uppercase tracking-wide text-slate-400">
-              {isStudent ? 'Current tier' : 'Invoices'}
-            </p>
-            {isStudent ? (
-              <>
-                <p className="mt-1 flex items-center gap-2 text-2xl font-black text-slate-950 dark:text-white">
-                  {tier !== 'BASIC' && <Crown size={22} className="text-amber-500" />}
-                  {tier}
-                </p>
-                {activeSubscription && (
-                  <p className="mt-2 text-xs font-bold text-slate-500 dark:text-slate-400">
-                    Renews {formatDate(activeSubscription.currentPeriodEnd)}
-                  </p>
-                )}
-              </>
-            ) : (
-              <p className="mt-1 text-2xl font-black text-slate-950 dark:text-white">
-                {invoices.length}
-              </p>
-            )}
-          </div>
-        </div>
-      </section>
+    <div className="space-y-6">
+      <header>
+        <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100 sm:text-3xl">Billing</h1>
+        <p className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400">
+          Manage subscriptions and view invoices for your linked students.
+        </p>
+      </header>
 
       {error && (
         <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-700 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300">
@@ -334,6 +355,130 @@ export default function BillingPage() {
       </section>
       )}
 
+      {isParent && (
+        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex items-center gap-2">
+            <Crown size={18} className="text-amber-500" />
+            <h2 className="text-xl font-black text-slate-950 dark:text-white">Your children&apos;s subscriptions</h2>
+          </div>
+          <p className="mt-2 text-sm font-medium leading-6 text-slate-500 dark:text-slate-400">
+            Subscribe a child to a paid tier or manage an existing subscription.
+          </p>
+
+          {children.length === 0 ? (
+            <div className="mt-5 rounded-2xl border border-dashed border-slate-200 p-6 text-sm font-bold text-slate-500 dark:border-slate-800 dark:text-slate-400">
+              No linked students yet.
+            </div>
+          ) : (
+            <ul className={`mt-5 grid gap-3 ${children.length > 1 ? 'md:grid-cols-2 xl:grid-cols-3' : 'grid-cols-1'}`}>
+              {children.map((child) => {
+                const childTier = child.tier ?? 'BASIC';
+                const activeSub = child.activeSubscription ?? null;
+                const isSubscribed = activeSub !== null;
+                // Subscription status: active / cancelled / none (per SME-99 spec).
+                // "cancelled" here means a still-active sub flagged to end at period end.
+                let subscriptionStatus: 'active' | 'cancelled' | 'none';
+                if (!isSubscribed) {
+                  subscriptionStatus = 'none';
+                } else if (activeSub.cancelAtPeriodEnd) {
+                  subscriptionStatus = 'cancelled';
+                } else {
+                  subscriptionStatus = 'active';
+                }
+                const statusBadgeClass =
+                  subscriptionStatus === 'active'
+                    ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
+                    : subscriptionStatus === 'cancelled'
+                      ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'
+                      : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300';
+                const portalKey = `${child.studentId}:PORTAL`;
+                const standardKey = `${child.studentId}:STANDARD`;
+                const premiumKey = `${child.studentId}:PREMIUM`;
+                const isAnyBusy = busyChild !== null;
+                return (
+                  <li
+                    key={child.studentId}
+                    className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-slate-50/60 p-4 dark:border-slate-800 dark:bg-slate-950"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#0A9AE2] text-sm font-black text-white">
+                        {child.studentName.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase() || 'ST'}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-black text-slate-950 dark:text-white">{child.studentName}</p>
+                        <p className="mt-0.5 flex items-center gap-1.5 text-xs font-bold text-slate-500 dark:text-slate-400">
+                          {childTier !== 'BASIC' && <Crown size={12} className="text-amber-500" />}
+                          Tier: {childTier}
+                        </p>
+                        <span className={`mt-1.5 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${statusBadgeClass}`}>
+                          {subscriptionStatus}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      {isSubscribed ? (
+                        <button
+                          type="button"
+                          onClick={() => handleParentPortal(child.studentId)}
+                          disabled={isAnyBusy}
+                          className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-3 text-xs font-black text-white transition-colors hover:bg-emerald-700 disabled:opacity-60"
+                        >
+                          {busyChild === portalKey ? <Loader2 size={14} className="animate-spin" /> : <ExternalLink size={14} />}
+                          Manage billing
+                        </button>
+                      ) : tierPickerStudentId === child.studentId ? (
+                        <>
+                          <span className="w-full text-[11px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                            Pick a tier:
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleParentCheckout(child.studentId, 'STANDARD')}
+                            disabled={isAnyBusy}
+                            className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-[#0A9AE2] px-3 text-xs font-black text-white transition-colors hover:bg-[#0659AA] disabled:opacity-60"
+                          >
+                            {busyChild === standardKey ? <Loader2 size={14} className="animate-spin" /> : <CreditCard size={14} />}
+                            Standard
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleParentCheckout(child.studentId, 'PREMIUM')}
+                            disabled={isAnyBusy}
+                            className="inline-flex h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-amber-500 px-3 text-xs font-black text-white transition-colors hover:bg-amber-600 disabled:opacity-60"
+                          >
+                            {busyChild === premiumKey ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                            Premium
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setTierPickerStudentId(null)}
+                            disabled={isAnyBusy}
+                            className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 hover:bg-slate-100 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                          >
+                            Cancel
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => setTierPickerStudentId(child.studentId)}
+                          disabled={isAnyBusy}
+                          className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl bg-[#0A9AE2] px-4 text-xs font-black text-white transition-colors hover:bg-[#0659AA] disabled:opacity-60"
+                        >
+                          <CreditCard size={14} />
+                          Subscribe for {child.studentName.split(' ')[0]}
+                        </button>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+      )}
+
       <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -381,7 +526,7 @@ export default function BillingPage() {
                       </p>
                     </td>
                     <td className="whitespace-nowrap px-3 py-4">
-                      <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black uppercase text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300">
+                      <span className={`rounded-full px-3 py-1 text-xs font-black uppercase ${invoiceStatusBadgeClass(invoice.status)}`}>
                         {invoice.status}
                       </span>
                     </td>

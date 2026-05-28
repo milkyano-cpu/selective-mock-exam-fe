@@ -6,7 +6,7 @@ import { ChangePasswordForm } from '@/components/dashboard/ChangePasswordForm';
 import { ProfileAvatar } from '@/components/dashboard/ProfileAvatar';
 import { ProfilePhotoSettingsCard } from '@/components/dashboard/ProfilePhotoSettingsCard';
 import { PushNotificationSettingsCard } from '@/components/dashboard/PushNotificationSettingsCard';
-import { AlertTriangle, BellRing, Camera, ChevronDown, ChevronRight, KeyRound, Loader2, ShieldCheck, Trash2, User as UserIcon, X } from 'lucide-react';
+import { AlertTriangle, Loader2, ShieldCheck, Trash2, User as UserIcon, X } from 'lucide-react';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { userService } from '@/features/users/services/user.service';
 
@@ -20,11 +20,9 @@ const ROLE_LABELS: Record<string, string> = {
 const ROLE_NOTES: Record<string, string> = {
   ADMIN: 'You can manage your personal account settings here while continuing to oversee platform operations from the dashboard.',
   TUTOR: 'Keep your profile polished, secure your account, and stay connected to grading or session alerts on every device you use.',
-  PARENT: 'Manage your personal account setup here. Linked student profile editing will be expanded in an upcoming update.',
+  PARENT: '',
   STUDENT: 'Your core profile data is currently managed by your parent account. You can still personalize your photo, password, and device preferences here.',
 };
-
-type MobileSectionId = 'profile-photo' | 'push-notifications' | 'change-password';
 
 export default function SettingsPage() {
   const router = useRouter();
@@ -33,6 +31,9 @@ export default function SettingsPage() {
   const displayName = user?.fullName || user?.name || 'Your account';
   const roleLabel = ROLE_LABELS[user?.role || 'STUDENT'] || 'Member';
   const accountStatus = user?.status || 'ACTIVE';
+
+  const isStudent = user?.role === 'STUDENT';
+  const canDeleteAccount = !isStudent;
 
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [confirmText, setConfirmText] = useState('');
@@ -86,14 +87,16 @@ export default function SettingsPage() {
       </header>
 
       {/* Info Note */}
-      <div className="flex items-start gap-4 rounded-[1.5rem] border border-blue-100 bg-blue-50/50 p-5 dark:border-blue-900/30 dark:bg-blue-900/10">
-        <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400">
-          <UserIcon size={14} />
+      {ROLE_NOTES[user?.role || 'STUDENT'] && (
+        <div className="flex items-start gap-4 rounded-[1.5rem] border border-blue-100 bg-blue-50/50 p-5 dark:border-blue-900/30 dark:bg-blue-900/10">
+          <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400">
+            <UserIcon size={14} />
+          </div>
+          <p className="text-sm font-medium leading-relaxed text-blue-800/80 dark:text-blue-300/80">
+            {ROLE_NOTES[user?.role || 'STUDENT']}
+          </p>
         </div>
-        <p className="text-sm font-medium leading-relaxed text-blue-800/80 dark:text-blue-300/80">
-          {ROLE_NOTES[user?.role || 'STUDENT']}
-        </p>
-      </div>
+      )}
 
       {/* Settings Sections - Vertical Stack */}
       <div className="space-y-6 lg:space-y-8">
@@ -101,34 +104,36 @@ export default function SettingsPage() {
         <PushNotificationSettingsCard />
         <ChangePasswordForm />
 
-        {/* Danger Zone */}
-        <div className="rounded-[1.5rem] border border-red-200 bg-white dark:border-red-500/20 dark:bg-slate-900">
-          <div className="border-b border-red-100 px-6 py-4 dark:border-red-500/10">
-            <div className="flex items-center gap-2">
-              <AlertTriangle size={16} className="text-red-500" />
-              <h2 className="text-sm font-black text-red-600 dark:text-red-400">Danger Zone</h2>
+        {/* Danger Zone — hidden for STUDENT (account deletion managed by parent) */}
+        {canDeleteAccount && (
+          <div className="rounded-[1.5rem] border border-red-200 bg-white dark:border-red-500/20 dark:bg-slate-900">
+            <div className="border-b border-red-100 px-6 py-4 dark:border-red-500/10">
+              <div className="flex items-center gap-2">
+                <AlertTriangle size={16} className="text-red-500" />
+                <h2 className="text-sm font-black text-red-600 dark:text-red-400">Danger Zone</h2>
+              </div>
+            </div>
+            <div className="flex flex-col gap-3 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-bold text-slate-800 dark:text-slate-200">Delete Account</p>
+                <p className="mt-0.5 text-xs font-medium text-slate-500 dark:text-slate-400">
+                  Permanently remove your account and revoke all active sessions. This action cannot be undone.
+                </p>
+              </div>
+              <button
+                onClick={() => { setIsDeleteOpen(true); setConfirmText(''); setDeleteError(''); }}
+                className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-bold text-red-600 hover:bg-red-50 dark:border-red-500/30 dark:bg-transparent dark:text-red-400 dark:hover:bg-red-500/10"
+              >
+                <Trash2 size={14} />
+                Delete Account
+              </button>
             </div>
           </div>
-          <div className="flex flex-col gap-3 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <p className="text-sm font-bold text-slate-800 dark:text-slate-200">Delete Account</p>
-              <p className="mt-0.5 text-xs font-medium text-slate-500 dark:text-slate-400">
-                Permanently remove your account and revoke all active sessions. This action cannot be undone.
-              </p>
-            </div>
-            <button
-              onClick={() => { setIsDeleteOpen(true); setConfirmText(''); setDeleteError(''); }}
-              className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-bold text-red-600 hover:bg-red-50 dark:border-red-500/30 dark:bg-transparent dark:text-red-400 dark:hover:bg-red-500/10"
-            >
-              <Trash2 size={14} />
-              Delete Account
-            </button>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* Delete Account Modal */}
-      {isDeleteOpen && (
+      {canDeleteAccount && isDeleteOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900">
             <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 dark:border-slate-800">

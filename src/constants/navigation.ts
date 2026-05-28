@@ -31,13 +31,12 @@ export const studentMenuItems = [
   { icon: FolderOpen, label: 'Resources', href: '/dashboard/resources' },
   { icon: BookOpen, label: 'Flash Cards', href: '/dashboard/flashcards' },
   { icon: MessageSquare, label: 'Forum', href: '/dashboard/forum' },
-  { icon: CreditCard, label: 'Billing', href: '/dashboard/billing' },
   { icon: User, label: 'Account', href: '/dashboard/settings' },
 ];
 
 export const parentMenuItems = [
-  { icon: LayoutDashboard, label: 'Parent Home', href: '/dashboard' },
-  { icon: TrendingUp, label: 'Exam Results', href: '/dashboard/results' },
+  { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
+  { icon: TrendingUp, label: 'Results', href: '/dashboard/results' },
   { icon: MessageSquare, label: 'Forum', href: '/dashboard/forum' },
   { icon: CreditCard, label: 'Billing', href: '/dashboard/billing' },
   { icon: Megaphone, label: 'Announcements', href: '/dashboard/announcements' },

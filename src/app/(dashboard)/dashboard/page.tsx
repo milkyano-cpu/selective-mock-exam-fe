@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { isAxiosError } from 'axios';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { analyticsService } from '@/features/analytics/services/analytics.service';
 import { FeaturePaywall } from '@/components/billing/FeaturePaywall';
@@ -20,6 +22,9 @@ import {
   FileText,
   Crown,
   Search,
+  ArrowRight,
+  CreditCard,
+  ShieldCheck,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Label, BarChart, Bar, Legend } from 'recharts';
@@ -2253,323 +2258,151 @@ function TutorDashboard({ firstName }: { firstName: string }) {
 }
 
 function ParentDashboard({ firstName }: { firstName: string }) {
-  const [children, setChildren] = useState<StudentAnalytics[]>([]);
-  const [leaderboard, setLeaderboard] = useState<import('@/features/analytics/types/analytics.types').Leaderboard | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [selectedChildIdx, setSelectedChildIdx] = useState(0);
+  const router = useRouter();
+  const [children, setChildren] = useState<import('@/features/analytics/types/analytics.types').ChildSummary[]>([]);
+  const [isLoadingChildren, setIsLoadingChildren] = useState(true);
 
   useEffect(() => {
+    let cancelled = false;
     const load = async () => {
       try {
-        const [childRes, lbRes] = await Promise.all([
-          analyticsService.getChildrenAnalytics(),
-          analyticsService.getLeaderboard('ALL_TIME'),
-        ]);
-        if (childRes.success) setChildren(childRes.data);
-        if (lbRes.success) setLeaderboard(lbRes.data);
+        const res = await analyticsService.getChildren();
+        if (cancelled) return;
+        if (res.success) setChildren(res.data);
       } catch {
-        setChildren([]);
+        if (!cancelled) setChildren([]);
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoadingChildren(false);
       }
     };
     load();
+    return () => { cancelled = true; };
   }, []);
 
-  const selectedChild = children[selectedChildIdx] ?? null;
+  const activeSubsCount = children.filter((c) => c.activeSubscription !== null).length;
+  const subscribedCount = children.filter((c) => c.tier !== 'BASIC').length;
 
-  // Score trend data for selected child
-  const scoreTrendData = selectedChild?.examHistory
-    .slice()
-    .sort((a, b) => new Date(a.takenAt).getTime() - new Date(b.takenAt).getTime())
-    .map((h) => ({
-      exam: h.examTitle.length > 12 ? h.examTitle.slice(0, 12) + '…' : h.examTitle,
-      score: h.finalScore ?? 0,
-      date: new Date(h.takenAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-    })) ?? [];
-
-  // Subject performance for selected child
-  const subjectPerf = selectedChild?.subjectPerformance ?? [];
-
-  // Weak topics (score < 50%)
-  const weakTopics = selectedChild?.topicPerformance.filter((t) => t.scoreAvg < 50) ?? [];
-
-  // Find child's rank in leaderboard
-  const getChildRank = (studentId: string) => {
-    if (!leaderboard) return null;
-    const entry = leaderboard.entries.find((e) => e.studentId === studentId);
-    return entry ?? null;
+  const subscriptionStatusFor = (child: import('@/features/analytics/types/analytics.types').ChildSummary): {
+    label: string;
+    badgeClass: string;
+  } => {
+    if (!child.activeSubscription) return {
+      label: 'No subscription',
+      badgeClass: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
+    };
+    if (child.activeSubscription.cancelAtPeriodEnd) return {
+      label: 'Cancelling',
+      badgeClass: 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300',
+    };
+    return {
+      label: 'Active',
+      badgeClass: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300',
+    };
   };
 
-  if (isLoading) {
-    return (
-      <div className="space-y-8">
-        <div className="h-8 w-48 animate-pulse rounded-xl bg-slate-200 dark:bg-slate-800" />
-        <div className="h-64 animate-pulse rounded-[2rem] bg-slate-200/50 dark:bg-slate-800/50" />
-      </div>
-    );
-  }
+  const tierBadge = (tier: 'BASIC' | 'STANDARD' | 'PREMIUM') => {
+    if (tier === 'PREMIUM') return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300';
+    if (tier === 'STANDARD') return 'bg-[#0A9AE2]/10 text-[#0A9AE2] dark:bg-[#0A9AE2]/20';
+    return 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300';
+  };
 
   return (
     <div className="space-y-6">
       <header className="flex flex-col gap-2">
-        <p className="text-xs font-black uppercase tracking-[0.24em] text-[#0A9AE2]">Parent dashboard</p>
         <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100 sm:text-3xl">
           Welcome, <span className="text-[#0A9AE2]">{firstName}</span>!
         </h1>
         <p className="max-w-2xl text-sm font-medium text-slate-500 dark:text-slate-400">
-          Monitor your children&apos;s progress, exam scores, and identify areas that need attention.
+          Manage your linked students and monitor their subscriptions.
         </p>
       </header>
 
-      {/* Child Selector */}
-      {children.length > 1 && (
-        <div className="flex gap-2 flex-wrap">
-          {children.map((child, idx) => (
-            <button
-              key={child.studentId}
-              onClick={() => setSelectedChildIdx(idx)}
-              className={`rounded-xl px-4 py-2 text-sm font-bold transition-all ${
-                idx === selectedChildIdx
-                  ? 'bg-[#0A9AE2] text-white shadow-md shadow-blue-500/20'
-                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700'
-              }`}
-            >
-              {child.studentName}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {/* Top Metric Cards — per selected child */}
-      {selectedChild && (
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          <RoleMetricCard icon={FileText} label="Completed exams" value={selectedChild.totalExams} tone="bg-orange-50 text-orange-600 dark:bg-orange-900/20 dark:text-orange-300" />
-          <RoleMetricCard icon={Trophy} label="Average score" value={selectedChild.overallAvg !== null ? `${selectedChild.overallAvg.toFixed(0)}%` : '-'} tone="bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-300" />
-          <RoleMetricCard icon={Clock} label="Study time" value={formatRoleTime(selectedChild.totalTimeSeconds)} tone="bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-300" />
-          <RoleMetricCard icon={Target} label="Subjects covered" value={subjectPerf.length} tone="bg-violet-50 text-violet-600 dark:bg-violet-900/20 dark:text-violet-300" />
-        </div>
-      )}
-
-      {children.length === 0 ? (
-        <div className="rounded-[2rem] border border-dashed border-slate-200 bg-white py-16 text-center dark:border-slate-800 dark:bg-slate-900">
-          <Users className="mx-auto mb-3 text-slate-300" size={40} />
-          <p className="font-bold text-slate-500">No linked students yet.</p>
-          <p className="text-sm text-slate-400 mt-1">Students will appear here once linked to your account.</p>
-        </div>
-      ) : selectedChild && (
-        <>
-          {/* Child Comparison Cards + Ranking */}
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {/* Child Summary Card */}
-            <div className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-white font-black text-sm">
-                  {selectedChild.studentName.charAt(0)}
-                </div>
-                <div>
-                  <p className="font-black text-slate-900 dark:text-slate-100">{selectedChild.studentName}</p>
-                  <p className="text-[11px] font-medium text-slate-400">{selectedChild.totalExams} exams · {formatRoleTime(selectedChild.totalTimeSeconds)}</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-800">
-                  <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Average</p>
-                  <p className="text-xl font-black text-slate-900 dark:text-slate-100">
-                    {selectedChild.overallAvg !== null ? `${selectedChild.overallAvg.toFixed(0)}%` : '-'}
-                  </p>
-                </div>
-                <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-800">
-                  <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">Ranking</p>
-                  <p className="text-xl font-black text-slate-900 dark:text-slate-100">
-                    {selectedChild.rankingLevel ? RANKING_CONFIG[selectedChild.rankingLevel]?.label ?? '-' : '-'}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Ranking Position */}
-            <div className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <div className="flex items-center gap-2 mb-3">
-                <Award size={16} className="text-[#FF6900]" />
-                <p className="text-xs font-black uppercase tracking-wide text-slate-400">Leaderboard Position</p>
-              </div>
-              {(() => {
-                const rank = getChildRank(selectedChild.studentId);
-                if (!rank) return (
-                  <div className="flex items-center justify-center h-[100px]">
-                    <p className="text-sm text-slate-400">Not ranked yet</p>
-                  </div>
-                );
-                return (
-                  <div className="flex flex-col items-center justify-center h-[100px] gap-2">
-                    <div className={`flex h-14 w-14 items-center justify-center rounded-full text-xl font-black ${
-                      rank.rank === 1 ? 'bg-yellow-100 text-yellow-700' :
-                      rank.rank === 2 ? 'bg-slate-100 text-slate-600' :
-                      rank.rank === 3 ? 'bg-orange-100 text-orange-700' :
-                      'bg-blue-50 text-blue-600'
-                    }`}>
-                      #{rank.rank}
-                    </div>
-                    <p className="text-xs font-bold text-slate-500">Score: <span className="text-[#0A9AE2] font-black">{rank.score.toFixed(0)}</span></p>
-                    {rank.rankingLevel && RANKING_CONFIG[rank.rankingLevel] && (
-                      <span className={`rounded-md px-2 py-0.5 text-[10px] font-black ${RANKING_CONFIG[rank.rankingLevel]!.bg} ${RANKING_CONFIG[rank.rankingLevel]!.color}`}>
-                        {RANKING_CONFIG[rank.rankingLevel]!.label}
-                      </span>
-                    )}
-                  </div>
-                );
-              })()}
-            </div>
-
-            {/* Weak Topics Alert */}
-            <div className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <div className="flex items-center gap-2 mb-3">
-                <AlertTriangle size={16} className="text-amber-500" />
-                <p className="text-xs font-black uppercase tracking-wide text-slate-400">Needs Attention</p>
-              </div>
-              {weakTopics.length === 0 ? (
-                <div className="flex items-center justify-center h-[100px]">
-                  <div className="text-center">
-                    <Target size={24} className="mx-auto text-emerald-400 mb-1" />
-                    <p className="text-xs font-bold text-slate-500">All topics on track!</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-1.5 max-h-[110px] overflow-y-auto scrollbar-hide">
-                  {weakTopics.slice(0, 5).map((t) => (
-                    <div key={t.topicId} className="flex items-center justify-between gap-2 rounded-lg bg-red-50/50 px-3 py-1.5 dark:bg-red-500/5">
-                      <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 truncate">{t.topicName}</span>
-                      <span className="text-[11px] font-black text-red-500 shrink-0">{t.scoreAvg.toFixed(0)}%</span>
-                    </div>
-                  ))}
-                  {weakTopics.length > 5 && (
-                    <p className="text-[10px] font-bold text-slate-400 text-center">+{weakTopics.length - 5} more</p>
-                  )}
-                </div>
-              )}
-            </div>
+      {/* Quick stats strip */}
+      {isLoadingChildren ? (
+        <div className="space-y-6 animate-pulse">
+          <div className="grid gap-4 sm:grid-cols-3">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="h-28 rounded-2xl border border-slate-200/60 bg-white dark:border-slate-800 dark:bg-slate-900" />
+            ))}
           </div>
+          <div className="h-48 rounded-[2rem] border border-slate-200/60 bg-white dark:border-slate-800 dark:bg-slate-900" />
+        </div>
+      ) : (
+      <>
+      <div className="grid gap-4 sm:grid-cols-3">
+        <RoleMetricCard icon={Users} label="Linked students" value={children.length} tone="bg-[#0A9AE2]/10 text-[#0A9AE2] dark:bg-[#0A9AE2]/20 dark:text-cyan-300" />
+        <RoleMetricCard icon={Crown} label="Paid subscriptions" value={subscribedCount} tone="bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-300" />
+        <RoleMetricCard icon={ShieldCheck} label="Active billings" value={activeSubsCount} tone="bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-300" />
+      </div>
 
-          {/* Score Trend Chart */}
-          {scoreTrendData.length > 0 && (
-            <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <div className="mb-4">
-                <h2 className="text-base font-black text-slate-900 dark:text-slate-100">Score Trend</h2>
-                <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                  {selectedChild.studentName}&apos;s exam scores over time
-                </p>
-              </div>
-              <div className="h-[200px]">
-                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-                  <AreaChart data={scoreTrendData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
-                    <defs>
-                      <linearGradient id="scoreGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#0A9AE2" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="#0A9AE2" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                    <XAxis dataKey="date" tick={{ fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} domain={[0, 100]} />
-                    <Tooltip contentStyle={{ borderRadius: '12px', fontSize: '12px', fontWeight: 600 }} />
-                    <Area type="monotone" dataKey="score" stroke="#0A9AE2" strokeWidth={2.5} fill="url(#scoreGradient)" dot={{ r: 4, fill: '#0A9AE2', strokeWidth: 0 }} />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          )}
+      {/* Your Students */}
+      <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <div>
+            <h2 className="text-base font-black text-slate-900 dark:text-slate-100">Your Students</h2>
+            <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Quick access to each linked student.</p>
+          </div>
+          <Link
+            href="/dashboard/results"
+            className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 transition-colors hover:border-[#0A9AE2] hover:text-[#0A9AE2] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:text-[#0A9AE2]"
+          >
+            View all results
+            <ArrowRight size={12} />
+          </Link>
+        </div>
 
-          {/* Subject Performance Bar Chart */}
-          {subjectPerf.length > 0 && (
-            <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <div className="mb-4">
-                <h2 className="text-base font-black text-slate-900 dark:text-slate-100">Subject Performance</h2>
-                <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
-                  Average score per subject for {selectedChild.studentName}
-                </p>
-              </div>
-              <div className="h-[200px]">
-                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
-                  <BarChart
-                    data={subjectPerf.map((s) => ({
-                      subject: s.subjectName.length > 10 ? s.subjectName.slice(0, 10) + '…' : s.subjectName,
-                      score: Math.round(s.scoreAvg),
-                    }))}
-                    margin={{ top: 5, right: 10, left: -10, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                    <XAxis dataKey="subject" tick={{ fontSize: 10, fontWeight: 700 }} axisLine={false} tickLine={false} />
-                    <YAxis tick={{ fontSize: 11 }} axisLine={false} tickLine={false} domain={[0, 100]} />
-                    <Tooltip contentStyle={{ borderRadius: '12px', fontSize: '12px', fontWeight: 600 }} />
-                    <Bar dataKey="score" radius={[6, 6, 0, 0]}>
-                      {subjectPerf.map((s, i) => (
-                        <Cell key={i} fill={s.scoreAvg >= 70 ? '#10b981' : s.scoreAvg >= 50 ? '#f59e0b' : '#ef4444'} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-              <div className="flex items-center justify-center gap-4 mt-2">
-                <div className="flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                  <span className="text-[10px] font-bold text-slate-400">≥70% Strong</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full bg-amber-500" />
-                  <span className="text-[10px] font-bold text-slate-400">50-69% Average</span>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span className="h-2 w-2 rounded-full bg-red-500" />
-                  <span className="text-[10px] font-bold text-slate-400">&lt;50% Weak</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Multi-child comparison (if >1 child) */}
-          {children.length > 1 && (
-            <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-              <div className="mb-4">
-                <h2 className="text-base font-black text-slate-900 dark:text-slate-100">Children Comparison</h2>
-                <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Side-by-side performance overview</p>
-              </div>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {children.map((child) => {
-                  const childRank = getChildRank(child.studentId);
-                  return (
-                    <div key={child.studentId} className="rounded-2xl border border-slate-100 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-800/50">
-                      <div className="flex items-center gap-2 mb-3">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 text-white font-black text-xs">
-                          {child.studentName.charAt(0)}
-                        </div>
-                        <p className="font-bold text-sm text-slate-900 dark:text-slate-100 truncate">{child.studentName}</p>
-                      </div>
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-[11px]">
-                          <span className="text-slate-500">Average</span>
-                          <span className="font-black text-slate-900 dark:text-slate-100">{child.overallAvg !== null ? `${child.overallAvg.toFixed(0)}%` : '-'}</span>
-                        </div>
-                        <div className="flex justify-between text-[11px]">
-                          <span className="text-slate-500">Exams</span>
-                          <span className="font-black text-slate-900 dark:text-slate-100">{child.totalExams}</span>
-                        </div>
-                        <div className="flex justify-between text-[11px]">
-                          <span className="text-slate-500">Rank</span>
-                          <span className="font-black text-[#0A9AE2]">{childRank ? `#${childRank.rank}` : '-'}</span>
-                        </div>
-                        <div className="flex justify-between text-[11px]">
-                          <span className="text-slate-500">Study time</span>
-                          <span className="font-black text-slate-900 dark:text-slate-100">{formatRoleTime(child.totalTimeSeconds)}</span>
-                        </div>
+        {children.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-300 bg-white py-10 text-center dark:border-slate-700 dark:bg-slate-900">
+            <Users size={32} className="mx-auto text-slate-300 dark:text-slate-600" />
+            <p className="mt-3 text-sm font-black text-slate-700 dark:text-slate-200">No linked students found</p>
+            <p className="mt-1 text-xs font-medium text-slate-400">Contact your administrator to link a student account.</p>
+          </div>
+        ) : (
+          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {children.map((child) => {
+              const status = subscriptionStatusFor(child);
+              return (
+                <li key={child.studentId} className="rounded-2xl border border-slate-200 bg-slate-50/50 p-4 transition-colors hover:border-[#0A9AE2]/40 dark:border-slate-800 dark:bg-slate-950/40">
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 text-sm font-black text-white">
+                      {child.studentName.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase() || 'ST'}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-black text-slate-900 dark:text-slate-100">{child.studentName}</p>
+                      <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                        <span className={`rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wide ${tierBadge(child.tier)}`}>
+                          {child.tier}
+                        </span>
+                        <span className={`rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wide ${status.badgeClass}`}>
+                          {status.label}
+                        </span>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-        </>
+                  </div>
+                  <div className="mt-4 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => router.push(`/dashboard/results?student=${child.studentId}`)}
+                      className="flex-1 inline-flex items-center justify-center gap-1 rounded-xl bg-[#0A9AE2] px-3 py-2 text-xs font-black text-white transition-colors hover:bg-[#0659AA]"
+                    >
+                      <TrendingUp size={12} />
+                      Results
+                    </button>
+                    <Link
+                      href="/dashboard/billing"
+                      className="flex-1 inline-flex items-center justify-center gap-1 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-black text-slate-700 transition-colors hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+                    >
+                      <CreditCard size={12} />
+                      Billing
+                    </Link>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+      </>
       )}
     </div>
   );

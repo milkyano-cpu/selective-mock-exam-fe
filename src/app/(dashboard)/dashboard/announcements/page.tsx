@@ -66,10 +66,10 @@ export default function AnnouncementsPage() {
   return (
     <div className="space-y-4 sm:space-y-8">
       <header className="flex flex-col gap-1 sm:gap-2">
-        <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-slate-100">
-          Announcements <span className="text-[#0A9AE2]">.</span>
+        <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100 sm:text-3xl">
+          Announcements
         </h1>
-        <p className="text-sm sm:text-base font-medium text-slate-500 dark:text-slate-400">
+        <p className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400">
           Latest updates from your tutors and admins.
         </p>
       </header>

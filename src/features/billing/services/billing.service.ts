@@ -18,6 +18,12 @@ export const billingService = {
   createPortal: (): Promise<PortalResponse> =>
     mdwClient.post('/billing/portal').then((r) => r.data),
 
+  parentCheckout: (studentId: string, tier: BillingTier): Promise<CheckoutResponse> =>
+    mdwClient.post('/billing/parent/checkout', { studentId, tier }).then((r) => r.data),
+
+  parentPortal: (studentId: string): Promise<PortalResponse> =>
+    mdwClient.post('/billing/parent/portal', { studentId }).then((r) => r.data),
+
   listInvoices: (): Promise<BillingInvoicesResponse> =>
     mdwClient.get('/billing/invoices').then((r) => r.data),
 

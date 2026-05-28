@@ -13,7 +13,7 @@ import { GlobalSearch } from './GlobalSearch';
 import { useProfilePhoto } from '@/features/users/hooks/useProfilePhoto';
 import { useNotificationStore } from '@/features/notifications/store/notification.store';
 import { notificationService } from '@/features/notifications/services/notification.service';
-import { studentMenuItems } from '@/constants/navigation';
+import { studentMenuItems, parentMenuItems } from '@/constants/navigation';
 
 function timeAgo(dateStr: string): string {
   const timestamp = new Date(dateStr).getTime();
@@ -57,6 +57,8 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
   const storeMarkAsRead = useNotificationStore((s) => s.markAsRead);
   const storeMarkAllAsRead = useNotificationStore((s) => s.markAllAsRead);
   const isStudent = user?.role === 'STUDENT';
+  const isParent = user?.role === 'PARENT';
+  const isStudentLike = isStudent || isParent;
   const isStaff = user?.role === 'ADMIN' || user?.role === 'TUTOR';
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -110,13 +112,13 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
       }}
       className={[
         'sticky top-0 z-30 flex items-center justify-between border-b px-3 sm:px-4 lg:px-8 lg:backdrop-blur-2xl',
-        isStudent
+        isStudentLike
           ? 'h-[4.75rem] border-white/70 bg-[#eefbff] shadow-[0_10px_28px_rgba(14,116,144,0.10)] dark:border-white/10 dark:bg-slate-950 lg:h-20 lg:border-white/45 lg:bg-white/38 lg:shadow-[0_18px_44px_rgba(14,116,144,0.12)] lg:supports-[backdrop-filter]:bg-white/28 lg:dark:bg-slate-950/42 lg:dark:supports-[backdrop-filter]:bg-slate-950/30'
           : `${isStaff ? 'h-[52px]' : ''} border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 lg:bg-white/80 lg:dark:bg-slate-950/80`,
       ].join(' ')}
     >
       <div className="flex min-w-0 items-center gap-3 lg:gap-4">
-        {isStudent && (
+        {isStudentLike && (
           <Link
             href="/dashboard"
             className="hidden h-[8.5rem] w-96 shrink-0 items-center overflow-visible rounded-2xl transition-transform hover:scale-105 active:scale-95 sm:w-[26rem] lg:flex"
@@ -129,7 +131,7 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
           </Link>
         )}
 
-        {isStudent && (
+        {isStudentLike && (
           <div className="relative lg:hidden" ref={studentMobileProfileRef}>
             <button
               type="button"
@@ -142,9 +144,9 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
               </div>
               <div className="min-w-0 flex-1 text-left">
                 <p className="truncate text-xs font-black leading-tight text-slate-900 dark:text-slate-100">
-                  {user?.fullName || 'Student'}
+                  {user?.fullName || (isParent ? 'Parent' : 'Student')}
                 </p>
-                {user?.tier && (
+                {isStudent && user?.tier && (
                   <p className="truncate text-[10px] font-bold uppercase leading-tight text-slate-500 dark:text-slate-400">
                     {user.tier}
                   </p>
@@ -159,7 +161,7 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
             {isProfileOpen && (
               <div className="absolute left-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-2xl border border-white/80 bg-white shadow-xl shadow-sky-900/10 animate-in fade-in slide-in-from-top-1 dark:border-white/10 dark:bg-slate-900">
                 <div className="border-b border-slate-100 px-4 py-3 dark:border-slate-800">
-                  <p className="truncate text-sm font-black text-slate-900 dark:text-slate-100">{user?.fullName || 'Student'}</p>
+                  <p className="truncate text-sm font-black text-slate-900 dark:text-slate-100">{user?.fullName || (isParent ? 'Parent' : 'Student')}</p>
                   <p className="truncate text-xs font-medium text-slate-500 dark:text-slate-400">{user?.email || ''}</p>
                 </div>
                 <Link
@@ -196,7 +198,7 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
           </button>
         )}
         {/* Profile (Mobile Only) */}
-        <div className={`${isStudent ? 'hidden' : 'relative lg:hidden'}`} ref={mobileProfileRef}>
+        <div className={`${isStudentLike ? 'hidden' : 'relative lg:hidden'}`} ref={mobileProfileRef}>
           <button
             type="button"
             onClick={() => setIsProfileOpen((prev) => !prev)}
@@ -245,13 +247,13 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
           )}
         </div>
 
-        {!isStudent && <GlobalSearch role={user?.role} />}
+        {!isStudentLike && <GlobalSearch role={user?.role} />}
       </div>
 
-      {/* Centered desktop nav for student */}
-      {isStudent && (
+      {/* Centered desktop nav for student/parent */}
+      {isStudentLike && (
         <div className="absolute left-1/2 top-1/2 hidden -translate-x-1/2 -translate-y-1/2 lg:block">
-          <StudentDesktopNav menuItems={studentMenuItems} pathname={pathname} />
+          <StudentDesktopNav menuItems={isParent ? parentMenuItems : studentMenuItems} pathname={pathname} />
         </div>
       )}
 
@@ -265,13 +267,13 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
               'flex items-center border transition-all duration-200',
               isStaff
                 ? 'h-10 min-w-[176px] gap-3 rounded-xl border-slate-200/90 bg-white px-2.5 pr-3 shadow-[0_1px_3px_rgba(15,23,42,0.04)] hover:border-slate-300 hover:shadow-[0_4px_12px_rgba(15,23,42,0.07)] dark:border-slate-700 dark:bg-slate-900 dark:hover:border-slate-600'
-                : isStudent
+                : isStudentLike
                 ? 'h-12 min-w-[168px] max-w-[220px] gap-2.5 rounded-full border-white/80 bg-white/75 py-1.5 pl-1.5 pr-3 shadow-[0_4px_16px_rgba(14,116,144,0.08)] hover:border-white hover:bg-white hover:shadow-[0_8px_22px_rgba(14,116,144,0.13)] dark:border-white/10 dark:bg-slate-900/70 dark:hover:border-white/15 dark:hover:bg-slate-800'
                 : 'min-w-[180px] gap-4 rounded-2xl border-slate-200 bg-slate-50 py-2 pl-2.5 pr-5 hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-900/50 dark:hover:bg-slate-800',
             ].join(' ')}
           >
             <div className="relative shrink-0">
-              <ProfileAvatar name={user?.fullName || user?.name} photoUrl={photoUrl} isLoading={isLoading} className={`h-8 w-8 ${isStudent ? 'rounded-full' : 'rounded-[10px]'}`} iconSize={16} textClassName="text-xs" />
+              <ProfileAvatar name={user?.fullName || user?.name} photoUrl={photoUrl} isLoading={isLoading} className={`h-8 w-8 ${isStudentLike ? 'rounded-full' : 'rounded-[10px]'}`} iconSize={16} textClassName="text-xs" />
               <div className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white bg-emerald-500 dark:border-slate-900"></div>
             </div>
             <div className="flex flex-col overflow-hidden text-left flex-1">
@@ -447,12 +449,13 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
   );
 };
 
-function StudentDesktopNav({ menuItems, pathname }: { menuItems: typeof studentMenuItems; pathname: string }) {
+function StudentDesktopNav({ menuItems, pathname }: { menuItems: typeof studentMenuItems | typeof parentMenuItems; pathname: string }) {
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
 
-  const primaryItems = menuItems.slice(0, 4);
-  const moreItems = menuItems.slice(4);
+  const showMore = menuItems.length > 5;
+  const primaryItems = showMore ? menuItems.slice(0, 4) : menuItems;
+  const moreItems = showMore ? menuItems.slice(4) : [];
 
   const isItemActive = (href: string) => href === '/dashboard'
     ? pathname === '/dashboard'
@@ -504,6 +507,7 @@ function StudentDesktopNav({ menuItems, pathname }: { menuItems: typeof studentM
       })}
 
       {/* More */}
+      {showMore && (
       <div className="relative" ref={moreRef}>
         <button
           type="button"
@@ -566,6 +570,7 @@ function StudentDesktopNav({ menuItems, pathname }: { menuItems: typeof studentM
           )}
         </AnimatePresence>
       </div>
+      )}
     </nav>
   );
 }
