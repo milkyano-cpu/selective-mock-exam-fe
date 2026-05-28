@@ -19,6 +19,7 @@ import {
   ChevronDown,
   FileText,
   Crown,
+  Search,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Label, BarChart, Bar, Legend } from 'recharts';
@@ -1348,6 +1349,49 @@ function WritingPerformanceSection({
   canView: boolean;
   sessions: import('@/features/analytics/types/analytics.types').WritingPerformanceItem[];
 }) {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const sortedSessions = useMemo(
+    () =>
+      [...sessions].sort(
+        (a, b) => new Date(b.takenAt).getTime() - new Date(a.takenAt).getTime()
+      ),
+    [sessions]
+  );
+
+  const trimmedQuery = searchQuery.trim().toLowerCase();
+  const filteredSessions = useMemo(() => {
+    if (!trimmedQuery) return sortedSessions;
+    return sortedSessions.filter((s) => s.examTitle.toLowerCase().includes(trimmedQuery));
+  }, [sortedSessions, trimmedQuery]);
+
+  const indexOfSelected = selectedSessionId
+    ? sortedSessions.findIndex((s) => s.sessionId === selectedSessionId)
+    : -1;
+  const selectedSession =
+    indexOfSelected >= 0 ? sortedSessions[indexOfSelected] : sortedSessions[0] ?? null;
+
+  useEffect(() => {
+    if (!isDropdownOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsDropdownOpen(false);
+        setSearchQuery('');
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [isDropdownOpen]);
+
+  const handleSelect = (sessionId: string) => {
+    setSelectedSessionId(sessionId);
+    setIsDropdownOpen(false);
+    setSearchQuery('');
+  };
+
   if (!canView) {
     return (
       <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-8 lg:col-span-2">
@@ -1363,14 +1407,93 @@ function WritingPerformanceSection({
 
   return (
     <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-8 lg:col-span-2">
-      <div className="mb-5">
-        <h2 className="flex items-center gap-2 text-xl font-black text-slate-900 dark:text-slate-100">
-          <FileText className="text-[#0A9AE2]" /> Writing Performance
-        </h2>
-        <p className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400">
-          Rubric feedback from graded essay answers
-        </p>
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h2 className="flex items-center gap-2 text-xl font-black text-slate-900 dark:text-slate-100">
+            <FileText className="text-[#0A9AE2]" /> Writing Performance
+          </h2>
+          <p className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400">
+            Rubric feedback from graded essay answers
+          </p>
+        </div>
+        {sessions.length > 0 && selectedSession && (
+          <div className="relative w-full sm:w-80" ref={dropdownRef}>
+            <button
+              type="button"
+              onClick={() => setIsDropdownOpen((prev) => !prev)}
+              aria-haspopup="listbox"
+              aria-expanded={isDropdownOpen}
+              className="flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-left text-sm font-bold text-slate-700 transition hover:border-[#0A9AE2]/40 hover:bg-white dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+            >
+              <span className="flex min-w-0 flex-col">
+                <span className="truncate">{selectedSession.examTitle}</span>
+                <span className="text-[11px] font-medium text-slate-400">
+                  {new Date(selectedSession.takenAt).toLocaleDateString()}
+                </span>
+              </span>
+              <ChevronDown
+                size={16}
+                className={`shrink-0 text-slate-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`}
+              />
+            </button>
+            {isDropdownOpen && (
+              <div className="absolute right-0 top-full z-50 mt-2 w-full overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900">
+                <div className="relative border-b border-slate-100 p-2 dark:border-slate-800">
+                  <Search
+                    size={14}
+                    className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"
+                  />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search exams..."
+                    aria-label="Search writing exams"
+                    autoFocus
+                    className="w-full rounded-lg bg-slate-50 py-1.5 pl-8 pr-2 text-xs font-medium text-slate-700 placeholder:text-slate-400 focus:outline-none dark:bg-slate-800 dark:text-slate-200"
+                  />
+                </div>
+                <div className="max-h-64 overflow-y-auto py-1">
+                  {filteredSessions.length === 0 ? (
+                    <p className="px-3 py-4 text-center text-xs font-medium text-slate-400">
+                      No exams match &ldquo;{searchQuery}&rdquo;
+                    </p>
+                  ) : (
+                    filteredSessions.map((s) => {
+                      const isActive = s.sessionId === selectedSession.sessionId;
+                      return (
+                        <button
+                          key={s.sessionId}
+                          type="button"
+                          onClick={() => handleSelect(s.sessionId)}
+                          className={`flex w-full items-start justify-between gap-3 px-3 py-2 text-left transition hover:bg-slate-50 dark:hover:bg-slate-800 ${
+                            isActive ? 'bg-[#0A9AE2]/5' : ''
+                          }`}
+                        >
+                          <span className="flex min-w-0 flex-col">
+                            <span className={`truncate text-xs font-bold ${isActive ? 'text-[#0A9AE2]' : 'text-slate-700 dark:text-slate-300'}`}>
+                              {s.examTitle}
+                            </span>
+                            <span className="text-[10px] font-medium text-slate-400">
+                              {new Date(s.takenAt).toLocaleDateString()}
+                            </span>
+                          </span>
+                          {s.bandLabel && (
+                            <span className="shrink-0 rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-black text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                              {s.bandLabel}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
       {sessions.length === 0 ? (
         <div className="flex min-h-[150px] items-center justify-center rounded-2xl border border-dashed border-slate-200 px-4 text-center dark:border-slate-800">
           <p className="text-sm font-medium text-slate-400">
@@ -1378,32 +1501,35 @@ function WritingPerformanceSection({
           </p>
         </div>
       ) : (
-        <div className="flex flex-col gap-4">
-          {sessions.map((session) => (
-            <div key={session.sessionId} className="rounded-2xl border border-slate-100 p-4 dark:border-slate-800">
+        <>
+          {selectedSession && (
+            <div
+              key={selectedSession.sessionId}
+              className="rounded-2xl border border-slate-100 p-4 dark:border-slate-800"
+            >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div>
-                  <h3 className="font-black text-slate-900 dark:text-slate-100">{session.examTitle}</h3>
+                  <h3 className="font-black text-slate-900 dark:text-slate-100">{selectedSession.examTitle}</h3>
                   <p className="mt-1 text-xs font-medium text-slate-400">
-                    {new Date(session.takenAt).toLocaleDateString()}
+                    {new Date(selectedSession.takenAt).toLocaleDateString()}
                   </p>
                 </div>
-                {session.bandLabel && (
+                {selectedSession.bandLabel && (
                   <span className="rounded-xl bg-[#0A9AE2]/10 px-3 py-1 text-xs font-black text-[#0A9AE2]">
-                    {session.bandLabel}
+                    {selectedSession.bandLabel}
                   </span>
                 )}
               </div>
-              {session.bandDescriptor && (
-                <p className="mt-3 text-sm font-medium text-slate-500 dark:text-slate-400">{session.bandDescriptor}</p>
+              {selectedSession.bandDescriptor && (
+                <p className="mt-3 text-sm font-medium text-slate-500 dark:text-slate-400">{selectedSession.bandDescriptor}</p>
               )}
               <div className="mt-4 grid gap-3 md:grid-cols-2">
-                {session.criteria.map((criterion) => {
+                {selectedSession.criteria.map((criterion) => {
                   const colors = criterionBarColor(criterion.scorePercent);
                   const widthPercent = Math.max(0, Math.min(100, criterion.scorePercent));
                   return (
                     <div
-                      key={`${session.sessionId}-${criterion.criterionName}`}
+                      key={`${selectedSession.sessionId}-${criterion.criterionName}`}
                       className="rounded-xl bg-slate-50 p-3 dark:bg-slate-800/50"
                     >
                       <div className="flex items-center justify-between gap-3">
@@ -1449,8 +1575,8 @@ function WritingPerformanceSection({
                 })}
               </div>
             </div>
-          ))}
-        </div>
+          )}
+        </>
       )}
     </div>
   );

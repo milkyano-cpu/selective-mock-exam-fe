@@ -7,7 +7,7 @@ const REFRESH_TOKEN_COOKIE = 'aspire_refresh_token';
 const DASHBOARD_PREFIX = '/dashboard';
 const AUTH_PAGES = ['/login', '/register', '/forgot-password', '/reset-password'];
 
-export function proxy(request: NextRequest) {
+export function middleware(request: NextRequest) {
   const accessToken = request.cookies.get(ACCESS_TOKEN_COOKIE)?.value;
   const refreshToken = request.cookies.get(REFRESH_TOKEN_COOKIE)?.value;
   const pathname = request.nextUrl.pathname;
@@ -21,7 +21,7 @@ export function proxy(request: NextRequest) {
   }
 
   // Dashboard content is client-rendered and validates the user through mdwClient.
-  // Keeping rotation there avoids racing one-time refresh tokens against this proxy.
+  // Keeping rotation there avoids racing one-time refresh tokens against this middleware.
   if (isAuthPage && (accessToken || refreshToken) && pathname !== '/reset-password') {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }

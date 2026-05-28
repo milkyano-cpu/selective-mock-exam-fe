@@ -39,7 +39,7 @@ export const LoginForm = () => {
   const onSubmit = async (data: LoginValues) => {
     const result = await login(data);
     if (result) {
-      router.push('/dashboard');
+      router.replace('/dashboard');
     }
   };
 
