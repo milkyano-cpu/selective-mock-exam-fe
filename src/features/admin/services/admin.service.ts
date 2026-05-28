@@ -1,4 +1,4 @@
-import mdwClient from '@/lib/mdwClient';
+import mdwClient, { buildFeedbackHeaders } from '@/lib/mdwClient';
 
 export interface CreateStaffPayload {
   role: 'ADMIN' | 'TUTOR';
@@ -105,7 +105,9 @@ export const adminService = {
   },
 
   deleteUser: async (userId: string): Promise<{ success: boolean; message: string }> => {
-    const response = await mdwClient.delete(`/admin/users/${userId}`);
+    const response = await mdwClient.delete(`/admin/users/${userId}`, {
+      headers: buildFeedbackHeaders({ suppressConflictToast: true }),
+    });
     return response.data;
   },
 };

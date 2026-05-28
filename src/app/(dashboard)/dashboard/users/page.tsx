@@ -62,6 +62,7 @@ export default function ManageUsersPage() {
   const [isDeleteUserOpen, setIsDeleteUserOpen] = useState(false);
   const [userToDelete, setUserToDelete]         = useState<UserItem | null>(null);
   const [isDeletingUser, setIsDeletingUser]     = useState(false);
+  const [deleteErrorMsg, setDeleteErrorMsg]     = useState<string | null>(null);
 
   const [isSyncing, setIsSyncing]         = useState(false);
   const [isModalOpen, setIsModalOpen]     = useState(false);
@@ -123,14 +124,22 @@ export default function ManageUsersPage() {
   const handleDeleteUser = async () => {
     if (!userToDelete) return;
     setIsDeletingUser(true);
+    setDeleteErrorMsg(null);
     try {
       await adminService.deleteUser(userToDelete.id);
       setIsDeleteUserOpen(false);
       setUserToDelete(null);
       setSelectedUser(null);
       void fetchUsers(activeTab, page, search, pageSize);
-    } catch {
-      // error handled silently — user stays in modal
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 409) {
+        setDeleteErrorMsg(
+          'This account has an active subscription. Please ask the parent to cancel their subscription first before deleting.'
+        );
+      } else {
+        setDeleteErrorMsg('Failed to delete user. Please try again.');
+      }
     } finally {
       setIsDeletingUser(false);
     }
@@ -383,7 +392,7 @@ export default function ManageUsersPage() {
                     <td className="px-6 py-4 text-right">
                       {isAdmin && u.id !== user?.id && (
                         <button
-                          onClick={() => { setUserToDelete(u); setIsDeleteUserOpen(true); }}
+                          onClick={() => { setUserToDelete(u); setDeleteErrorMsg(null); setIsDeleteUserOpen(true); }}
                           className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
                           title="Delete user"
                         >
@@ -567,7 +576,7 @@ export default function ManageUsersPage() {
 
                 {isAdmin && selectedUser.id !== user?.id && (
                   <button
-                    onClick={() => { setUserToDelete(selectedUser); setIsDeleteUserOpen(true); }}
+                    onClick={() => { setUserToDelete(selectedUser); setDeleteErrorMsg(null); setIsDeleteUserOpen(true); }}
                     className="mt-2 w-full flex items-center justify-center gap-2 rounded-xl border border-red-200 py-2.5 text-sm font-bold text-red-600 hover:bg-red-50 dark:border-red-500/30 dark:text-red-400 dark:hover:bg-red-500/10"
                   >
                     <Trash2 size={14} />
@@ -590,21 +599,27 @@ export default function ManageUsersPage() {
                 <h2 className="text-base font-black text-slate-900 dark:text-slate-100">Delete User</h2>
               </div>
               <button
-                onClick={() => { setIsDeleteUserOpen(false); setUserToDelete(null); }}
+                onClick={() => { setIsDeleteUserOpen(false); setUserToDelete(null); setDeleteErrorMsg(null); }}
                 disabled={isDeletingUser}
                 className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
               >
                 <X size={16} />
               </button>
             </div>
-            <div className="px-6 py-5">
+            <div className="px-6 py-5 space-y-3">
               <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                Are you sure you want to delete <span className="font-bold text-slate-900 dark:text-slate-100">{userToDelete.fullName}</span>? Their active sessions will be revoked. This action cannot be undone.
+                Are you sure you want to delete <span className="font-bold text-slate-900 dark:text-slate-100">{userToDelete.fullName}</span>? Their active sessions will be revoked and account will be permanently disabled.
+                {' '}Ensure the subscription has been cancelled by the parent before proceeding.
               </p>
+              {deleteErrorMsg && (
+                <div className="p-3 bg-red-50 border border-red-100 text-red-600 rounded-xl text-sm font-medium dark:bg-red-500/10 dark:border-red-500/20 dark:text-red-400">
+                  {deleteErrorMsg}
+                </div>
+              )}
             </div>
             <div className="flex items-center justify-end gap-2 border-t border-slate-100 px-6 py-4 dark:border-slate-800">
               <button
-                onClick={() => { setIsDeleteUserOpen(false); setUserToDelete(null); }}
+                onClick={() => { setIsDeleteUserOpen(false); setUserToDelete(null); setDeleteErrorMsg(null); }}
                 disabled={isDeletingUser}
                 className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
               >

@@ -19,13 +19,15 @@ const BASE_URL = env.appUrl || "";
 export interface MdwRequestOptions {
   feedbackContext?: ErrorAlertContext;
   suppressNotFoundToast?: boolean;
+  suppressConflictToast?: boolean;
 }
 
 export function buildFeedbackHeaders(options?: MdwRequestOptions): Record<string, string> | undefined {
-  if (!options?.feedbackContext && !options?.suppressNotFoundToast) return undefined;
+  if (!options?.feedbackContext && !options?.suppressNotFoundToast && !options?.suppressConflictToast) return undefined;
   const headers: Record<string, string> = {};
   if (options.feedbackContext) headers['x-feedback-context'] = options.feedbackContext;
   if (options.suppressNotFoundToast) headers['x-suppress-not-found-toast'] = 'true';
+  if (options.suppressConflictToast) headers['x-suppress-conflict-toast'] = 'true';
   return headers;
 }
 
@@ -253,6 +255,7 @@ function isQuietBackgroundRequest(url: string | undefined): boolean {
     url?.includes('/heartbeat') ||
     url?.includes('/answers') ||
     url?.includes('/student-calendar/reminders/bulk') ||
+    url?.includes('/billing/parent/refresh') ||
     (url?.includes('/resources/') && url?.includes('/stream-url'))
   );
 }
@@ -345,6 +348,12 @@ async function rejectWithVisibleError(
     typeof headers === 'object' &&
     ((headers as Record<string, unknown>)['x-suppress-not-found-toast'] === 'true' ||
       (headers as Record<string, unknown>)['X-Suppress-Not-Found-Toast'] === 'true');
+  const suppressConflict =
+    status === 409 &&
+    headers &&
+    typeof headers === 'object' &&
+    ((headers as Record<string, unknown>)['x-suppress-conflict-toast'] === 'true' ||
+      (headers as Record<string, unknown>)['X-Suppress-Conflict-Toast'] === 'true');
 
   if (
     !axios.isCancel(error)
@@ -352,6 +361,7 @@ async function rejectWithVisibleError(
     && !suppressBackgroundError
     && !suppressForbidden
     && !suppressNotFound
+    && !suppressConflict
   ) {
     const role = useAuthStore.getState().user?.role;
     await showApiErrorAlert(error, role, { context });

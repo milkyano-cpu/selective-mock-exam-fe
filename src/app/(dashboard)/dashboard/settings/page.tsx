@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { ChangePasswordForm } from '@/components/dashboard/ChangePasswordForm';
 import { ProfileAvatar } from '@/components/dashboard/ProfileAvatar';
 import { ProfilePhotoSettingsCard } from '@/components/dashboard/ProfilePhotoSettingsCard';
@@ -25,9 +24,7 @@ const ROLE_NOTES: Record<string, string> = {
 };
 
 export default function SettingsPage() {
-  const router = useRouter();
   const user = useAuthStore((state) => state.user);
-  const clearAuth = useAuthStore((state) => state.clearAuth);
   const displayName = user?.fullName || user?.name || 'Your account';
   const roleLabel = ROLE_LABELS[user?.role || 'STUDENT'] || 'Member';
   const accountStatus = user?.status || 'ACTIVE';
@@ -45,8 +42,10 @@ export default function SettingsPage() {
     setDeleteError('');
     try {
       await userService.deleteMyAccount();
-      clearAuth();
-      router.push('/login');
+      // Hand off to /api/auth/logout so httpOnly cookies are cleared server-side
+      // before redirecting — clearing only the Zustand store leaves the cookies
+      // intact and the middleware bounces the user back to /dashboard.
+      window.location.replace('/api/auth/logout');
     } catch {
       setDeleteError('Failed to delete account. Please try again.');
       setIsDeleting(false);

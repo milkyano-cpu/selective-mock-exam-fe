@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { isAxiosError } from 'axios';
-import { Crown, CreditCard, Download, ExternalLink, Loader2, ReceiptText, ShieldCheck, Sparkles } from 'lucide-react';
+import { AlertTriangle, Crown, CreditCard, Download, ExternalLink, Loader2, ReceiptText, ShieldCheck, Sparkles } from 'lucide-react';
 import { billingService } from '@/features/billing/services/billing.service';
 import type { BillingInvoice, BillingOverview, BillingPrice, BillingTier } from '@/features/billing/types/billing.types';
 import { analyticsService } from '@/features/analytics/services/analytics.service';
@@ -113,6 +113,66 @@ export default function BillingPage() {
   // Billing is parent-only — students are redirected away from this page.
   const canUseBilling = isParent;
 
+  // Throttle for the parent-side Stripe pull. We pull fresh subscription state
+  // from Stripe on page load and tab focus so cancel/restore actions taken in
+  // the portal show up immediately, but we don't want to hammer Stripe every
+  // time the tab regains focus.
+  const lastParentRefreshAtRef = useRef(0);
+  const PARENT_REFRESH_THROTTLE_MS = 30_000;
+
+  const loadBillingData = useCallback(
+    async (signal: { cancelled: boolean }) => {
+      if (isParent) {
+        const now = Date.now();
+        if (now - lastParentRefreshAtRef.current >= PARENT_REFRESH_THROTTLE_MS) {
+          lastParentRefreshAtRef.current = now;
+          try {
+            await billingService.refreshParent();
+          } catch {
+            // Stripe pull is a best-effort sync; fall through to the local read.
+          }
+          if (signal.cancelled) return;
+        }
+      }
+
+      const requests: Array<Promise<void>> = [
+        billingService.listInvoices().then((res) => {
+          if (signal.cancelled || !res.success) return;
+          setInvoices(res.data.invoices);
+        }),
+      ];
+
+      if (isStudent) {
+        requests.push(
+          billingService.getMe().then((res) => {
+            if (signal.cancelled || !res.success) return;
+            setOverview(res.data);
+            updateUser({ tier: res.data.tier });
+          })
+        );
+      }
+
+      if (isParent) {
+        requests.push(
+          analyticsService.getChildren().then((res) => {
+            if (signal.cancelled || !res.success) return;
+            setChildren(res.data);
+          })
+        );
+      }
+
+      try {
+        await Promise.all(requests);
+      } catch (err) {
+        if (signal.cancelled) return;
+        setError(
+          isAxiosError(err) ? err.response?.data?.message ?? 'Failed to load billing' : 'Failed to load billing'
+        );
+      }
+    },
+    [isStudent, isParent, updateUser]
+  );
+
   useEffect(() => {
     if (isStudent) {
       router.replace('/dashboard');
@@ -122,47 +182,34 @@ export default function BillingPage() {
       return;
     }
 
-    let cancelled = false;
-
-    const requests: Array<Promise<void>> = [
-      billingService.listInvoices().then((res) => {
-        if (cancelled || !res.success) return;
-        setInvoices(res.data.invoices);
-      }),
-    ];
-
-    if (isStudent) {
-      requests.push(
-        billingService.getMe().then((res) => {
-          if (cancelled || !res.success) return;
-          setOverview(res.data);
-          updateUser({ tier: res.data.tier });
-        })
-      );
-    }
-
-    if (isParent) {
-      requests.push(
-        analyticsService.getChildren().then((res) => {
-          if (cancelled || !res.success) return;
-          setChildren(res.data);
-        })
-      );
-    }
-
-    Promise.all(requests)
-      .catch((err) => {
-        if (cancelled) return;
-        setError(isAxiosError(err) ? err.response?.data?.message ?? 'Failed to load billing' : 'Failed to load billing');
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false);
-      });
+    const signal = { cancelled: false };
+    loadBillingData(signal).finally(() => {
+      if (!signal.cancelled) setIsLoading(false);
+    });
 
     return () => {
-      cancelled = true;
+      signal.cancelled = true;
     };
-  }, [canUseBilling, isStudent, isParent, updateUser, router]);
+  }, [canUseBilling, isStudent, loadBillingData, router]);
+
+  // Refetch when the tab becomes visible again — covers the Stripe portal return
+  // flow where the cancel webhook may settle while the user is still off-tab.
+  useEffect(() => {
+    if (!canUseBilling) return;
+
+    const signal = { cancelled: false };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void loadBillingData(signal);
+      }
+    };
+
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      signal.cancelled = true;
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [canUseBilling, loadBillingData]);
 
   const handleCheckout = async (tier: BillingTier) => {
     setBusyTier(tier);
@@ -205,6 +252,9 @@ export default function BillingPage() {
     setError(null);
     try {
       const res = await billingService.parentPortal(studentId);
+      // Force a fresh Stripe pull next time loadBillingData runs — the parent is
+      // about to act on a subscription in the portal and may return to this tab.
+      lastParentRefreshAtRef.current = 0;
       window.location.assign(res.data.url);
     } catch (err) {
       setError(isAxiosError(err) ? err.response?.data?.message ?? 'Failed to open billing portal' : 'Failed to open billing portal');
@@ -365,6 +415,34 @@ export default function BillingPage() {
             Subscribe a child to a paid tier or manage an existing subscription.
           </p>
 
+          {(() => {
+            const cancellingChildren = children.filter(
+              (c) => c.activeSubscription?.cancelAtPeriodEnd
+            );
+            if (cancellingChildren.length === 0) return null;
+            return (
+              <div className="mt-4 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/50 dark:bg-amber-950/20">
+                <AlertTriangle size={18} className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                <div className="text-sm">
+                  <p className="font-black text-amber-900 dark:text-amber-100">
+                    {cancellingChildren.length === 1 ? 'A subscription is scheduled to cancel' : 'Subscriptions are scheduled to cancel'}
+                  </p>
+                  <ul className="mt-1 space-y-0.5 font-medium text-amber-800 dark:text-amber-200">
+                    {cancellingChildren.map((c) => (
+                      <li key={c.studentId}>
+                        <span className="font-bold">{c.studentName}</span>
+                        {' '}— ends on {formatDate(c.activeSubscription!.currentPeriodEnd)}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-2 text-xs font-bold text-amber-700/80 dark:text-amber-300/80">
+                    Access will revert to BASIC once the period ends. Reopen the billing portal to restore the subscription before then.
+                  </p>
+                </div>
+              </div>
+            );
+          })()}
+
           {children.length === 0 ? (
             <div className="mt-5 rounded-2xl border border-dashed border-slate-200 p-6 text-sm font-bold text-slate-500 dark:border-slate-800 dark:text-slate-400">
               No linked students yet.
@@ -413,6 +491,11 @@ export default function BillingPage() {
                         <span className={`mt-1.5 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${statusBadgeClass}`}>
                           {subscriptionStatus}
                         </span>
+                        {subscriptionStatus === 'cancelled' && activeSub && (
+                          <p className="mt-1.5 text-[11px] font-bold text-amber-700 dark:text-amber-300">
+                            Cancels on {formatDate(activeSub.currentPeriodEnd)}
+                          </p>
+                        )}
                       </div>
                     </div>
 
