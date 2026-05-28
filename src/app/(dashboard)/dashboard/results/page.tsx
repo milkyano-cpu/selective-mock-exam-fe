@@ -85,7 +85,14 @@ function StudentResultCard({ student }: { student: StudentAnalytics }) {
               {student.examHistory.slice(0, 5).map((exam: ExamHistoryItem) => (
                 <div key={exam.sessionId} className="flex items-center justify-between gap-3 py-3">
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-bold text-slate-800 dark:text-slate-100">{exam.examTitle}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="truncate text-sm font-bold text-slate-800 dark:text-slate-100">{exam.examTitle}</p>
+                      {exam.examType === 'ASSIGNMENT' && (
+                        <span className="shrink-0 rounded-md bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
+                          Assignment
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs font-medium text-slate-400">{formatDate(exam.takenAt)} · {formatTime(exam.totalTimeSeconds ?? 0)}</p>
                   </div>
                   <span className={`shrink-0 rounded-xl px-2.5 py-1 text-xs font-black ${scoreClass(exam.finalScore)}`}>

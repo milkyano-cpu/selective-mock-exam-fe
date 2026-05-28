@@ -30,7 +30,6 @@ export const RegisterForm = () => {
   const { register: registerUser, isLoading, error } = useAuth();
   const router = useRouter();
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
   const termsRef = useRef<HTMLDivElement>(null);
   const wasLoading = useRef(false);
@@ -61,6 +60,7 @@ export const RegisterForm = () => {
     register,
     control,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<RegisterValues>({
     resolver: zodResolver(registerSchema),
@@ -82,6 +82,8 @@ export const RegisterForm = () => {
       ],
     },
   });
+
+  const agreedToTerms = watch('agreedToTerms') === true;
 
   const { fields, append, remove } = useFieldArray({
     control,
@@ -355,18 +357,20 @@ export const RegisterForm = () => {
               </div>
 
               <label htmlFor="register-terms" className={`flex items-start gap-3 pt-2 ${!hasScrolledToBottom ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
-                <input id="register-terms" type="checkbox" 
-                  checked={agreedToTerms} 
-                  onChange={(e) => {
-                    if (hasScrolledToBottom) setAgreedToTerms(e.target.checked);
-                  }} 
+                <input
+                  id="register-terms"
+                  type="checkbox"
+                  {...register('agreedToTerms')}
                   disabled={!hasScrolledToBottom}
-                  className={`w-4 h-4 mt-0.5 accent-[#0A9AE2] border-slate-300 rounded ${!hasScrolledToBottom ? 'cursor-not-allowed' : 'cursor-pointer'}`} 
+                  className={`w-4 h-4 mt-0.5 accent-[#0A9AE2] border-slate-300 rounded ${!hasScrolledToBottom ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                 />
                 <div className="flex flex-col">
                   <span className="text-[14px] text-slate-900 font-medium leading-tight">I agree to the Terms & Conditions, Payment Policy and Privacy Policy</span>
                   {!hasScrolledToBottom && (
                     <span className="text-[12px] text-[#FF6900] mt-1 font-medium">* Please scroll to the bottom of the terms to agree</span>
+                  )}
+                  {errors.agreedToTerms && (
+                    <span className="text-xs text-red-500 mt-1">{errors.agreedToTerms.message}</span>
                   )}
                 </div>
               </label>

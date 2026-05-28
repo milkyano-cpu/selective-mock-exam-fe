@@ -642,7 +642,7 @@ const EMPTY_ANALYTICS: MyAnalytics = {
 type ScoreHistoryTooltipPayload = {
   fullName?: string;
   score?: number;
-  attemptNumber?: number;
+  totalAttempts?: number;
   rankingLevel?: string | null;
   takenAt?: string;
   sessionId?: string;
@@ -665,8 +665,8 @@ function ScoreHistoryTooltip({
     <div className="rounded-xl border border-slate-700/50 bg-slate-900/95 px-3 py-2 text-white shadow-xl backdrop-blur-sm">
       <p className="text-xs font-black">
         {item.fullName ?? ''}
-        {item.attemptNumber && item.attemptNumber > 1 && (
-          <span className="ml-1 font-bold text-slate-400">(Attempt {item.attemptNumber})</span>
+        {item.totalAttempts && item.totalAttempts > 1 && (
+          <span className="ml-1 font-bold text-slate-400">(Best of {item.totalAttempts} attempts)</span>
         )}
       </p>
       <p className="mt-1 text-sm font-black text-[#0A9AE2]">
@@ -1099,20 +1099,27 @@ function StudentPerformanceAnalytics() {
         {canViewStandardAnalytics ? (
           <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/50 mt-auto">
           <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wide text-slate-400 mb-4">Mock Exam Scores</p>
-          {scoreHistory.length > 0 ? (
+          {(() => {
+            // Use examHistory (deduped per exam) so retakes don't appear as
+            // separate points. Filter to MOCK_EXAM only — assignments are excluded
+            // from the score trend per SME-92 spec.
+            const mockExamHistory = (visibleAnalytics.examHistory ?? [])
+              .filter((h) => h.examType === 'MOCK_EXAM' && h.finalScore !== null)
+              .slice()
+              .sort((a, b) => new Date(a.takenAt).getTime() - new Date(b.takenAt).getTime());
+            return mockExamHistory.length > 0 ? (
             <ResponsiveContainer width="100%" height={160} minWidth={0} minHeight={0}>
               <AreaChart
-                data={scoreHistory.map((s) => {
-                  const baseName = s.examTitle.length > 12 ? s.examTitle.slice(0, 12) + '…' : s.examTitle;
-                  const attemptSuffix = s.attemptNumber > 1 ? ` #${s.attemptNumber}` : '';
+                data={mockExamHistory.map((h) => {
+                  const baseName = h.examTitle.length > 12 ? h.examTitle.slice(0, 12) + '…' : h.examTitle;
                   return {
-                    name: `${baseName}${attemptSuffix}`,
-                    score: s.score,
-                    fullName: s.examTitle,
-                    attemptNumber: s.attemptNumber,
-                    sessionId: s.sessionId,
-                    rankingLevel: s.rankingLevel,
-                    takenAt: s.takenAt,
+                    name: baseName,
+                    score: h.finalScore ?? 0,
+                    fullName: h.examTitle,
+                    totalAttempts: h.totalAttempts,
+                    sessionId: h.sessionId,
+                    rankingLevel: h.rankingLevel,
+                    takenAt: h.takenAt,
                   };
                 })}
                 margin={{ top: 5, right: 5, left: -20, bottom: 0 }}
@@ -1155,7 +1162,8 @@ function StudentPerformanceAnalytics() {
             <div className="flex h-[140px] items-center justify-center">
               <p className="text-xs font-medium text-slate-400">No exams completed yet</p>
             </div>
-          )}
+          );
+          })()}
           </div>
         ) : (
           <FeaturePaywall

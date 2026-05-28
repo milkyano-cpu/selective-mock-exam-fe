@@ -40,6 +40,7 @@ export interface RegisterCredentials {
     yearLevel: string;
     schoolName: string;
   }>;
+  agreedToTerms: true;
 }
 
 export interface ChangePasswordPayload {

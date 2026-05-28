@@ -38,6 +38,9 @@ export const registerSchema = z.object({
   students: z
     .array(studentSchema)
     .min(1, 'At least one student is required'),
+  agreedToTerms: z.literal(true, {
+    error: () => ({ message: 'You must agree to the Terms & Conditions' }),
+  }),
 });
 
 export type RegisterValues = z.infer<typeof registerSchema>;

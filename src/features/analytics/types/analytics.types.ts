@@ -1,14 +1,22 @@
 export type RankingLevel = 'SUPERIOR' | 'ABOVE_AVERAGE' | 'HIGH_AVERAGE' | 'AVERAGE' | 'LOW_AVERAGE';
 export type LeaderboardPeriod = 'WEEKLY' | 'MONTHLY' | 'ALL_TIME';
+export type ExamType = 'MOCK_EXAM' | 'ASSIGNMENT';
 
 export interface ExamHistoryItem {
-  sessionId: string;
   examId: string;
   examTitle: string;
-  finalScore: number | null;
+  examType: ExamType;
+  bestSessionId: string | null;
+  bestScore: number | null;
+  latestSessionId: string | null;
+  latestScore: number | null;
+  totalAttempts: number;
   rankingLevel: RankingLevel | null;
   totalTimeSeconds: number | null;
   takenAt: string;
+  // Legacy aliases — kept for backward compatibility. Point to the best attempt.
+  sessionId: string;
+  finalScore: number | null;
 }
 
 export interface TopicPerformanceItem {

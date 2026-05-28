@@ -486,7 +486,14 @@ export default function PerformancePage() {
                   return (
                     <div key={h.sessionId} className="flex items-center justify-between py-2.5">
                       <div className="min-w-0">
-                        <p className="truncate text-xs font-semibold text-slate-700 dark:text-slate-300">{h.examTitle}</p>
+                        <div className="flex items-center gap-1.5">
+                          <p className="truncate text-xs font-semibold text-slate-700 dark:text-slate-300">{h.examTitle}</p>
+                          {h.examType === 'ASSIGNMENT' && (
+                            <span className="shrink-0 rounded-md bg-violet-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
+                              Assignment
+                            </span>
+                          )}
+                        </div>
                         <p className="text-[10px] text-slate-400">{formatDate(h.takenAt)}</p>
                       </div>
                       <div className="ml-3 flex shrink-0 items-center gap-2">
