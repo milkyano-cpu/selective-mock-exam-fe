@@ -128,10 +128,10 @@ function PodiumMeta({
           {rankConfig.label}
         </span>
       )}
-      <span className={`font-medium ${toneClass}`}>{entry.totalExams} exams</span>
-      {entry.avgTimeSeconds !== null && (
-        <span className={`font-medium ${toneClass}`}>· ⏱ {formatAvgTime(entry.avgTimeSeconds)}</span>
-      )}
+      <span className={`whitespace-nowrap font-medium ${toneClass}`}>
+        {entry.totalExams} exams
+        {entry.avgTimeSeconds !== null && ` · ⏱ ${formatAvgTime(entry.avgTimeSeconds)}`}
+      </span>
       {isMe && myPercentile !== null && (
         <span className="rounded-md bg-sky-100 px-1.5 py-0.5 font-black text-[#0A9AE2] dark:bg-sky-900/30">
           Top {(100 - myPercentile).toFixed(1)}%
@@ -1532,8 +1532,8 @@ function WritingPerformanceSection({
                       key={`${selectedSession.sessionId}-${criterion.criterionName}`}
                       className="rounded-xl bg-slate-50 p-3 dark:bg-slate-800/50"
                     >
-                      <div className="flex items-center justify-between gap-3">
-                        <p className="truncate text-sm font-bold text-slate-800 dark:text-slate-200">
+                      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
+                        <p className="min-w-0 flex-1 break-words text-sm font-bold text-slate-800 dark:text-slate-200">
                           {criterion.criterionName}
                         </p>
                         <span className={`shrink-0 text-xs font-black ${colors.text}`}>
