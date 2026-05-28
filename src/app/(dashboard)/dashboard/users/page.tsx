@@ -5,13 +5,22 @@ import { useAuthStore } from '@/features/auth/store/auth.store';
 import {
   adminService,
   type CreateStaffPayload,
+  type UpdateUserPayload,
   type UserItem,
 } from '@/features/admin/services/admin.service';
 import {
-  UserPlus, Mail, Lock, Loader2, CheckCircle2, User,
+  UserPlus, Mail, Lock, Loader2, User,
   Search, ChevronLeft, ChevronRight, X, RefreshCw, Crown, Phone, Calendar, Clock,
-  Trash2, AlertTriangle, ChevronsLeft, ChevronsRight,
+  Trash2, Pencil, ShieldAlert, ShieldCheck, ShieldX, AlertTriangle, ChevronsLeft, ChevronsRight,
 } from 'lucide-react';
+
+type StaffStatus = 'ACTIVE' | 'SUSPENDED' | 'BANNED';
+
+const STATUS_OPTIONS: { value: StaffStatus; label: string; description: string; icon: typeof ShieldCheck }[] = [
+  { value: 'ACTIVE',    label: 'Active',    description: 'User can sign in and use the platform normally.',           icon: ShieldCheck },
+  { value: 'SUSPENDED', label: 'Suspended', description: 'Active sessions revoked. User cannot sign in until reactivated.', icon: ShieldAlert },
+  { value: 'BANNED',    label: 'Banned',    description: 'Permanent block. Active sessions revoked.',                  icon: ShieldX },
+];
 import { motion, AnimatePresence } from 'framer-motion';
 import { AccessDeniedScreen } from '@/components/feedback/AccessDeniedScreen';
 
@@ -67,7 +76,6 @@ export default function ManageUsersPage() {
   const [isSyncing, setIsSyncing]         = useState(false);
   const [isModalOpen, setIsModalOpen]     = useState(false);
   const [isSubmitting, setIsSubmitting]   = useState(false);
-  const [successMsg, setSuccessMsg]       = useState<string | null>(null);
   const [errorMsg, setErrorMsg]           = useState<string | null>(null);
   const [formData, setFormData]           = useState({
     role: 'TUTOR' as 'ADMIN' | 'TUTOR',
@@ -75,6 +83,19 @@ export default function ManageUsersPage() {
     email: '',
     password: '',
   });
+
+  const [isEditOpen, setIsEditOpen]       = useState(false);
+  const [userToEdit, setUserToEdit]       = useState<UserItem | null>(null);
+  const [isEditing, setIsEditing]         = useState(false);
+  const [editErrorMsg, setEditErrorMsg]   = useState<string | null>(null);
+  const [editFormData, setEditFormData]   = useState({ fullName: '', email: '', phoneNumber: '' });
+
+  const [isStatusOpen, setIsStatusOpen]   = useState(false);
+  const [userForStatus, setUserForStatus] = useState<UserItem | null>(null);
+  const [pendingStatus, setPendingStatus] = useState<StaffStatus | null>(null);
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [statusErrorMsg, setStatusErrorMsg]     = useState<string | null>(null);
+  const [statusAwaitingConfirm, setStatusAwaitingConfirm] = useState(false);
 
   const fetchUsers = useCallback(async (role: RoleTab, pg: number, q: string, limit: number) => {
     setIsLoading(true);
@@ -145,6 +166,113 @@ export default function ManageUsersPage() {
     }
   };
 
+  const openEditModal = (u: UserItem) => {
+    setUserToEdit(u);
+    setEditFormData({
+      fullName: u.fullName ?? '',
+      email: u.email ?? '',
+      phoneNumber: u.phoneNumber ?? '',
+    });
+    setEditErrorMsg(null);
+    setIsEditOpen(true);
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!userToEdit) return;
+    setEditErrorMsg(null);
+
+    const fullName = editFormData.fullName.trim();
+    const email = editFormData.email.trim();
+    const phoneRaw = editFormData.phoneNumber.trim();
+
+    if (fullName.length < 2 || fullName.length > 100) {
+      setEditErrorMsg('Full name must be between 2 and 100 characters.');
+      return;
+    }
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+    if (!emailPattern.test(email)) {
+      setEditErrorMsg('Please enter a valid email address (e.g. name@example.com).');
+      return;
+    }
+    if (phoneRaw.length > 20) {
+      setEditErrorMsg('Phone number must be 20 characters or fewer.');
+      return;
+    }
+
+    // Only send fields that actually changed, so untouched values aren't
+    // re-encrypted on the server for no reason.
+    const payload: UpdateUserPayload = {};
+    if (fullName !== (userToEdit.fullName ?? '')) payload.fullName = fullName;
+    if (email !== (userToEdit.email ?? '')) payload.email = email;
+    const currentPhone = userToEdit.phoneNumber ?? '';
+    if (phoneRaw !== currentPhone) payload.phoneNumber = phoneRaw === '' ? null : phoneRaw;
+
+    if (Object.keys(payload).length === 0) {
+      setIsEditOpen(false);
+      setUserToEdit(null);
+      return;
+    }
+
+    setIsEditing(true);
+    try {
+      await adminService.updateUser(userToEdit.id, payload);
+      setIsEditOpen(false);
+      setUserToEdit(null);
+      setSelectedUser(null);
+      void fetchUsers(activeTab, page, search, pageSize);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setEditErrorMsg(msg || 'Failed to update user. Please try again.');
+    } finally {
+      setIsEditing(false);
+    }
+  };
+
+  const openStatusModal = (u: UserItem) => {
+    setUserForStatus(u);
+    setPendingStatus((u.status as StaffStatus) ?? 'ACTIVE');
+    setStatusErrorMsg(null);
+    setStatusAwaitingConfirm(false);
+    setIsStatusOpen(true);
+  };
+
+  const closeStatusModal = () => {
+    setIsStatusOpen(false);
+    setUserForStatus(null);
+    setStatusErrorMsg(null);
+    setStatusAwaitingConfirm(false);
+  };
+
+  const handleStatusSubmit = async () => {
+    if (!userForStatus || !pendingStatus) return;
+    if (pendingStatus === userForStatus.status) {
+      closeStatusModal();
+      return;
+    }
+    // Two-step confirm for irreversible / disruptive transitions: the first
+    // Confirm click reveals the warning, the second one actually fires.
+    const needsExtraConfirm = pendingStatus === 'SUSPENDED' || pendingStatus === 'BANNED';
+    if (needsExtraConfirm && !statusAwaitingConfirm) {
+      setStatusAwaitingConfirm(true);
+      return;
+    }
+
+    setIsUpdatingStatus(true);
+    setStatusErrorMsg(null);
+    try {
+      await adminService.updateUserStatus(userForStatus.id, pendingStatus);
+      closeStatusModal();
+      setSelectedUser(null);
+      void fetchUsers(activeTab, page, search, pageSize);
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setStatusErrorMsg(msg || 'Failed to update status. Please try again.');
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  };
+
   const handleSyncTiers = async () => {
     setIsSyncing(true);
     try {
@@ -159,29 +287,68 @@ export default function ManageUsersPage() {
 
   const openModal = () => {
     setFormData({ role: 'TUTOR', fullName: '', email: '', password: '' });
-    setSuccessMsg(null);
     setErrorMsg(null);
     setIsModalOpen(true);
   };
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
     setErrorMsg(null);
-    setSuccessMsg(null);
+
+    // Mirror the BE schema (admin.schema.ts) so the user gets the same rule
+    // applied locally and we don't round-trip a 400 for trivially fixable input.
+    const fullName = formData.fullName.trim();
+    const email = formData.email.trim();
+    const password = formData.password;
+
+    if (fullName.length < 2 || fullName.length > 100) {
+      setErrorMsg('Full name must be between 2 and 100 characters.');
+      return;
+    }
+    // Standard email shape: local@domain.tld with a 2+ char TLD. Matches the
+    // BE Zod .email() check tightly enough to avoid the obvious "no domain" case.
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+    if (!emailPattern.test(email)) {
+      setErrorMsg('Please enter a valid email address (e.g. name@example.com).');
+      return;
+    }
+    if (password) {
+      if (password.length < 8) {
+        setErrorMsg('Password must be at least 8 characters.');
+        return;
+      }
+      if (!/[A-Z]/.test(password)) {
+        setErrorMsg('Password must contain at least one uppercase letter.');
+        return;
+      }
+      if (!/[a-z]/.test(password)) {
+        setErrorMsg('Password must contain at least one lowercase letter.');
+        return;
+      }
+      if (!/[0-9]/.test(password)) {
+        setErrorMsg('Password must contain at least one number.');
+        return;
+      }
+      if (!/[^A-Za-z0-9]/.test(password)) {
+        setErrorMsg('Password must contain at least one special character.');
+        return;
+      }
+    }
+
+    setIsSubmitting(true);
 
     try {
       const payload: CreateStaffPayload = {
         role: formData.role,
-        fullName: formData.fullName,
-        email: formData.email,
+        fullName,
+        email,
       };
-      if (formData.password) payload.password = formData.password;
+      if (password) payload.password = password;
 
       const res = await adminService.createStaff(payload);
       if (res.success) {
-        setSuccessMsg(res.message || `Account created. Credentials sent to ${formData.email}.`);
         setFormData({ role: 'TUTOR', fullName: '', email: '', password: '' });
+        setIsModalOpen(false);
         void fetchUsers(activeTab, page, search, pageSize);
       } else {
         setErrorMsg(res.message || 'Failed to create account');
@@ -391,13 +558,33 @@ export default function ManageUsersPage() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       {isAdmin && u.id !== user?.id && (
-                        <button
-                          onClick={() => { setUserToDelete(u); setDeleteErrorMsg(null); setIsDeleteUserOpen(true); }}
-                          className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
-                          title="Delete user"
-                        >
-                          <Trash2 size={15} />
-                        </button>
+                        <div className="inline-flex items-center gap-1">
+                          {(u.role === 'TUTOR' || u.role === 'ADMIN') && (
+                            <>
+                              <button
+                                onClick={() => openEditModal(u)}
+                                className="rounded-lg p-2 text-slate-400 hover:bg-[#0A9AE2]/10 hover:text-[#0A9AE2]"
+                                title="Edit user"
+                              >
+                                <Pencil size={15} />
+                              </button>
+                              <button
+                                onClick={() => openStatusModal(u)}
+                                className="rounded-lg p-2 text-slate-400 hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-500/10"
+                                title="Change status"
+                              >
+                                <ShieldAlert size={15} />
+                              </button>
+                            </>
+                          )}
+                          <button
+                            onClick={() => { setUserToDelete(u); setDeleteErrorMsg(null); setIsDeleteUserOpen(true); }}
+                            className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
+                            title="Delete user"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
                       )}
                     </td>
                   </tr>
@@ -575,13 +762,33 @@ export default function ManageUsersPage() {
                 </div>
 
                 {isAdmin && selectedUser.id !== user?.id && (
-                  <button
-                    onClick={() => { setUserToDelete(selectedUser); setDeleteErrorMsg(null); setIsDeleteUserOpen(true); }}
-                    className="mt-2 w-full flex items-center justify-center gap-2 rounded-xl border border-red-200 py-2.5 text-sm font-bold text-red-600 hover:bg-red-50 dark:border-red-500/30 dark:text-red-400 dark:hover:bg-red-500/10"
-                  >
-                    <Trash2 size={14} />
-                    Delete User
-                  </button>
+                  <div className="mt-2 space-y-2">
+                    {(selectedUser.role === 'TUTOR' || selectedUser.role === 'ADMIN') && (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => openEditModal(selectedUser)}
+                          className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-[#0A9AE2]/30 py-2.5 text-sm font-bold text-[#0A9AE2] hover:bg-[#0A9AE2]/10"
+                        >
+                          <Pencil size={14} />
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => openStatusModal(selectedUser)}
+                          className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-amber-200 py-2.5 text-sm font-bold text-amber-600 hover:bg-amber-50 dark:border-amber-500/30 dark:text-amber-400 dark:hover:bg-amber-500/10"
+                        >
+                          <ShieldAlert size={14} />
+                          Status
+                        </button>
+                      </div>
+                    )}
+                    <button
+                      onClick={() => { setUserToDelete(selectedUser); setDeleteErrorMsg(null); setIsDeleteUserOpen(true); }}
+                      className="w-full flex items-center justify-center gap-2 rounded-xl border border-red-200 py-2.5 text-sm font-bold text-red-600 hover:bg-red-50 dark:border-red-500/30 dark:text-red-400 dark:hover:bg-red-500/10"
+                    >
+                      <Trash2 size={14} />
+                      Delete
+                    </button>
+                  </div>
                 )}
               </div>
             </motion.div>
@@ -672,13 +879,6 @@ export default function ManageUsersPage() {
                       {errorMsg}
                     </motion.div>
                   )}
-                  {successMsg && (
-                    <motion.div key="ok" initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                      className="p-3 bg-emerald-50 border border-emerald-100 text-emerald-700 rounded-xl text-sm font-medium flex items-start gap-2 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400">
-                      <CheckCircle2 size={16} className="shrink-0 mt-0.5" />
-                      <span>{successMsg}</span>
-                    </motion.div>
-                  )}
                 </AnimatePresence>
 
                 {/* Role */}
@@ -751,6 +951,199 @@ export default function ManageUsersPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Edit User Modal */}
+      <AnimatePresence>
+        {isEditOpen && userToEdit && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+              className="w-full max-w-lg rounded-2xl bg-white dark:bg-slate-900 shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden"
+            >
+              <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#0A9AE2]/10 text-[#0A9AE2]">
+                    <Pencil size={18} />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-black text-slate-900 dark:text-slate-100">Edit User</h2>
+                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400">Update profile for {userToEdit.role.toLowerCase()}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => { setIsEditOpen(false); setUserToEdit(null); setEditErrorMsg(null); }}
+                  disabled={isEditing}
+                  className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                >
+                  <X size={18} className="text-slate-500" />
+                </button>
+              </div>
+
+              <form onSubmit={handleEditSubmit} className="p-6 space-y-5">
+                <AnimatePresence mode="wait">
+                  {editErrorMsg && (
+                    <motion.div key="edit-err" initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                      className="p-3 bg-red-50 border border-red-100 text-red-600 rounded-xl text-sm font-medium dark:bg-red-500/10 dark:border-red-500/20 dark:text-red-400">
+                      {editErrorMsg}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-bold text-slate-900 dark:text-slate-100">Full Name</label>
+                  <div className="relative">
+                    <User size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input type="text" required value={editFormData.fullName}
+                      onChange={(e) => setEditFormData({ ...editFormData, fullName: e.target.value })}
+                      placeholder="e.g. John Doe"
+                      className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-[#0A9AE2] dark:bg-slate-950 dark:border-slate-800 dark:text-slate-100 placeholder:text-slate-400" />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-bold text-slate-900 dark:text-slate-100">Email Address</label>
+                  <div className="relative">
+                    <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input type="email" required value={editFormData.email}
+                      onChange={(e) => setEditFormData({ ...editFormData, email: e.target.value })}
+                      placeholder="e.g. john@aspire.com"
+                      className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-[#0A9AE2] dark:bg-slate-950 dark:border-slate-800 dark:text-slate-100 placeholder:text-slate-400" />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                    Phone Number <span className="text-slate-400 font-medium">(optional)</span>
+                  </label>
+                  <div className="relative">
+                    <Phone size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input type="tel" value={editFormData.phoneNumber}
+                      onChange={(e) => setEditFormData({ ...editFormData, phoneNumber: e.target.value })}
+                      placeholder="e.g. +61 400 000 000"
+                      className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:border-[#0A9AE2] dark:bg-slate-950 dark:border-slate-800 dark:text-slate-100 placeholder:text-slate-400" />
+                  </div>
+                </div>
+
+                <div className="flex gap-3 pt-2">
+                  <button type="button" onClick={() => { setIsEditOpen(false); setUserToEdit(null); setEditErrorMsg(null); }}
+                    disabled={isEditing}
+                    className="flex-1 py-3 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition-colors disabled:opacity-60 dark:bg-slate-800 dark:text-slate-300">
+                    Cancel
+                  </button>
+                  <button type="submit" disabled={isEditing}
+                    className="flex-1 py-3 bg-[#0A9AE2] text-white font-bold rounded-xl hover:bg-[#0864B6] transition-all disabled:opacity-60 flex items-center justify-center gap-2">
+                    {isEditing ? <><Loader2 size={16} className="animate-spin" /> Saving...</> : <><Pencil size={16} /> Save Changes</>}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Change Status Modal */}
+      {isStatusOpen && userForStatus && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900">
+            <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <ShieldAlert size={18} className="text-amber-500" />
+                <h2 className="text-base font-black text-slate-900 dark:text-slate-100">Change Status</h2>
+              </div>
+              <button
+                onClick={closeStatusModal}
+                disabled={isUpdatingStatus}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+              >
+                <X size={16} />
+              </button>
+            </div>
+            <div className="px-6 py-5 space-y-4">
+              <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                Select a new status for <span className="font-bold text-slate-900 dark:text-slate-100">{userForStatus.fullName}</span>.
+              </p>
+              <div className="space-y-2">
+                {STATUS_OPTIONS.map((opt) => {
+                  const isCurrent = userForStatus.status === opt.value;
+                  const isSelected = pendingStatus === opt.value;
+                  const Icon = opt.icon;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => { setPendingStatus(opt.value); setStatusAwaitingConfirm(false); }}
+                      disabled={isUpdatingStatus}
+                      className={`w-full flex items-start gap-3 rounded-xl border p-3 text-left transition-all ${
+                        isSelected
+                          ? 'border-[#0A9AE2] bg-[#0A9AE2]/5 dark:bg-[#0A9AE2]/10'
+                          : 'border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600'
+                      } disabled:opacity-50`}
+                    >
+                      <Icon size={18} className={`mt-0.5 shrink-0 ${
+                        opt.value === 'ACTIVE' ? 'text-emerald-500'
+                          : opt.value === 'SUSPENDED' ? 'text-amber-500'
+                          : 'text-red-500'
+                      }`} />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-black text-slate-900 dark:text-slate-100">{opt.label}</span>
+                          {isCurrent && <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Current</span>}
+                        </div>
+                        <p className="mt-0.5 text-xs font-medium text-slate-500 dark:text-slate-400">{opt.description}</p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+              {statusAwaitingConfirm && pendingStatus && pendingStatus !== userForStatus.status && pendingStatus !== 'ACTIVE' && (
+                <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs font-bold text-amber-700 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-300">
+                  <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+                  <span>
+                    {pendingStatus === 'BANNED'
+                      ? 'Are you sure? Banning will revoke all sessions and permanently block the account. Click Confirm again to proceed.'
+                      : 'Are you sure? Suspending will revoke all sessions until the account is reactivated. Click Confirm again to proceed.'}
+                  </span>
+                </div>
+              )}
+              {statusErrorMsg && (
+                <div className="p-3 bg-red-50 border border-red-100 text-red-600 rounded-xl text-sm font-medium dark:bg-red-500/10 dark:border-red-500/20 dark:text-red-400">
+                  {statusErrorMsg}
+                </div>
+              )}
+            </div>
+            <div className="flex items-center justify-end gap-2 border-t border-slate-100 px-6 py-4 dark:border-slate-800">
+              <button
+                onClick={closeStatusModal}
+                disabled={isUpdatingStatus}
+                className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleStatusSubmit}
+                disabled={isUpdatingStatus || !pendingStatus || pendingStatus === userForStatus.status}
+                className={`inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold text-white disabled:opacity-50 ${
+                  statusAwaitingConfirm && pendingStatus === 'BANNED'
+                    ? 'bg-red-600 hover:bg-red-700'
+                    : statusAwaitingConfirm && pendingStatus === 'SUSPENDED'
+                      ? 'bg-amber-600 hover:bg-amber-700'
+                      : 'bg-[#0A9AE2] hover:bg-[#0864B6]'
+                }`}
+              >
+                {isUpdatingStatus && <Loader2 size={14} className="animate-spin" />}
+                {statusAwaitingConfirm && pendingStatus === 'BANNED'
+                  ? 'Yes, Ban'
+                  : statusAwaitingConfirm && pendingStatus === 'SUSPENDED'
+                    ? 'Yes, Suspend'
+                    : 'Confirm'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

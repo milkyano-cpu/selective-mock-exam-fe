@@ -7,6 +7,12 @@ export interface CreateStaffPayload {
   password?: string;
 }
 
+export interface UpdateUserPayload {
+  fullName?: string;
+  email?: string;
+  phoneNumber?: string | null;
+}
+
 export interface UserItem {
   id: string;
   email: string;
@@ -102,6 +108,16 @@ export const adminService = {
   syncTiers: async (): Promise<{ success: boolean; message: string }> => {
     const response = await mdwClient.post('/admin/users/sync-tiers');
     return response.data;
+  },
+
+  updateUser: async (userId: string, payload: UpdateUserPayload) => {
+    const response = await mdwClient.put(`/admin/users/${userId}`, payload);
+    return response.data as { success: boolean; message: string; data: UserItem };
+  },
+
+  updateUserStatus: async (userId: string, status: 'ACTIVE' | 'SUSPENDED' | 'BANNED') => {
+    const response = await mdwClient.patch(`/admin/users/${userId}/status`, { status });
+    return response.data as { success: boolean; message: string; data: UserItem };
   },
 
   deleteUser: async (userId: string): Promise<{ success: boolean; message: string }> => {
