@@ -100,12 +100,21 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
   const isDarkMode = mounted && theme === 'dark';
 
   return (
-    <header className={[
-      'sticky top-0 z-30 flex items-center justify-between border-b px-3 sm:px-4 lg:px-8 lg:backdrop-blur-2xl',
-      isStudent
-        ? 'h-[4.75rem] border-white/70 bg-[#eefbff] shadow-[0_10px_28px_rgba(14,116,144,0.10)] dark:border-white/10 dark:bg-slate-950 lg:h-20 lg:border-white/45 lg:bg-white/38 lg:shadow-[0_18px_44px_rgba(14,116,144,0.12)] lg:supports-[backdrop-filter]:bg-white/28 lg:dark:bg-slate-950/42 lg:dark:supports-[backdrop-filter]:bg-slate-950/30'
-        : `${isStaff ? 'h-[52px]' : ''} border-slate-200 bg-white/80 dark:border-slate-800 dark:bg-slate-950/80`,
-    ].join(' ')}>
+    <header
+      style={{
+        WebkitTransform: 'translateZ(0)',
+        transform: 'translateZ(0)',
+        WebkitBackfaceVisibility: 'hidden',
+        backfaceVisibility: 'hidden',
+        willChange: 'transform',
+      }}
+      className={[
+        'sticky top-0 z-30 flex items-center justify-between border-b px-3 sm:px-4 lg:px-8 lg:backdrop-blur-2xl',
+        isStudent
+          ? 'h-[4.75rem] border-white/70 bg-[#eefbff] shadow-[0_10px_28px_rgba(14,116,144,0.10)] dark:border-white/10 dark:bg-slate-950 lg:h-20 lg:border-white/45 lg:bg-white/38 lg:shadow-[0_18px_44px_rgba(14,116,144,0.12)] lg:supports-[backdrop-filter]:bg-white/28 lg:dark:bg-slate-950/42 lg:dark:supports-[backdrop-filter]:bg-slate-950/30'
+          : `${isStaff ? 'h-[52px]' : ''} border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-950 lg:bg-white/80 lg:dark:bg-slate-950/80`,
+      ].join(' ')}
+    >
       <div className="flex min-w-0 items-center gap-3 lg:gap-4">
         {isStudent && (
           <Link
