@@ -144,9 +144,11 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
                 <p className="truncate text-xs font-black leading-tight text-slate-900 dark:text-slate-100">
                   {user?.fullName || 'Student'}
                 </p>
-                <p className="truncate text-[10px] font-bold uppercase leading-tight text-slate-500 dark:text-slate-400">
-                  {user?.tier || 'BASIC'}
-                </p>
+                {user?.tier && (
+                  <p className="truncate text-[10px] font-bold uppercase leading-tight text-slate-500 dark:text-slate-400">
+                    {user.tier}
+                  </p>
+                )}
               </div>
               <ChevronDown
                 size={13}
@@ -208,9 +210,6 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
               <p className="truncate text-[10px] font-bold text-slate-900 dark:text-slate-100 leading-tight">
                 {user?.fullName || 'User'}
               </p>
-              <p className="truncate text-[9px] font-medium text-slate-500 dark:text-slate-400 leading-tight">
-                {user?.tier || 'BASIC'}
-              </p>
             </div>
             <ChevronDown 
               size={12} 
@@ -242,11 +241,6 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
                 <LogOut size={16} />
                 <span>Logout</span>
               </button>
-              <div className="border-t border-slate-100 px-4 py-2 dark:border-slate-800">
-                <p className="text-[10px] text-slate-400 dark:text-slate-500 text-center font-bold">
-                  v0.2.4
-                </p>
-              </div>
             </div>
           )}
         </div>
@@ -284,9 +278,11 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
               <p className={`${isStaff ? 'text-[13px] font-bold leading-4' : 'text-sm font-semibold'} truncate text-slate-900 dark:text-slate-100`}>
                 {user?.fullName || 'User'}
               </p>
-              <p className={`${isStaff ? 'text-[10px] font-semibold uppercase tracking-[0.12em] leading-3 text-slate-500 dark:text-slate-400' : isStudent ? 'text-[10px] font-bold uppercase tracking-[0.12em] leading-3 text-[#0A9AE2] dark:text-cyan-400' : 'text-xs font-medium text-slate-500 dark:text-slate-400'} truncate`}>
-                {user?.tier || 'BASIC'}
-              </p>
+              {isStudent && user?.tier && (
+                <p className="truncate text-[10px] font-bold uppercase tracking-[0.12em] leading-3 text-[#0A9AE2] dark:text-cyan-400">
+                  {user.tier}
+                </p>
+              )}
             </div>
             <ChevronDown 
               size={isStaff ? 13 : 14}

@@ -102,8 +102,8 @@ export default function DashboardLayout({
     <div className={[
       'relative flex min-h-screen max-w-full overflow-x-clip text-slate-900 transition-colors dark:text-slate-100',
       isStudent
-        ? 'bg-[linear-gradient(135deg,#e0f7ff_0%,#fff7ed_34%,#eef2ff_68%,#ecfdf5_100%)] dark:bg-[linear-gradient(135deg,#06111f_0%,#101827_42%,#161328_70%,#071a17_100%)]'
-        : 'bg-slate-50 dark:bg-slate-950',
+        ? 'bg-[#eefbff] bg-[linear-gradient(135deg,#eefbff_0%,#fff7ed_34%,#eef2ff_68%,#ecfdf5_100%)] dark:bg-slate-950 dark:bg-[linear-gradient(135deg,#020617_0%,#101827_42%,#161328_70%,#071a17_100%)]'
+        : 'bg-white dark:bg-slate-950 lg:bg-slate-50',
     ].join(' ')}>
       {isStudent && !isFocusedStudentWorkspace && (
         <div

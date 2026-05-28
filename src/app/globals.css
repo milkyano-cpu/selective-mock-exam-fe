@@ -17,13 +17,17 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: #f8fafc;
+  --background: #eefbff;
   --foreground: #0f172a;
   --brand-primary: #0A9AE2;
   --brand-secondary: #0864B6;
   --brand-dark: #0659AA;
   --brand-action: #FF6900;
   color-scheme: light;
+}
+
+html {
+  background: var(--background);
 }
 
 @theme inline {
