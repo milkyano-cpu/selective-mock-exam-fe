@@ -4,7 +4,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { useRouter, useSearchParams } from 'next/navigation';
 import { isAxiosError } from 'axios';
 import {
-  AlertTriangle, Award, BarChart3, ChevronDown, Clock, FileText, Search, Target, Trophy, Users,
+  AlertTriangle, Award, BarChart3, ChevronDown, ChevronRight, Clock, FileText, Search, Target, Trophy, Users,
 } from 'lucide-react';
 import {
   AreaChart, Area, BarChart, Bar, Cell, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
@@ -195,6 +195,7 @@ function StudentResultsView() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardType | null>(null);
   const [isLoadingList, setIsLoadingList] = useState(true);
   const [isLoadingAnalytics, setIsLoadingAnalytics] = useState(false);
+  const [showAllHistory, setShowAllHistory] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -254,6 +255,7 @@ function StudentResultsView() {
     let cancelled = false;
     const load = async () => {
       setIsLoadingAnalytics(true);
+      setShowAllHistory(false);
       setError(null);
       try {
         const res = await analyticsService.getChildAnalytics(selectedId);
@@ -566,35 +568,56 @@ function StudentResultsView() {
                     <h2 className="text-base font-black text-slate-900 dark:text-slate-100">Recent exam results</h2>
                   </div>
                   <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                    {analytics.examHistory.slice(0, 8).map((exam) => (
-                      <div key={exam.sessionId} className="flex items-center justify-between gap-3 py-3">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className="truncate text-sm font-bold text-slate-800 dark:text-slate-100">{exam.examTitle}</p>
-                            {exam.examType === 'ASSIGNMENT' && (
-                              <span className="shrink-0 rounded-md bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
-                                Assignment
-                              </span>
-                            )}
+                    {(showAllHistory ? analytics.examHistory : analytics.examHistory.slice(0, 8)).map((exam) => {
+                      const resultSessionId = exam.bestSessionId ?? exam.sessionId;
+                      return (
+                        <button
+                          key={exam.sessionId}
+                          type="button"
+                          onClick={() => router.push(`/dashboard/exams/sessions/${resultSessionId}/result`)}
+                          disabled={!resultSessionId}
+                          className="flex w-full items-center justify-between gap-3 py-3 text-left transition-colors hover:bg-slate-50 disabled:cursor-default disabled:hover:bg-transparent dark:hover:bg-slate-800/50 -mx-2 px-2 rounded-xl"
+                        >
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="truncate text-sm font-bold text-slate-800 dark:text-slate-100">{exam.examTitle}</p>
+                              {exam.examType === 'ASSIGNMENT' && (
+                                <span className="shrink-0 rounded-md bg-violet-100 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
+                                  Assignment
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs font-medium text-slate-400">
+                              {new Date(exam.takenAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })} · {formatTime(exam.totalTimeSeconds ?? 0)} · {exam.totalAttempts} attempt{exam.totalAttempts !== 1 ? 's' : ''}
+                            </p>
                           </div>
-                          <p className="text-xs font-medium text-slate-400">
-                            {new Date(exam.takenAt).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })} · {formatTime(exam.totalTimeSeconds ?? 0)} · {exam.totalAttempts} attempt{exam.totalAttempts !== 1 ? 's' : ''}
-                          </p>
-                        </div>
-                        <span className={`shrink-0 rounded-xl px-2.5 py-1 text-xs font-black ${
-                          exam.finalScore === null
-                            ? 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300'
-                            : exam.finalScore >= 75
-                              ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
-                              : exam.finalScore >= 50
-                                ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
-                                : 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300'
-                        }`}>
-                          {exam.finalScore !== null ? exam.finalScore.toFixed(0) : 'Pending'}
-                        </span>
-                      </div>
-                    ))}
+                          <div className="flex shrink-0 items-center gap-2">
+                            <span className={`rounded-xl px-2.5 py-1 text-xs font-black ${
+                              exam.finalScore === null
+                                ? 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300'
+                                : exam.finalScore >= 75
+                                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                                  : exam.finalScore >= 50
+                                    ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+                                    : 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300'
+                            }`}>
+                              {exam.finalScore !== null ? exam.finalScore.toFixed(0) : 'Pending'}
+                            </span>
+                            {resultSessionId && <ChevronRight size={16} className="text-slate-300 dark:text-slate-600" />}
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
+                  {analytics.examHistory.length > 8 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAllHistory((v) => !v)}
+                      className="mt-3 w-full rounded-xl border border-slate-200 py-2 text-xs font-bold text-slate-500 transition-colors hover:bg-slate-50 dark:border-slate-800 dark:text-slate-400 dark:hover:bg-slate-800/50"
+                    >
+                      {showAllHistory ? 'Show less' : `Show all ${analytics.examHistory.length} results`}
+                    </button>
+                  )}
                 </div>
               )}
 

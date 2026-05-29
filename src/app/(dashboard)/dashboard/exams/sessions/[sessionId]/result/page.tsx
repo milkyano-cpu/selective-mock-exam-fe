@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { isAxiosError } from 'axios';
 import { examService } from '@/features/exams/services/exams.service';
+import { useAuthStore } from '@/features/auth/store/auth.store';
 import { showClientErrorAlert } from '@/lib/errorAlert';
 import { QuestionLatexRenderer } from '@/components/ui/QuestionLatexRenderer';
 import type { SessionResult, SessionResultAnswer, SessionInsightsResponse } from '@/features/exams/types/exams.types';
@@ -216,6 +217,9 @@ function AnswerCard({ answer, index, sessionId }: { answer: SessionResultAnswer;
 export default function ExamResultPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const router = useRouter();
+  // Parents view a child's result read-only: no retake or start-exam actions.
+  const isParent = useAuthStore((s) => s.user?.role === 'PARENT');
+  const backHref = isParent ? '/dashboard/results' : '/dashboard/exams';
 
   const [result, setResult] = useState<SessionResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -357,7 +361,7 @@ export default function ExamResultPage() {
     <div className="mx-auto w-full max-w-5xl space-y-6 px-4 py-6 md:px-8 md:py-10">
       <div className="flex items-center gap-3">
         <button
-          onClick={() => router.push('/dashboard/exams')}
+          onClick={() => router.push(backHref)}
           className="rounded-xl p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200 transition-colors"
         >
           <ArrowLeft size={18} />
@@ -539,8 +543,8 @@ export default function ExamResultPage() {
         )}
       </div>
 
-      {/* ── Retake Section ──────────────────────────────────────────────── */}
-      {(result.status === 'GRADED' || result.status === 'SUBMITTED') && (
+      {/* ── Retake Section (hidden for parents — read-only view) ─────────── */}
+      {!isParent && (result.status === 'GRADED' || result.status === 'SUBMITTED') && (
         <div className="rounded-[2rem] border border-[#FF6900]/20 bg-white p-6 shadow-sm dark:border-[#FF6900]/10 dark:bg-slate-900">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mb-4">
             <div>

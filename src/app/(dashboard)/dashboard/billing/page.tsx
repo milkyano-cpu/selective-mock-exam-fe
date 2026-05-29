@@ -3,12 +3,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { isAxiosError } from 'axios';
-import { AlertTriangle, Crown, CreditCard, Download, ExternalLink, Loader2, ReceiptText, ShieldCheck, Sparkles } from 'lucide-react';
+import { AlertTriangle, Crown, CreditCard, Download, ExternalLink, Loader2, ReceiptText, ShieldCheck, Sparkles, Trash2 } from 'lucide-react';
 import { billingService } from '@/features/billing/services/billing.service';
 import type { BillingInvoice, BillingOverview, BillingPrice, BillingTier } from '@/features/billing/types/billing.types';
 import { analyticsService } from '@/features/analytics/services/analytics.service';
 import type { ChildSummary } from '@/features/analytics/types/analytics.types';
 import { useAuthStore } from '@/features/auth/store/auth.store';
+import { DeleteConfirmModal } from '@/features/subjects/components/DeleteConfirmModal';
 
 const tiers: Array<{
   tier: BillingTier;
@@ -107,6 +108,9 @@ export default function BillingPage() {
   // Null means the default state with just the "Subscribe for X" button.
   const [tierPickerStudentId, setTierPickerStudentId] = useState<string | null>(null);
   const [downloadingInvoiceId, setDownloadingInvoiceId] = useState<string | null>(null);
+  // The child queued for deletion drives the confirmation dialog; null = closed.
+  const [childToDelete, setChildToDelete] = useState<ChildSummary | null>(null);
+  const [isDeletingChild, setIsDeletingChild] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const isStudent = user?.role === 'STUDENT';
   const isParent = user?.role === 'PARENT';
@@ -236,6 +240,30 @@ export default function BillingPage() {
     } catch (err) {
       setError(isAxiosError(err) ? err.response?.data?.message ?? 'Failed to open billing portal' : 'Failed to open billing portal');
       setBusyChild(null);
+    }
+  };
+
+  const handleDeleteChild = async () => {
+    if (!childToDelete) return;
+    const { studentId } = childToDelete;
+    setIsDeletingChild(true);
+    setError(null);
+    try {
+      await billingService.deleteChildAccount(studentId);
+      // Drop the deleted child from the list without reloading the page.
+      setChildren((prev) => prev.filter((c) => c.studentId !== studentId));
+      setChildToDelete(null);
+    } catch (err) {
+      if (isAxiosError(err) && err.response?.status === 409) {
+        setError('Please cancel the subscription first before deleting this account.');
+      } else {
+        setError(
+          isAxiosError(err) ? err.response?.data?.message ?? 'Failed to delete account' : 'Failed to delete account'
+        );
+      }
+      setChildToDelete(null);
+    } finally {
+      setIsDeletingChild(false);
     }
   };
 
@@ -531,6 +559,35 @@ export default function BillingPage() {
                         </button>
                       )}
                     </div>
+
+                    {/* Danger zone — delete the child's account entirely. */}
+                    <div className="flex flex-col gap-2 border-t border-slate-200 pt-3 dark:border-slate-800">
+                      <span className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wide text-red-500/80 dark:text-red-400/80">
+                        <AlertTriangle size={11} />
+                        Danger Zone
+                      </span>
+                      {subscriptionStatus === 'none' ? (
+                        <button
+                          type="button"
+                          onClick={() => setChildToDelete(child)}
+                          disabled={isAnyBusy || isDeletingChild}
+                          className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg border border-red-200 px-3 text-xs font-bold text-red-600 transition-colors hover:bg-red-50 disabled:opacity-60 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-950/40"
+                        >
+                          <Trash2 size={14} />
+                          Delete account
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled
+                          title="Cancel subscription first."
+                          className="inline-flex h-9 w-full cursor-not-allowed items-center justify-center gap-1.5 rounded-lg border border-slate-200 px-3 text-xs font-bold text-slate-400 dark:border-slate-800 dark:text-slate-600"
+                        >
+                          <Trash2 size={14} />
+                          Delete account
+                        </button>
+                      )}
+                    </div>
                   </li>
                 );
               })}
@@ -614,6 +671,19 @@ export default function BillingPage() {
           </div>
         )}
       </section>
+
+      <DeleteConfirmModal
+        isOpen={childToDelete !== null}
+        onClose={() => setChildToDelete(null)}
+        onConfirm={handleDeleteChild}
+        isLoading={isDeletingChild}
+        title="Delete account"
+        message={
+          childToDelete
+            ? `This will permanently disable ${childToDelete.studentName}'s account. This action cannot be undone.`
+            : ''
+        }
+      />
     </div>
   );
 }

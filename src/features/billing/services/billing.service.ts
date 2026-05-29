@@ -1,4 +1,4 @@
-import mdwClient from '@/lib/mdwClient';
+import mdwClient, { buildFeedbackHeaders } from '@/lib/mdwClient';
 import type {
   BillingOverviewResponse,
   BillingTier,
@@ -23,6 +23,14 @@ export const billingService = {
 
   parentPortal: (studentId: string): Promise<PortalResponse> =>
     mdwClient.post('/billing/parent/portal', { studentId }).then((r) => r.data),
+
+  deleteChildAccount: (studentId: string): Promise<{ success: boolean; message: string }> =>
+    mdwClient
+      // Suppress the generic 409 toast — the page shows a specific inline message instead.
+      .delete(`/users/parent/children/${studentId}`, {
+        headers: buildFeedbackHeaders({ suppressConflictToast: true }),
+      })
+      .then((r) => r.data),
 
   listInvoices: (): Promise<BillingInvoicesResponse> =>
     mdwClient.get('/billing/invoices').then((r) => r.data),
