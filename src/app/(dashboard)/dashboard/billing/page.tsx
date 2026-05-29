@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { isAxiosError } from 'axios';
 import { AlertTriangle, Crown, CreditCard, Download, ExternalLink, Loader2, ReceiptText, ShieldCheck, Sparkles } from 'lucide-react';
@@ -113,28 +113,8 @@ export default function BillingPage() {
   // Billing is parent-only — students are redirected away from this page.
   const canUseBilling = isParent;
 
-  // Throttle for the parent-side Stripe pull. We pull fresh subscription state
-  // from Stripe on page load and tab focus so cancel/restore actions taken in
-  // the portal show up immediately, but we don't want to hammer Stripe every
-  // time the tab regains focus.
-  const lastParentRefreshAtRef = useRef(0);
-  const PARENT_REFRESH_THROTTLE_MS = 30_000;
-
   const loadBillingData = useCallback(
     async (signal: { cancelled: boolean }) => {
-      if (isParent) {
-        const now = Date.now();
-        if (now - lastParentRefreshAtRef.current >= PARENT_REFRESH_THROTTLE_MS) {
-          lastParentRefreshAtRef.current = now;
-          try {
-            await billingService.refreshParent();
-          } catch {
-            // Stripe pull is a best-effort sync; fall through to the local read.
-          }
-          if (signal.cancelled) return;
-        }
-      }
-
       const requests: Array<Promise<void>> = [
         billingService.listInvoices().then((res) => {
           if (signal.cancelled || !res.success) return;
@@ -252,9 +232,6 @@ export default function BillingPage() {
     setError(null);
     try {
       const res = await billingService.parentPortal(studentId);
-      // Force a fresh Stripe pull next time loadBillingData runs — the parent is
-      // about to act on a subscription in the portal and may return to this tab.
-      lastParentRefreshAtRef.current = 0;
       window.location.assign(res.data.url);
     } catch (err) {
       setError(isAxiosError(err) ? err.response?.data?.message ?? 'Failed to open billing portal' : 'Failed to open billing portal');

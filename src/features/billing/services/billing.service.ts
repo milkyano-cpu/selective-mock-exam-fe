@@ -24,9 +24,6 @@ export const billingService = {
   parentPortal: (studentId: string): Promise<PortalResponse> =>
     mdwClient.post('/billing/parent/portal', { studentId }).then((r) => r.data),
 
-  refreshParent: (): Promise<{ success: boolean; message: string; data: { refreshed: number } }> =>
-    mdwClient.post('/billing/parent/refresh').then((r) => r.data),
-
   listInvoices: (): Promise<BillingInvoicesResponse> =>
     mdwClient.get('/billing/invoices').then((r) => r.data),
 
