@@ -358,7 +358,7 @@ function StudentResultsView() {
           )}
 
           {/* Tahap 2 — Analytics for selected child */}
-          {isLoadingAnalytics && !analytics ? (
+          {isLoadingAnalytics ? (
             <div className="space-y-4 animate-pulse">
               <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
                 {Array.from({ length: 4 }).map((_, i) => (
