@@ -984,7 +984,7 @@ function StudentPerformanceAnalytics() {
             compact
             requiredTier="STANDARD"
             title="Topic mastery requires Standard"
-            description="Upgrade to unlock your mastery breakdown by topic."
+            description="Available on Standard and above. Ask your parent to upgrade your plan to see your mastery breakdown by topic."
           />
         )}
 
@@ -1032,7 +1032,7 @@ function StudentPerformanceAnalytics() {
             compact
             requiredTier="STANDARD"
             title="Strength insights require Standard"
-            description="Upgrade to identify strengths and topics that need attention."
+            description="Available on Standard and above. Ask your parent to upgrade your plan to identify strengths and topics that need attention."
           />
         )}
           
@@ -1096,7 +1096,7 @@ function StudentPerformanceAnalytics() {
             compact
             requiredTier="STANDARD"
             title="Subject performance requires Standard"
-            description="Upgrade to see how you perform across each subject."
+            description="Available on Standard and above. Ask your parent to upgrade your plan to see how you perform across each subject."
           />
         )}
 
@@ -1175,7 +1175,7 @@ function StudentPerformanceAnalytics() {
             compact
             requiredTier="STANDARD"
             title="Score trends require Standard"
-            description="Upgrade to see how your exam scores change over time."
+            description="Available on Standard and above. Ask your parent to upgrade your plan to see how your exam scores change over time."
           />
         )}
       </div>
@@ -1335,7 +1335,7 @@ function StudentPerformanceAnalytics() {
             compact
             requiredTier="STANDARD"
             title="Leaderboard requires Standard"
-            description="Upgrade to compare your rank and percentile with other students."
+            description="Available on Standard and above. Ask your parent to upgrade your plan to compare your rank and percentile with other students."
           />
         </div>
       )}
@@ -1412,7 +1412,7 @@ function WritingPerformanceSection({
           compact
           requiredTier="PREMIUM"
           title="Writing performance requires Premium"
-          description="Upgrade to unlock rubric-level writing feedback, strengths, and improvements."
+          description="Available on Premium. Ask your parent to upgrade your plan to unlock rubric-level writing feedback, strengths, and improvements."
         />
       </div>
     );

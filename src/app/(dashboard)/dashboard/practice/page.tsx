@@ -533,25 +533,16 @@ export default function PracticeHubPage() {
         </section>
 
         {isBasicLimited && (
-          <div className="flex flex-col gap-3 rounded-3xl border border-slate-200 bg-white px-5 py-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 md:flex-row md:items-center md:justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300">
-                <LockKeyhole size={18} />
-              </div>
-              <div>
-                <p className="text-sm font-black text-slate-900 dark:text-slate-100">Basic practice access</p>
-                <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                  You can open the first topic in each subject. Standard and Premium unlock every practice mode.
-                </p>
-              </div>
+          <div className="flex items-start gap-3 rounded-3xl border border-slate-200 bg-white px-5 py-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300">
+              <LockKeyhole size={18} />
             </div>
-            <button
-              type="button"
-              onClick={() => router.push('/dashboard/billing')}
-              className="flex h-10 items-center justify-center rounded-2xl bg-[#0A9AE2] px-4 text-xs font-black text-white transition-colors hover:bg-[#0659AA]"
-            >
-              Upgrade
-            </button>
+            <div className="min-w-0">
+              <p className="text-sm font-black text-slate-900 dark:text-slate-100">Basic practice access</p>
+              <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                You can open the first topic in each subject. Ask your parent to upgrade your plan to unlock every practice mode.
+              </p>
+            </div>
           </div>
         )}
 

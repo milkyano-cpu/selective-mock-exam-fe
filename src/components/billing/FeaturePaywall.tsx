@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { Crown, LockKeyhole } from 'lucide-react';
+import { useAuthStore } from '@/features/auth/store/auth.store';
 
 type FeaturePaywallProps = {
   title: string;
@@ -11,6 +12,12 @@ type FeaturePaywallProps = {
 };
 
 export function FeaturePaywall({ title, description, requiredTier = 'PREMIUM', compact = false }: FeaturePaywallProps) {
+  // Students don't manage their own billing — the parent does. Sending them to
+  // /dashboard/billing dead-ends because that page is parent-only, so the CTA
+  // becomes a plain message routing them to ask their parent instead.
+  const role = useAuthStore((s) => s.user?.role);
+  const isStudent = role === 'STUDENT';
+
   return (
     <div className={`mx-auto flex w-full max-w-2xl flex-col items-center justify-center text-center ${compact ? 'min-h-[180px] px-3 py-4' : 'min-h-[55vh] px-4'}`}>
       <div className={`flex items-center justify-center rounded-2xl bg-[#0A9AE2]/10 text-[#0A9AE2] ${compact ? 'h-11 w-11' : 'h-16 w-16'}`}>
@@ -26,12 +33,14 @@ export function FeaturePaywall({ title, description, requiredTier = 'PREMIUM', c
       <p className={`${compact ? 'mt-1.5 text-xs leading-5' : 'mt-3 text-sm leading-6'} max-w-xl font-medium text-slate-500 dark:text-slate-400`}>
         {description}
       </p>
-      <Link
-        href="/dashboard/billing"
-        className={`${compact ? 'mt-3 h-9 rounded-xl px-4 text-xs' : 'mt-6 h-12 rounded-2xl px-5 text-sm'} inline-flex items-center justify-center bg-[#0A9AE2] font-black text-white transition-colors hover:bg-[#0659AA]`}
-      >
-        View membership options
-      </Link>
+      {!isStudent && (
+        <Link
+          href="/dashboard/billing"
+          className={`${compact ? 'mt-3 h-9 rounded-xl px-4 text-xs' : 'mt-6 h-12 rounded-2xl px-5 text-sm'} inline-flex items-center justify-center bg-[#0A9AE2] font-black text-white transition-colors hover:bg-[#0659AA]`}
+        >
+          View membership options
+        </Link>
+      )}
     </div>
   );
 }

@@ -17,7 +17,7 @@ export default function PathwaysPage() {
     return (
       <FeaturePaywall
         title="Pathways are for Premium students"
-        description="Upgrade to Premium to unlock tutor-assigned learning pathways, node progress, and pathway practice."
+        description="Available on Premium. Ask your parent to upgrade your plan to unlock tutor-assigned learning pathways, node progress, and pathway practice."
       />
     );
   }

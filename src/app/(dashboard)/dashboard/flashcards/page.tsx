@@ -203,7 +203,7 @@ export default function FlashcardsPage() {
     return (
       <FeaturePaywall
         title="Flash Cards are for Premium students"
-        description="Upgrade to Premium to unlock SM-2 review, and cards generated from your mistakes."
+        description="Available on Premium. Ask your parent to upgrade your plan to unlock SM-2 review and cards generated from your mistakes."
       />
     );
   }
