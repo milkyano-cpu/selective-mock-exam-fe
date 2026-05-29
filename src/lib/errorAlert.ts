@@ -381,6 +381,11 @@ export async function showPendingFeedbackToast(): Promise<void> {
     if (!stored) return;
 
     sessionStorage.removeItem(PENDING_FEEDBACK_KEY);
+
+    // The session-expired notice is queued right before redirecting to login.
+    // Don't surface it on the login page — clear it silently instead.
+    if (window.location.pathname.startsWith('/login')) return;
+
     const content = JSON.parse(stored) as FeedbackContent;
     if (content.icon && content.title && content.description) {
       await fireFeedbackToast(content, `pending:${content.icon}:${content.title}`);

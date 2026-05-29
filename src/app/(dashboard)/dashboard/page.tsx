@@ -745,9 +745,9 @@ function TopicMasteryChart({ strongList, averageList, weakList, total }: {
           >
             <div className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
-              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Strong ≥70%</span>
+              <span className="whitespace-nowrap text-[11px] font-bold text-slate-700 dark:text-slate-300">Strong ≥70%</span>
             </div>
-            <span className="text-xs font-black text-emerald-600">{strongList.length} topic{strongList.length !== 1 ? 's' : ''}</span>
+            <span className="shrink-0 whitespace-nowrap text-[11px] font-black text-emerald-600">{strongList.length} topic{strongList.length !== 1 ? 's' : ''}</span>
           </button>
           <button
             type="button"
@@ -756,9 +756,9 @@ function TopicMasteryChart({ strongList, averageList, weakList, total }: {
           >
             <div className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
-              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Average 50-69%</span>
+              <span className="whitespace-nowrap text-[11px] font-bold text-slate-700 dark:text-slate-300">Average 50-69%</span>
             </div>
-            <span className="text-xs font-black text-amber-600">{averageList.length} topic{averageList.length !== 1 ? 's' : ''}</span>
+            <span className="shrink-0 whitespace-nowrap text-[11px] font-black text-amber-600">{averageList.length} topic{averageList.length !== 1 ? 's' : ''}</span>
           </button>
           <button
             type="button"
@@ -767,9 +767,9 @@ function TopicMasteryChart({ strongList, averageList, weakList, total }: {
           >
             <div className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
-              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Weak &lt;50%</span>
+              <span className="whitespace-nowrap text-[11px] font-bold text-slate-700 dark:text-slate-300">Weak &lt;50%</span>
             </div>
-            <span className="text-xs font-black text-red-600">{weakList.length} topic{weakList.length !== 1 ? 's' : ''}</span>
+            <span className="shrink-0 whitespace-nowrap text-[11px] font-black text-red-600">{weakList.length} topic{weakList.length !== 1 ? 's' : ''}</span>
           </button>
         </div>
       </div>
@@ -889,12 +889,43 @@ function StudentPerformanceAnalytics() {
               </div>
             ))}
           </div>
-          <div className="h-[120px] rounded-2xl bg-slate-50 dark:bg-slate-800/30" />
+          {/* Topic mastery — donut + legend */}
+          <div className="rounded-2xl border border-slate-100 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-800/30">
+            <div className="mx-auto mb-3 h-3 w-24 rounded bg-slate-200/70 dark:bg-slate-700" />
+            <div className="flex items-center gap-4">
+              <div className="h-[120px] w-[120px] shrink-0 rounded-full bg-slate-200/70 dark:bg-slate-700" />
+              <div className="flex-1 space-y-2">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="h-7 rounded-lg bg-slate-100 dark:bg-slate-800/60" />
+                ))}
+              </div>
+            </div>
+          </div>
+          {/* Strengths / Needs focus */}
           <div className="grid grid-cols-2 gap-4">
             <div className="h-28 rounded-2xl bg-emerald-50/50 dark:bg-emerald-900/10" />
             <div className="h-28 rounded-2xl bg-rose-50/50 dark:bg-rose-900/10" />
           </div>
-          <div className="h-[180px] rounded-2xl bg-slate-50 dark:bg-slate-800/30" />
+          {/* Subject performance — bars */}
+          <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/50">
+            <div className="mb-3 h-3 w-32 rounded bg-slate-200/70 dark:bg-slate-700" />
+            <div className="space-y-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <div className="h-3 w-28 rounded bg-slate-100 dark:bg-slate-800/60" />
+                    <div className="h-3 w-8 rounded bg-slate-100 dark:bg-slate-800/60" />
+                  </div>
+                  <div className="h-2 w-full rounded-full bg-slate-100 dark:bg-slate-800/60" />
+                </div>
+              ))}
+            </div>
+          </div>
+          {/* Score trend — chart */}
+          <div className="mt-auto rounded-2xl border border-slate-100 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/50">
+            <div className="mb-4 h-3 w-32 rounded bg-slate-200/70 dark:bg-slate-700" />
+            <div className="h-[160px] rounded-xl bg-slate-50 dark:bg-slate-800/30" />
+          </div>
         </div>
         {/* Leaderboard skeleton */}
         <div className="rounded-[2rem] border border-slate-200/60 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-8 flex flex-col gap-3">
@@ -902,14 +933,19 @@ function StudentPerformanceAnalytics() {
             <div className="h-6 w-44 rounded-lg bg-slate-200/70 dark:bg-slate-800" />
             <div className="mt-2 h-4 w-56 rounded-lg bg-slate-100 dark:bg-slate-800/60" />
           </div>
-          {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="flex items-center gap-4 rounded-2xl border border-slate-100 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-              <div className="h-12 w-12 shrink-0 rounded-full bg-slate-100 dark:bg-slate-800/80" />
-              <div className="flex-1 space-y-2">
-                <div className="h-4 w-28 rounded bg-slate-200/70 dark:bg-slate-700" />
-                <div className="h-3 w-20 rounded bg-slate-100 dark:bg-slate-800/60" />
+          {/* Podium top 3 */}
+          <div className="h-[88px] rounded-2xl border border-amber-200/60 bg-amber-50/40 dark:border-amber-900/40 dark:bg-amber-950/10" />
+          <div className="h-[72px] rounded-2xl border border-slate-200/60 bg-slate-50/60 dark:border-slate-800 dark:bg-slate-800/30" />
+          <div className="h-[72px] rounded-2xl border border-orange-200/60 bg-orange-50/40 dark:border-orange-900/40 dark:bg-orange-950/10" />
+          {/* Compact rows 4-7 */}
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-3 rounded-xl px-3 py-2">
+              <div className="h-8 w-8 shrink-0 rounded-full bg-slate-100 dark:bg-slate-800/80" />
+              <div className="flex-1 space-y-1.5">
+                <div className="h-3 w-28 rounded bg-slate-200/70 dark:bg-slate-700" />
+                <div className="h-2.5 w-20 rounded bg-slate-100 dark:bg-slate-800/60" />
               </div>
-              <div className="h-7 w-10 rounded bg-slate-200/70 dark:bg-slate-700" />
+              <div className="h-4 w-8 rounded bg-slate-200/70 dark:bg-slate-700" />
             </div>
           ))}
         </div>

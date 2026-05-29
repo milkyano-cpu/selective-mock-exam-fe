@@ -920,6 +920,18 @@ function StudentExamView() {
   if (isLoading) {
     return (
       <div className="w-full max-w-5xl space-y-6 animate-pulse">
+        {/* Header */}
+        <div className="space-y-2">
+          <div className="h-8 w-40 rounded-lg bg-slate-200/70 dark:bg-slate-800" />
+          <div className="h-4 w-64 max-w-[70vw] rounded bg-slate-100 dark:bg-slate-800/60" />
+        </div>
+        {/* Tabs */}
+        <div className="flex w-full gap-1 rounded-2xl border border-slate-200/60 bg-white p-1.5 dark:border-slate-800 dark:bg-slate-900 sm:w-fit">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-8 flex-1 rounded-xl bg-slate-100 dark:bg-slate-800/60 sm:w-24 sm:flex-none" />
+          ))}
+        </div>
+        {/* Card grid */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="flex flex-col rounded-[2rem] border border-slate-200/60 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">

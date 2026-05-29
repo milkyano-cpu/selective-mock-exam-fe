@@ -310,24 +310,57 @@ export default function ExamResultPage() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-5xl space-y-6 animate-pulse">
-        <div className="rounded-3xl border border-slate-200/60 bg-white p-8 dark:border-slate-800 dark:bg-slate-900">
-          <div className="flex items-center justify-between">
-            <div className="space-y-2">
-              <div className="h-7 w-40 rounded-lg bg-slate-200/70 dark:bg-slate-800" />
-              <div className="h-4 w-56 rounded bg-slate-100 dark:bg-slate-800/60" />
-            </div>
-            <div className="h-20 w-20 rounded-full bg-slate-200/70 dark:bg-slate-800" />
-          </div>
-          <div className="mt-6 grid grid-cols-3 gap-4">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="h-16 rounded-xl bg-slate-50 dark:bg-slate-800/30" />
-            ))}
+      <div className="mx-auto w-full max-w-5xl space-y-6 px-4 py-6 animate-pulse md:px-8 md:py-10">
+        {/* Header */}
+        <div className="flex items-center gap-3">
+          <div className="h-9 w-9 rounded-xl bg-slate-200/70 dark:bg-slate-800" />
+          <div className="space-y-2">
+            <div className="h-3 w-16 rounded bg-slate-100 dark:bg-slate-800/60" />
+            <div className="h-6 w-48 max-w-[60vw] rounded-lg bg-slate-200/70 dark:bg-slate-800" />
           </div>
         </div>
+
+        {/* Score card — column on mobile, row on desktop (matches loaded layout) */}
+        <div className="rounded-[2rem] border border-slate-200/60 bg-white p-5 dark:border-slate-800 dark:bg-slate-900 sm:p-6">
+          <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
+            <div className="flex shrink-0 flex-col items-center gap-2">
+              <div className="h-28 w-28 rounded-full bg-slate-200/70 dark:bg-slate-800" />
+              <div className="h-3 w-16 rounded bg-slate-100 dark:bg-slate-800/60" />
+              <div className="h-5 w-28 rounded-full bg-slate-100 dark:bg-slate-800/60" />
+            </div>
+            <div className="h-20 w-20 shrink-0 rounded-full bg-slate-200/70 dark:bg-slate-800" />
+            <div className="grid w-full flex-1 grid-cols-2 gap-3 sm:grid-cols-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="h-20 rounded-2xl bg-slate-50 dark:bg-slate-800/30" />
+              ))}
+            </div>
+          </div>
+          <div className="mt-5 h-2.5 w-full rounded-full bg-slate-100 dark:bg-slate-800/60" />
+        </div>
+
+        {/* Performance insights card */}
+        <div className="rounded-[2rem] border border-slate-200/60 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="space-y-2">
+              <div className="h-6 w-52 max-w-[70vw] rounded-lg bg-slate-200/70 dark:bg-slate-800" />
+              <div className="h-4 w-72 max-w-full rounded bg-slate-100 dark:bg-slate-800/60" />
+            </div>
+            <div className="h-11 w-full rounded-xl bg-slate-200/70 dark:bg-slate-800 sm:w-44" />
+          </div>
+        </div>
+
+        {/* Retake card */}
+        <div className="rounded-[2rem] border border-slate-200/60 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
+          <div className="h-6 w-44 rounded-lg bg-slate-200/70 dark:bg-slate-800" />
+          <div className="mt-2 h-4 w-56 max-w-full rounded bg-slate-100 dark:bg-slate-800/60" />
+          <div className="mt-4 h-10 w-48 max-w-full rounded-xl bg-slate-200/70 dark:bg-slate-800" />
+        </div>
+
+        {/* Answer review */}
         <div className="space-y-3">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-24 rounded-2xl border border-slate-200/60 bg-white dark:border-slate-800 dark:bg-slate-900" />
+          <div className="h-5 w-32 rounded bg-slate-200/70 dark:bg-slate-800" />
+          {Array.from({ length: 2 }).map((_, i) => (
+            <div key={i} className="h-20 rounded-2xl border border-slate-200/60 bg-white dark:border-slate-800 dark:bg-slate-900" />
           ))}
         </div>
       </div>
