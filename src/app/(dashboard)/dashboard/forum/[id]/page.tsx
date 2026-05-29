@@ -477,7 +477,7 @@ export default function ThreadDetailPage() {
 
       {isReadOnlyStudent && !thread.isLocked && (
         <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-5 py-3 text-sm font-semibold text-slate-500 dark:border-slate-800 dark:bg-slate-900">
-          <Lock size={16} /> Basic members can read forum discussions. Upgrade to Standard or Premium to reply.
+          <Lock size={16} /> Basic members can read forum discussions. Ask your parent to upgrade your plan to reply.
         </div>
       )}
 

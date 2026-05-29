@@ -55,14 +55,11 @@ export default function NewThreadPage() {
         </div>
         <h1 className="mt-5 text-2xl font-black text-slate-950 dark:text-white">Forum is read-only on Basic</h1>
         <p className="mt-3 text-sm font-medium leading-6 text-slate-500 dark:text-slate-400">
-          You can still read discussions. Upgrade to Standard or Premium to start threads and comment.
+          You can still read discussions. Ask your parent to upgrade your plan to start threads and comment.
         </p>
         <div className="mt-6 flex gap-3">
           <Link href="/dashboard/forum" className="rounded-2xl border border-slate-200 px-5 py-3 text-sm font-black text-slate-600 dark:border-slate-700 dark:text-slate-300">
             Back to forum
-          </Link>
-          <Link href="/dashboard/billing" className="rounded-2xl bg-[#0A9AE2] px-5 py-3 text-sm font-black text-white">
-            Upgrade
           </Link>
         </div>
       </div>
