@@ -340,6 +340,9 @@ async function rejectWithVisibleError(
   const status = axios.isAxiosError(error) ? error.response?.status : undefined;
   const headers = axios.isAxiosError(error) ? error.config?.headers : undefined;
   const suppressBackgroundError = context !== 'session' && isQuietBackgroundRequest(url);
+  // Login failures are already surfaced inline beneath the form fields by useAuth,
+  // so the top-of-screen toast would be redundant noise.
+  const suppressLogin = context === 'login';
   const suppressForbidden = status === 403;
   const suppressNotFound =
     status === 404 &&
@@ -363,7 +366,11 @@ async function rejectWithVisibleError(
     && !suppressConflict
   ) {
     const role = useAuthStore.getState().user?.role;
-    await showApiErrorAlert(error, role, { context });
+    // Still redact the message for login (so the inline form error stays
+    // consistent), but skip the toast — the form already shows it inline.
+    if (!suppressLogin) {
+      await showApiErrorAlert(error, role, { context });
+    }
     redactApiErrorForRole(error, role, context);
   }
 
