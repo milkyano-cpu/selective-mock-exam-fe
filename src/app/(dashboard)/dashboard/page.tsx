@@ -745,9 +745,9 @@ function TopicMasteryChart({ strongList, averageList, weakList, total }: {
           >
             <div className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
-              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Strong (≥70%)</span>
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Strong ≥70%</span>
             </div>
-            <span className="text-xs font-black text-emerald-600">{strongList.length}</span>
+            <span className="text-xs font-black text-emerald-600">{strongList.length} topic{strongList.length !== 1 ? 's' : ''}</span>
           </button>
           <button
             type="button"
@@ -756,9 +756,9 @@ function TopicMasteryChart({ strongList, averageList, weakList, total }: {
           >
             <div className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 rounded-full bg-amber-500" />
-              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Average (50-69%)</span>
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Average 50-69%</span>
             </div>
-            <span className="text-xs font-black text-amber-600">{averageList.length}</span>
+            <span className="text-xs font-black text-amber-600">{averageList.length} topic{averageList.length !== 1 ? 's' : ''}</span>
           </button>
           <button
             type="button"
@@ -767,9 +767,9 @@ function TopicMasteryChart({ strongList, averageList, weakList, total }: {
           >
             <div className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 rounded-full bg-red-500" />
-              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Weak (&lt;50%)</span>
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">Weak &lt;50%</span>
             </div>
-            <span className="text-xs font-black text-red-600">{weakList.length}</span>
+            <span className="text-xs font-black text-red-600">{weakList.length} topic{weakList.length !== 1 ? 's' : ''}</span>
           </button>
         </div>
       </div>
@@ -983,7 +983,7 @@ function StudentPerformanceAnalytics() {
           <FeaturePaywall
             compact
             requiredTier="STANDARD"
-            title="Topic mastery requires Standard"
+            title="Topic Mastery Overview"
             description="Available on Standard and above. Ask your parent to upgrade your plan to see your mastery breakdown by topic."
           />
         )}
@@ -1031,7 +1031,7 @@ function StudentPerformanceAnalytics() {
           <FeaturePaywall
             compact
             requiredTier="STANDARD"
-            title="Strength insights require Standard"
+            title="Strengths & Weak Areas"
             description="Available on Standard and above. Ask your parent to upgrade your plan to identify strengths and topics that need attention."
           />
         )}
@@ -1095,7 +1095,7 @@ function StudentPerformanceAnalytics() {
           <FeaturePaywall
             compact
             requiredTier="STANDARD"
-            title="Subject performance requires Standard"
+            title="Subject Performance"
             description="Available on Standard and above. Ask your parent to upgrade your plan to see how you perform across each subject."
           />
         )}
@@ -1171,12 +1171,15 @@ function StudentPerformanceAnalytics() {
           })()}
           </div>
         ) : (
-          <FeaturePaywall
-            compact
-            requiredTier="STANDARD"
-            title="Score trends require Standard"
-            description="Available on Standard and above. Ask your parent to upgrade your plan to see how your exam scores change over time."
-          />
+          <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900/50 mt-auto">
+            <p className="text-[10px] sm:text-[11px] font-bold uppercase tracking-wide text-slate-400 mb-4">Mock Exam Scores</p>
+            <FeaturePaywall
+              compact
+              requiredTier="STANDARD"
+              title="Score Progression Chart"
+              description="Available on Standard and above. Ask your parent to upgrade your plan to see how your exam scores change over time."
+            />
+          </div>
         )}
       </div>
 
@@ -1330,11 +1333,18 @@ function StudentPerformanceAnalytics() {
         </div>
         </div>
       ) : (
-        <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-8">
+        <div className="flex flex-col rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-8">
+          <div className="mb-6">
+            <h2 className="flex items-center gap-2 text-xl font-black text-slate-900 dark:text-slate-100">
+              <Award className="text-[#FF6900]" /> Global Leaderboard
+            </h2>
+            <p className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400">See how you rank among all students</p>
+          </div>
           <FeaturePaywall
             compact
+            className="flex-1"
             requiredTier="STANDARD"
-            title="Leaderboard requires Standard"
+            title="Global Leaderboard"
             description="Available on Standard and above. Ask your parent to upgrade your plan to compare your rank and percentile with other students."
           />
         </div>
@@ -1411,7 +1421,7 @@ function WritingPerformanceSection({
         <FeaturePaywall
           compact
           requiredTier="PREMIUM"
-          title="Writing performance requires Premium"
+          title="Writing Performance Analytics"
           description="Available on Premium. Ask your parent to upgrade your plan to unlock rubric-level writing feedback, strengths, and improvements."
         />
       </div>

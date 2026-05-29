@@ -20,6 +20,7 @@ import {
   Edit2,
   PlayCircle,
   CheckCircle2,
+  Check,
   AlertCircle,
   X,
   BookOpen,
@@ -29,8 +30,7 @@ import {
   Globe,
   EyeOff,
   RotateCcw,
-  Trophy,
-  Hash,
+  Star,
   RefreshCw,
 } from 'lucide-react';
 
@@ -44,6 +44,24 @@ const RANKING_LABELS: Record<string, string> = {
   HIGH_AVERAGE: 'High Average',
   AVERAGE: 'Average',
   LOW_AVERAGE: 'Low Average',
+};
+
+// Student exam filter tabs. "all" has no counter; awaiting_review exams only
+// appear under "all" (they are neither started, in-progress, nor graded).
+const STUDENT_EXAM_TABS = [
+  { key: 'all', label: 'All' },
+  { key: 'not_started', label: 'Not Started' },
+  { key: 'in_progress', label: 'In Progress' },
+  { key: 'completed', label: 'Completed' },
+] as const;
+
+type StudentExamTab = (typeof STUDENT_EXAM_TABS)[number]['key'];
+
+// Counter badge colors per status — orange for in-progress, green for completed.
+const TAB_BADGE_CLASS: Record<Exclude<StudentExamTab, 'all'>, string> = {
+  not_started: 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300',
+  in_progress: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400',
+  completed: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400',
 };
 
 function formatDuration(minutes: number | null) {
@@ -788,7 +806,7 @@ function StudentExamView() {
   const [attemptSummary, setAttemptSummary] = useState<ExamAttemptSummary | null>(null);
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
   const [isStartingRetake, setIsStartingRetake] = useState(false);
-  const [viewResultsExamId, setViewResultsExamId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<StudentExamTab>('all');
 
   useEffect(() => {
     const loadData = async () => {
@@ -882,6 +900,23 @@ function StudentExamView() {
     }
   };
 
+  // Only exams with questions are takeable; everything below derives from these.
+  const availableExams = exams.filter((e) => e.questionCount > 0);
+  const statusCounts = availableExams.reduce(
+    (acc, exam) => {
+      const st = getExamStatus(exam.id);
+      if (st === 'not_started') acc.not_started += 1;
+      else if (st === 'in_progress') acc.in_progress += 1;
+      else if (st === 'completed') acc.completed += 1;
+      return acc;
+    },
+    { not_started: 0, in_progress: 0, completed: 0 }
+  );
+  const filteredExams =
+    activeTab === 'all'
+      ? availableExams
+      : availableExams.filter((exam) => getExamStatus(exam.id) === activeTab);
+
   if (isLoading) {
     return (
       <div className="w-full max-w-5xl space-y-6 animate-pulse">
@@ -916,181 +951,224 @@ function StudentExamView() {
 
   return (
     <div className="w-full max-w-5xl space-y-6">
+      {/* Page header */}
+      <header>
+        <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-slate-100">My Exams</h1>
+        <p className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400">
+          {availableExams.length} exam{availableExams.length !== 1 ? 's' : ''} available · {statusCounts.completed} completed · {statusCounts.in_progress} in progress
+        </p>
+      </header>
 
-      {exams.filter((e) => e.questionCount > 0).length === 0 ? (
+      {/* Status filter tabs — equal-width row that fills the bar on mobile, compact on desktop */}
+      <div className="flex w-full gap-1 rounded-2xl border border-slate-200 bg-white p-1.5 dark:border-slate-800 dark:bg-slate-900 sm:w-fit">
+        {STUDENT_EXAM_TABS.map((tab) => {
+          const count = tab.key === 'all' ? availableExams.length : statusCounts[tab.key];
+          const isActive = activeTab === tab.key;
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setActiveTab(tab.key)}
+              className={`inline-flex flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-xl px-3 py-1.5 text-xs font-bold transition-colors sm:flex-none sm:text-sm ${
+                isActive
+                  ? 'bg-[#FF6900] text-white'
+                  : 'text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
+              }`}
+            >
+              {tab.label}
+              {tab.key !== 'all' && count > 0 && (
+                <span className={`inline-flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-black ${
+                  isActive ? 'bg-white/25 text-white' : TAB_BADGE_CLASS[tab.key]
+                }`}>
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {availableExams.length === 0 ? (
         <div className="rounded-[2rem] border border-slate-200 bg-white p-12 text-center dark:border-slate-800 dark:bg-slate-900">
           <FileText size={40} className="mx-auto text-slate-300 dark:text-slate-600" />
           <p className="mt-4 text-sm font-medium text-slate-500 dark:text-slate-400">No exams available yet. Check back later.</p>
         </div>
+      ) : filteredExams.length === 0 ? (
+        <div className="rounded-[2rem] border border-dashed border-slate-300 bg-white p-12 text-center dark:border-slate-700 dark:bg-slate-900">
+          <FileText size={40} className="mx-auto text-slate-300 dark:text-slate-600" />
+          <p className="mt-4 text-sm font-medium text-slate-500 dark:text-slate-400">No exams in this category.</p>
+        </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {exams
-            .filter((exam) => exam.questionCount > 0)
-            .map((exam) => {
-              const status = getExamStatus(exam.id);
-              const latestSession = getLatestSession(exam.id);
-              const bestSession = getBestSession(exam.id);
-              const attemptCount = getAttemptCount(exam.id);
-              return (
-                <div
-                  key={exam.id}
-                  className="flex flex-col rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm transition-all hover:border-slate-300 hover:shadow-md dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${exam.examType === 'MOCK_EXAM' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'}`}>
-                      {EXAM_TYPE_LABELS[exam.examType]}
+          {filteredExams.map((exam) => {
+            const status = getExamStatus(exam.id);
+            const latestSession = getLatestSession(exam.id);
+            const bestSession = getBestSession(exam.id);
+            const attemptCount = getAttemptCount(exam.id);
+            const borderClass =
+              status === 'in_progress'
+                ? 'border-[#FF6900] dark:border-[#FF6900]/70'
+                : status === 'completed'
+                  ? 'border-emerald-200 dark:border-emerald-500/40'
+                  : status === 'awaiting_review'
+                    ? 'border-amber-200 dark:border-amber-500/40'
+                    : 'border-slate-200 dark:border-slate-700';
+            return (
+              <div
+                key={exam.id}
+                className={`flex flex-col rounded-[2rem] border ${borderClass} bg-white p-5 shadow-sm transition-shadow hover:shadow-md dark:bg-slate-900`}
+              >
+                {/* Type + status badges */}
+                <div className="flex items-start justify-between gap-2">
+                  <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${exam.examType === 'MOCK_EXAM' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'}`}>
+                    {EXAM_TYPE_LABELS[exam.examType]}
+                  </span>
+                  {status === 'in_progress' && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-semibold text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
+                      <Clock size={11} /> In Progress
                     </span>
-                    {status === 'awaiting_review' && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
-                        <AlertCircle size={11} /> Review Pending
-                      </span>
-                    )}
-                    {status === 'completed' && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                        <CheckCircle2 size={11} /> Done
-                      </span>
-                    )}
-                    {status === 'in_progress' && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-semibold text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
-                        <PlayCircle size={11} /> In Progress
-                      </span>
-                    )}
-                  </div>
+                  )}
+                  {status === 'awaiting_review' && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                      <Clock size={11} /> Awaiting Review
+                    </span>
+                  )}
+                  {status === 'completed' && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                      <Check size={12} strokeWidth={3} /> Done{attemptCount > 1 ? ` · ${attemptCount} attempts` : ''}
+                    </span>
+                  )}
+                </div>
 
-                  <h2 className="mt-3 text-base font-black text-slate-900 dark:text-slate-100 leading-snug">{exam.title}</h2>
+                <h2 className="mt-3 text-base font-black text-slate-900 dark:text-slate-100 leading-snug">{exam.title}</h2>
 
-                  <div className="mt-2 flex flex-wrap gap-3 text-xs font-medium text-slate-500 dark:text-slate-400">
-                    <span className="flex items-center gap-1"><Clock size={12} />{formatDuration(exam.durationMinutes)}</span>
-                    <span className="flex items-center gap-1"><FileText size={12} />{exam.questionCount} questions</span>
-                    <span>{GRADING_TYPE_LABELS[exam.gradingType]}</span>
-                  </div>
+                <div className="mt-2 flex flex-wrap gap-3 text-xs font-medium text-slate-500 dark:text-slate-400">
+                  <span className="flex items-center gap-1"><Clock size={12} />{formatDuration(exam.durationMinutes)}</span>
+                  <span className="flex items-center gap-1"><FileText size={12} />{exam.questionCount} questions</span>
+                </div>
 
-                  {/* Score section — show best score if multiple attempts */}
-                  {bestSession && bestSession.finalScore !== null && (
-                    <div className="mt-3 rounded-xl bg-slate-50 px-3 py-2 dark:bg-slate-800">
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                          {attemptCount > 1 ? 'Best score' : 'Your score'}
-                        </p>
-                        {attemptCount > 1 && (
-                          <span className="flex items-center gap-1 text-xs font-semibold text-slate-400">
-                            <Hash size={10} />{attemptCount} attempts
-                          </span>
+                {/* Status info section — consistent height keeps the grid aligned */}
+                <div className="mt-3 flex-1">
+                  {status === 'not_started' && (
+                    <div className="flex min-h-[60px] items-center justify-center rounded-xl border border-dashed border-slate-200 px-3 py-2 text-center dark:border-slate-700">
+                      <p className="text-xs font-medium text-slate-400 dark:text-slate-500">Not attempted yet</p>
+                    </div>
+                  )}
+                  {status === 'in_progress' && (
+                    <div className="flex min-h-[60px] items-center rounded-xl bg-orange-50 px-3 py-2 dark:bg-orange-900/10">
+                      <p className="text-xs font-semibold text-orange-700 dark:text-orange-400">Started · Pick up where you left off</p>
+                    </div>
+                  )}
+                  {status === 'awaiting_review' && (
+                    <div className="min-h-[60px] rounded-xl bg-amber-50 px-3 py-2.5 dark:bg-amber-900/10">
+                      <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">Submitted · Your tutor is reviewing your answers</p>
+                      <p className="mt-0.5 text-[11px] font-medium text-amber-600/80 dark:text-amber-500/80">Usually takes 1–2 business days</p>
+                    </div>
+                  )}
+                  {status === 'completed' && bestSession && bestSession.finalScore !== null && (
+                    <div className="min-h-[60px] rounded-xl bg-slate-50 px-3 py-2.5 dark:bg-slate-800">
+                      <p className="text-xs font-bold text-slate-500 dark:text-slate-400">{attemptCount > 1 ? 'Best score' : 'Your score'}</p>
+                      <div className="flex items-baseline justify-between gap-2">
+                        <p className="text-2xl font-black text-slate-900 dark:text-slate-100">{bestSession.finalScore.toFixed(1)}<span className="text-sm text-slate-400">/100</span></p>
+                        {bestSession.rankingLevel && (
+                          <span className="text-sm font-bold text-[#FF6900]">{RANKING_LABELS[bestSession.rankingLevel]}</span>
                         )}
                       </div>
-                      <p className="text-xl font-black text-slate-900 dark:text-slate-100">{bestSession.finalScore.toFixed(1)}<span className="text-sm text-slate-400">/100</span></p>
-                      {bestSession.rankingLevel && (
-                        <p className="text-xs font-semibold text-[#FF6900]">{RANKING_LABELS[bestSession.rankingLevel]}</p>
-                      )}
+                      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                        <div className="h-full rounded-full bg-[#FF6900]" style={{ width: `${Math.min(100, bestSession.finalScore)}%` }} />
+                      </div>
                     </div>
                   )}
 
-                  <div className="mt-4 flex-1 flex flex-col items-end justify-end gap-2">
-                    {status === 'not_started' && (
-                      <button
-                        onClick={() => router.push(`/dashboard/exams/${exam.id}`)}
-                        className="w-full rounded-xl bg-[#FF6900] px-4 py-2.5 text-sm font-bold text-white transition-transform hover:scale-[1.02] active:scale-[0.98]"
-                      >
-                        Start Exam
-                      </button>
-                    )}
-                    {status === 'in_progress' && (
-                      <button
-                        onClick={() => router.push(`/dashboard/exams/${exam.id}/session`)}
-                        className="w-full rounded-xl border-2 border-[#FF6900] px-4 py-2.5 text-sm font-bold text-[#FF6900] transition-transform hover:scale-[1.02] active:scale-[0.98]"
-                      >
-                        Resume Exam
-                      </button>
-                    )}
-                    {status === 'awaiting_review' && latestSession && (
-                      attemptCount > 1 ? (
-                        <button
-                          onClick={() => setViewResultsExamId(viewResultsExamId === exam.id ? null : exam.id)}
-                          className="w-full rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm font-bold text-amber-700 transition-colors hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300 dark:hover:bg-amber-900/30 flex items-center justify-center gap-2"
-                        >
-                          View Results <ChevronDown size={14} />
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => router.push(`/dashboard/exams/sessions/${latestSession.sessionId}/result`)}
-                          className="w-full rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm font-bold text-amber-700 transition-colors hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300 dark:hover:bg-amber-900/30"
-                        >
-                          View Review Status
-                        </button>
-                      )
-                    )}
-                    {status === 'completed' && latestSession && (
-                      <>
-                        {attemptCount > 1 ? (
-                          <button
-                            onClick={() => setViewResultsExamId(viewResultsExamId === exam.id ? null : exam.id)}
-                            className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 flex items-center justify-center gap-2"
-                          >
-                            View Results <ChevronDown size={14} />
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => router.push(`/dashboard/exams/sessions/${latestSession.sessionId}/result`)}
-                            className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-                          >
-                            View Results
-                          </button>
-                        )}
-                        <button
-                          onClick={() => handleOpenRetake(exam.id)}
-                          className="w-full rounded-xl border border-[#FF6900]/30 bg-[#FF6900]/5 px-4 py-2.5 text-sm font-bold text-[#FF6900] transition-colors hover:bg-[#FF6900]/10 flex items-center justify-center gap-2"
-                        >
-                          <RotateCcw size={14} /> Retake Exam
-                        </button>
-                      </>
-                    )}
-
-                    {/* Attempt list dropdown */}
-                    {viewResultsExamId === exam.id && (() => {
-                      const examSessions = (examSessionsMap.get(exam.id) ?? [])
-                        .filter((s) => s.status !== 'IN_PROGRESS')
-                        .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
-                      return (
-                        <div className="w-full rounded-xl border border-slate-200 bg-slate-50 p-2 space-y-1 dark:border-slate-700 dark:bg-slate-800">
-                          {examSessions.map((s, idx) => {
-                            const attemptNum = examSessions.length - idx;
-                            const isBest = bestSession?.sessionId === s.sessionId;
-                            return (
-                              <button
-                                key={s.sessionId}
-                                onClick={() => {
-                                  setViewResultsExamId(null);
-                                  router.push(`/dashboard/exams/sessions/${s.sessionId}/result`);
-                                }}
-                                className="w-full flex items-center justify-between rounded-lg px-3 py-2 text-left transition-colors hover:bg-white dark:hover:bg-slate-700"
-                              >
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xs font-bold text-slate-500 dark:text-slate-400">#{attemptNum}</span>
-                                  <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">
-                                    {s.finalScore !== null ? `${s.finalScore.toFixed(1)}/100` : s.status === 'SUBMITTED' ? 'Grading...' : '—'}
+                  {/* Per-attempt list for exams done more than once */}
+                  {status === 'completed' && attemptCount > 1 && (() => {
+                    const examSessions = (examSessionsMap.get(exam.id) ?? [])
+                      .filter((s) => s.status !== 'IN_PROGRESS')
+                      .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+                    return (
+                      <div className="mt-2 space-y-1">
+                        {examSessions.map((s, idx) => {
+                          const attemptNum = examSessions.length - idx;
+                          const isBest = bestSession?.sessionId === s.sessionId;
+                          return (
+                            <button
+                              key={s.sessionId}
+                              onClick={() => router.push(`/dashboard/exams/sessions/${s.sessionId}/result`)}
+                              className="flex w-full items-center justify-between gap-2 rounded-lg border border-slate-100 px-2.5 py-1.5 text-left transition-colors hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800"
+                            >
+                              <div className="flex min-w-0 items-center gap-2">
+                                <span className="text-xs font-bold text-slate-400">#{attemptNum}</span>
+                                <span className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                                  {s.finalScore !== null ? `${s.finalScore.toFixed(1)}/100` : s.status === 'SUBMITTED' ? 'Grading...' : '—'}
+                                </span>
+                                {isBest && (
+                                  <span className="inline-flex items-center gap-0.5 rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-bold text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                                    <Star size={9} className="fill-current" /> Best
                                   </span>
-                                  {isBest && (
-                                    <span className="inline-flex items-center gap-0.5 rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-bold text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                                      <Trophy size={9} /> Best
-                                    </span>
-                                  )}
-                                  {s.retakeMode && (
-                                    <span className="inline-flex rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-                                      {s.retakeMode === 'FULL' ? 'Full' : s.retakeMode === 'INCORRECT_ONLY' ? 'Incorrect' : 'Subject'}
-                                    </span>
-                                  )}
-                                </div>
-                                <ArrowRight size={12} className="text-slate-400" />
-                              </button>
-                            );
-                          })}
-                        </div>
-                      );
-                    })()}
-                  </div>
+                                )}
+                                {s.retakeMode && s.retakeMode !== 'FULL' && (
+                                  <span className="inline-flex shrink-0 rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                                    {s.retakeMode === 'INCORRECT_ONLY' ? 'Incorrect only' : 'Subject'}
+                                  </span>
+                                )}
+                              </div>
+                              <ChevronRight size={13} className="shrink-0 text-slate-300 dark:text-slate-600" />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
                 </div>
-              );
-            })}
+
+                {/* CTA buttons */}
+                <div className="mt-4 space-y-2">
+                  {status === 'not_started' && (
+                    <button
+                      onClick={() => router.push(`/dashboard/exams/${exam.id}`)}
+                      className="w-full rounded-xl bg-[#FF6900] px-4 py-2.5 text-sm font-bold text-white transition-transform hover:scale-[1.02] active:scale-[0.98]"
+                    >
+                      Start Exam
+                    </button>
+                  )}
+                  {status === 'in_progress' && (
+                    <button
+                      onClick={() => router.push(`/dashboard/exams/${exam.id}/session`)}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[#FF6900] px-4 py-2.5 text-sm font-bold text-[#FF6900] transition-transform hover:scale-[1.02] active:scale-[0.98]"
+                    >
+                      <PlayCircle size={15} /> Resume Exam
+                    </button>
+                  )}
+                  {status === 'awaiting_review' && latestSession && (
+                    <button
+                      onClick={() => router.push(`/dashboard/exams/sessions/${latestSession.sessionId}/result`)}
+                      className="w-full rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm font-bold text-amber-700 transition-colors hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300 dark:hover:bg-amber-900/30"
+                    >
+                      View Submission
+                    </button>
+                  )}
+                  {status === 'completed' && (
+                    <>
+                      {attemptCount <= 1 && (bestSession ?? latestSession) && (
+                        <button
+                          onClick={() => router.push(`/dashboard/exams/sessions/${(bestSession ?? latestSession)!.sessionId}/result`)}
+                          className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                        >
+                          View Results
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleOpenRetake(exam.id)}
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#FF6900]/30 bg-[#FF6900]/5 px-4 py-2.5 text-sm font-bold text-[#FF6900] transition-colors hover:bg-[#FF6900]/10"
+                      >
+                        <RotateCcw size={14} /> Retake
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 

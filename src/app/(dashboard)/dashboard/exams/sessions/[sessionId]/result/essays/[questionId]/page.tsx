@@ -6,9 +6,8 @@ import { isAxiosError } from 'axios';
 import {
   AlertCircle,
   ArrowLeft,
-  BookOpen,
-  FileText,
-  Sparkles,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 import { QuestionLatexRenderer } from '@/components/ui/QuestionLatexRenderer';
 import { examService } from '@/features/exams/services/exams.service';
@@ -18,6 +17,7 @@ function formatWritingType(writingType: string | null) {
   return (writingType?.replaceAll('_', ' ') ?? 'ESSAY').toUpperCase();
 }
 
+// Top-level strengths / areas-to-improve list (green checks / orange dashes).
 function FeedbackList({
   title,
   entries,
@@ -29,12 +29,16 @@ function FeedbackList({
 }) {
   const isPositive = tone === 'positive';
   return (
-    <section className={`rounded-2xl border p-5 ${isPositive ? 'border-emerald-100 bg-emerald-50/70 dark:border-emerald-900/30 dark:bg-emerald-900/10' : 'border-amber-100 bg-amber-50/70 dark:border-amber-900/30 dark:bg-amber-900/10'}`}>
-      <h2 className={`text-sm font-black uppercase ${isPositive ? 'text-emerald-700 dark:text-emerald-300' : 'text-amber-700 dark:text-amber-300'}`}>{title}</h2>
-      <ul className="mt-3 space-y-2">
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 sm:p-5">
+      <h2 className={`text-xs font-black uppercase tracking-wider ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
+        {title}
+      </h2>
+      <ul className="mt-3 space-y-2.5">
         {entries.map((entry, index) => (
-          <li key={index} className={`flex items-start gap-2 text-sm font-medium ${isPositive ? 'text-emerald-800 dark:text-emerald-200' : 'text-amber-800 dark:text-amber-200'}`}>
-            <span className={`mt-2 h-1.5 w-1.5 shrink-0 rounded-full ${isPositive ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+          <li key={index} className={`flex items-start gap-2.5 text-sm font-medium ${isPositive ? 'text-green-700 dark:text-green-300' : 'text-amber-800 dark:text-amber-300'}`}>
+            <span className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] font-black leading-none ${isPositive ? 'bg-green-100 text-green-600 dark:bg-green-900/40 dark:text-green-300' : 'bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-300'}`}>
+              {isPositive ? '✓' : '→'}
+            </span>
             <span>{entry}</span>
           </li>
         ))}
@@ -43,13 +47,41 @@ function FeedbackList({
   );
 }
 
+// Per-criterion list (small colored dots).
+function CriterionPoints({
+  title,
+  entries,
+  tone,
+}: {
+  title: string;
+  entries: string[];
+  tone: 'positive' | 'improvement';
+}) {
+  const isPositive = tone === 'positive';
+  return (
+    <div className="mt-3">
+      <p className={`text-[11px] font-black uppercase tracking-wider ${isPositive ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
+        {title}
+      </p>
+      <ul className="mt-1.5 space-y-1">
+        {entries.map((entry, index) => (
+          <li key={index} className={`flex items-start gap-2 text-sm font-medium ${isPositive ? 'text-green-700 dark:text-green-300' : 'text-amber-800 dark:text-amber-300'}`}>
+            <span className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${isPositive ? 'bg-green-400' : 'bg-amber-400'}`} />
+            <span>{entry}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export default function EssayFullReviewPage() {
   const { sessionId, questionId } = useParams<{ sessionId: string; questionId: string }>();
   const router = useRouter();
   const [answer, setAnswer] = useState<SessionResultAnswer | null>(null);
-  const [examTitle, setExamTitle] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showEssay, setShowEssay] = useState(false);
 
   useEffect(() => {
     let isCancelled = false;
@@ -71,7 +103,6 @@ export default function EssayFullReviewPage() {
           return;
         }
 
-        setExamTitle(response.data.examTitle);
         setAnswer(essay);
       } catch (err) {
         if (!isCancelled) {
@@ -88,36 +119,25 @@ export default function EssayFullReviewPage() {
     };
   }, [questionId, sessionId]);
 
+  const goBack = () => router.push(`/dashboard/exams/sessions/${sessionId}/result`);
+
   if (isLoading) {
     return (
-      <div className="mx-auto w-full max-w-4xl space-y-6 px-4 py-6 animate-pulse md:px-8 md:py-10">
+      <div className="mx-auto w-full max-w-3xl space-y-5 px-4 py-6 animate-pulse md:px-8 md:py-10">
         <div className="h-4 w-32 rounded-lg bg-slate-100 dark:bg-slate-800" />
-        <div className="space-y-3">
-          <div className="h-8 w-72 max-w-full rounded-xl bg-slate-100 dark:bg-slate-800" />
-          <div className="h-4 w-40 rounded-lg bg-slate-100 dark:bg-slate-800" />
-        </div>
-        <div className="rounded-[2rem] border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
-          <div className="h-5 w-44 rounded-lg bg-slate-100 dark:bg-slate-800" />
-          <div className="mt-5 space-y-3">
-            <div className="h-4 w-full rounded-lg bg-slate-100 dark:bg-slate-800" />
-            <div className="h-4 w-full rounded-lg bg-slate-100 dark:bg-slate-800" />
-            <div className="h-4 w-3/4 rounded-lg bg-slate-100 dark:bg-slate-800" />
-          </div>
-        </div>
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="h-40 rounded-2xl bg-slate-100 dark:bg-slate-800" />
-          <div className="h-40 rounded-2xl bg-slate-100 dark:bg-slate-800" />
-        </div>
+        <div className="h-44 rounded-2xl bg-slate-100 dark:bg-slate-800" />
+        <div className="h-28 rounded-2xl bg-slate-100 dark:bg-slate-800" />
+        <div className="h-32 rounded-2xl bg-slate-100 dark:bg-slate-800" />
       </div>
     );
   }
 
   if (error || !answer) {
     return (
-      <div className="mx-auto w-full max-w-4xl space-y-5 px-4 py-6 md:px-8 md:py-10">
+      <div className="mx-auto w-full max-w-3xl space-y-5 px-4 py-6 md:px-8 md:py-10">
         <button
           type="button"
-          onClick={() => router.push(`/dashboard/exams/sessions/${sessionId}/result`)}
+          onClick={goBack}
           className="inline-flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
         >
           <ArrowLeft size={16} /> Back to Results
@@ -130,8 +150,9 @@ export default function EssayFullReviewPage() {
   }
 
   const feedback = answer.aiFeedback;
+  const isPending = answer.reviewStatus === 'PENDING_REVIEW';
   const score = answer.overrideScore ?? answer.awardedMarks ?? answer.manualScore;
-  const bandLabel = feedback?.bandLabel ?? (answer.reviewStatus === 'PENDING_REVIEW' ? 'Pending review' : 'Not assigned');
+  const bandLabel = feedback?.bandLabel ?? (isPending ? 'Pending review' : 'Not assigned');
   const writingType = formatWritingType(answer.writingType);
   const overallFeedback = feedback?.overallFeedback ?? feedback?.feedback;
   const strengths = feedback?.strengths ?? [];
@@ -139,57 +160,22 @@ export default function EssayFullReviewPage() {
   const criterionScores = feedback?.criterionScores ?? [];
 
   return (
-    <div className="mx-auto w-full max-w-4xl space-y-6 px-4 py-6 md:px-8 md:py-10">
-      <header className="space-y-4">
-        <button
-          type="button"
-          onClick={() => router.push(`/dashboard/exams/sessions/${sessionId}/result`)}
-          className="inline-flex items-center gap-2 text-sm font-bold text-slate-500 transition-colors hover:text-slate-800 dark:hover:text-slate-200"
-        >
-          <ArrowLeft size={16} /> Back to Results
-        </button>
-        <div>
-          <p className="text-xs font-black uppercase tracking-widest text-blue-600 dark:text-blue-400">Essay Review</p>
-          <h1 className="mt-1 text-2xl font-black text-slate-900 dark:text-slate-100">{examTitle}</h1>
-        </div>
-      </header>
+    <div className="mx-auto w-full max-w-3xl space-y-5 px-4 py-6 md:px-8 md:py-10">
+      {/* Back link */}
+      <button
+        type="button"
+        onClick={goBack}
+        className="inline-flex items-center gap-2 text-sm font-bold text-slate-500 transition-colors hover:text-slate-800 dark:hover:text-slate-200"
+      >
+        <ArrowLeft size={16} /> Back to Results
+      </button>
 
-      <section className="rounded-3xl border border-orange-100 bg-gradient-to-r from-orange-50/80 via-white to-orange-50/50 p-5 shadow-sm dark:border-orange-900/30 dark:from-orange-950/20 dark:via-slate-900 dark:to-slate-900 sm:p-6">
-        <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-start">
-          <div className="min-w-0">
-            <p className="inline-flex rounded-full bg-[#FF6900] px-4 py-1.5 text-xs font-black uppercase tracking-wide text-white">
-              {bandLabel}
-            </p>
-            {feedback?.bandDescriptor && (
-              <p className="mt-3 max-w-lg text-sm font-semibold leading-relaxed text-orange-900/80 dark:text-orange-200">
-                {feedback.bandDescriptor}
-              </p>
-            )}
-          </div>
-          <div className="shrink-0 sm:text-right">
-            {answer.reviewStatus === 'PENDING_REVIEW' || score === null ? (
-              <p className="text-xl font-black text-orange-600 dark:text-orange-300">Pending</p>
-            ) : (
-              <p className="text-4xl font-black leading-none text-[#FF6900]">
-                {score}<span className="ml-1 text-lg text-orange-400">/ {answer.maxMarks}</span>
-              </p>
-            )}
-            <p className="mt-1 text-[11px] font-black uppercase tracking-wide text-orange-400">Marks</p>
-            <p className="text-xs font-black uppercase tracking-wide text-orange-500">{writingType}</p>
-          </div>
-        </div>
-      </section>
-
-      <section className="rounded-3xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900 sm:p-6">
-        <div className="flex flex-wrap items-center gap-2 text-xs font-black uppercase tracking-wider text-slate-400">
-          <FileText size={14} />
-          <span>Question {answer.order}</span>
-          <span aria-hidden="true">&middot;</span>
-          <span>{answer.topicName}</span>
-          <span aria-hidden="true">&middot;</span>
-          <span>{answer.maxMarks} Marks</span>
-        </div>
-        <div className="mt-4 text-base font-semibold leading-relaxed text-slate-800 dark:text-slate-200">
+      {/* Question + stimulus */}
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 sm:p-5">
+        <p className="text-xs font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">
+          Question {answer.order} <span className="mx-1">·</span> {writingType} <span className="mx-1">·</span> {answer.maxMarks} Marks
+        </p>
+        <div className="mt-3 text-[15px] font-medium leading-relaxed text-slate-800 dark:text-slate-200">
           <QuestionLatexRenderer text={answer.questionText} latexEnabled={answer.latexEnabled} />
         </div>
         {answer.promptText && (
@@ -202,91 +188,100 @@ export default function EssayFullReviewPage() {
         )}
       </section>
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900 sm:p-6">
-        <h2 className="flex items-center gap-2 text-sm font-black uppercase text-slate-400">
-          <BookOpen size={16} /> Your Answer
-        </h2>
-        <p className="mt-3 whitespace-pre-wrap text-sm font-medium leading-relaxed text-slate-700 dark:text-slate-300">
-          {answer.studentAnswer || <span className="italic text-slate-400">No answer submitted.</span>}
-        </p>
-      </section>
-
-      {answer.reviewStatus === 'PENDING_REVIEW' && (
-        <section className="rounded-2xl border border-amber-100 bg-amber-50 p-5 dark:border-amber-900/30 dark:bg-amber-900/10">
-          <h2 className="text-sm font-black uppercase text-amber-700 dark:text-amber-300">Pending Review</h2>
-          <p className="mt-2 text-sm font-medium text-amber-800 dark:text-amber-200">
+      {/* Score banner */}
+      {isPending ? (
+        <section className="rounded-2xl border border-amber-200 bg-amber-50 p-5 dark:border-amber-900/40 dark:bg-amber-900/10 sm:p-6">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-500 px-3.5 py-1.5 text-xs font-black uppercase tracking-wide text-white">
+            <span className="h-1.5 w-1.5 rounded-full bg-white/90" /> Pending Review
+          </span>
+          <p className="mt-3 text-sm font-medium text-amber-800 dark:text-amber-200">
             {feedback?.reason ?? 'This essay is awaiting manual review, so its final score and feedback are not available yet.'}
+          </p>
+        </section>
+      ) : (
+        <section className="rounded-2xl border border-orange-200 bg-gradient-to-r from-orange-50 via-orange-50/60 to-white p-5 shadow-sm dark:border-orange-900/40 dark:from-orange-950/30 dark:via-orange-950/10 dark:to-slate-900 sm:p-6">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-[#FF6900] px-3.5 py-1.5 text-xs font-black uppercase tracking-wide text-white">
+                <span className="h-1.5 w-1.5 rounded-full bg-white/90" /> {bandLabel}
+              </span>
+              {feedback?.bandDescriptor && (
+                <p className="mt-3 max-w-md text-sm font-semibold leading-relaxed text-orange-900/80 dark:text-orange-200/90">
+                  {feedback.bandDescriptor}
+                </p>
+              )}
+            </div>
+            <div className="shrink-0 text-right">
+              <p className="text-4xl font-black leading-none text-[#FF6900]">
+                {score ?? '—'}
+                <span className="ml-1 text-lg font-black text-orange-300 dark:text-orange-400/70">/ {answer.maxMarks}</span>
+              </p>
+              <p className="mt-1.5 text-[11px] font-black uppercase tracking-wider text-orange-400">Marks</p>
+              <p className="text-[11px] font-black uppercase tracking-wider text-orange-400">{writingType}</p>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Overall review */}
+      {overallFeedback && (
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 sm:p-5">
+          <h2 className="text-xs font-black uppercase tracking-wider text-slate-400 dark:text-slate-500">Review</h2>
+          <p className="mt-3 whitespace-pre-wrap text-sm font-medium leading-relaxed text-slate-700 dark:text-slate-300">
+            {overallFeedback}
           </p>
         </section>
       )}
 
-      {overallFeedback && (
-        <section className="rounded-3xl border border-emerald-100 bg-white p-5 dark:border-emerald-900/30 dark:bg-slate-900 sm:p-6">
-          <h2 className="flex items-center gap-2 text-sm font-black uppercase text-emerald-700 dark:text-emerald-300">
-            <Sparkles size={16} /> Overall Review
-          </h2>
-          <p className="mt-3 whitespace-pre-wrap text-sm font-medium leading-relaxed text-slate-700 dark:text-slate-300">{overallFeedback}</p>
-        </section>
-      )}
+      {/* Strengths */}
+      {strengths.length > 0 && <FeedbackList title="Strengths" entries={strengths} tone="positive" />}
 
-      {(strengths.length > 0 || improvements.length > 0) && (
-        <div className="grid gap-4 md:grid-cols-2">
-          {strengths.length > 0 && <FeedbackList title="Strengths" entries={strengths} tone="positive" />}
-          {improvements.length > 0 && <FeedbackList title="Areas to Improve" entries={improvements} tone="improvement" />}
-        </div>
-      )}
+      {/* Areas to improve */}
+      {improvements.length > 0 && <FeedbackList title="Areas to Improve" entries={improvements} tone="improvement" />}
 
+      {/* Criterion breakdown — one main card wrapping nested purple criterion cards */}
       {criterionScores.length > 0 && (
-        <section className="rounded-3xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900 sm:p-6">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-sm font-black uppercase text-slate-700 dark:text-slate-200">Criterion Breakdown</h2>
-            {feedback?.aiRubric && (
-              <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                {feedback.aiRubric.name} - {feedback.totalAwardedMarks ?? 0}/{feedback.totalPossibleMarks ?? feedback.aiRubric.totalMaxScore} marks
-              </p>
-            )}
-          </div>
-          <div className="mt-4 space-y-3">
-            {criterionScores.map((criterion) => (
-              <article key={criterion.criterionId} className="rounded-2xl border border-slate-100 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-800">
-                <div className="flex items-start justify-between gap-3">
-                  <h3 className="text-sm font-black text-slate-800 dark:text-slate-100">{criterion.criterionName}</h3>
-                  <span className="shrink-0 rounded-lg bg-blue-100 px-2.5 py-1 text-xs font-black text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
-                    {criterion.score}/{criterion.maxScore}
-                  </span>
-                </div>
-                {criterion.feedback && <p className="mt-2 text-sm font-medium text-slate-600 dark:text-slate-300">{criterion.feedback}</p>}
-                {(criterion.strengths?.length ?? 0) > 0 && (
-                  <div className="mt-3">
-                    <p className="text-xs font-black uppercase text-emerald-600 dark:text-emerald-400">Strengths</p>
-                    <ul className="mt-1 space-y-1">
-                      {criterion.strengths?.map((item, index) => (
-                        <li key={index} className="text-xs font-medium text-emerald-700 dark:text-emerald-300">{item}</li>
-                      ))}
-                    </ul>
+        <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 sm:p-5">
+          <h2 className="text-xs font-black uppercase tracking-wider text-violet-700 dark:text-violet-400">Criterion Breakdown</h2>
+          <div className="mt-4 space-y-4">
+            {criterionScores.map((criterion) => {
+              const pct = criterion.maxScore > 0 ? Math.min(100, (criterion.score / criterion.maxScore) * 100) : 0;
+              return (
+                <article
+                  key={criterion.criterionId}
+                  className="rounded-2xl border border-violet-100 bg-purple-50 p-4 dark:border-violet-900/30 dark:bg-violet-950/10 sm:p-5"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="text-sm font-black text-violet-900 dark:text-violet-300">{criterion.criterionName}</h3>
+                    <span className="shrink-0 rounded-full bg-violet-100 px-2.5 py-1 text-xs font-black text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
+                      {criterion.score} / {criterion.maxScore}
+                    </span>
                   </div>
-                )}
-                {(criterion.improvements?.length ?? 0) > 0 && (
-                  <div className="mt-3">
-                    <p className="text-xs font-black uppercase text-amber-600 dark:text-amber-400">Areas to Improve</p>
-                    <ul className="mt-1 space-y-1">
-                      {criterion.improvements?.map((item, index) => (
-                        <li key={index} className="text-xs font-medium text-amber-700 dark:text-amber-300">{item}</li>
-                      ))}
-                    </ul>
+                  <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-violet-900/30">
+                    <div className="h-full rounded-full bg-gradient-to-r from-violet-600 to-purple-500" style={{ width: `${pct}%` }} />
                   </div>
-                )}
-              </article>
-            ))}
+                  {criterion.feedback && (
+                    <p className="mt-3 text-sm font-medium leading-relaxed text-violet-900/90 dark:text-violet-200/90">{criterion.feedback}</p>
+                  )}
+                  {(criterion.strengths?.length ?? 0) > 0 && (
+                    <CriterionPoints title="Strengths" entries={criterion.strengths ?? []} tone="positive" />
+                  )}
+                  {(criterion.improvements?.length ?? 0) > 0 && (
+                    <CriterionPoints title="To Improve" entries={criterion.improvements ?? []} tone="improvement" />
+                  )}
+                </article>
+              );
+            })}
           </div>
         </section>
       )}
 
+      {/* Tutor review (override / manual feedback) */}
       {(answer.isOverridden || answer.tutorFeedback) && (
-        <section className="rounded-3xl border border-blue-100 bg-blue-50/50 p-5 dark:border-blue-900/30 dark:bg-blue-900/10 sm:p-6">
-          <h2 className="text-sm font-black uppercase text-blue-700 dark:text-blue-300">Tutor Review</h2>
+        <section className="rounded-2xl border border-blue-200 bg-blue-50/60 p-5 dark:border-blue-900/40 dark:bg-blue-900/10 sm:p-6">
+          <h2 className="text-xs font-black uppercase tracking-wider text-blue-600 dark:text-blue-400">Tutor Review</h2>
           {answer.isOverridden && answer.overrideScore !== null && (
-            <p className="mt-3 text-lg font-black text-blue-800 dark:text-blue-100">{answer.overrideScore}/{answer.maxMarks}</p>
+            <p className="mt-2 text-lg font-black text-blue-800 dark:text-blue-100">{answer.overrideScore}/{answer.maxMarks}</p>
           )}
           {(answer.overrideNotes || answer.tutorFeedback) && (
             <p className="mt-2 whitespace-pre-wrap text-sm font-medium text-blue-700 dark:text-blue-300">
@@ -295,6 +290,25 @@ export default function EssayFullReviewPage() {
           )}
         </section>
       )}
+
+      {/* Your essay (collapsible) */}
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 sm:p-5">
+        <button
+          type="button"
+          onClick={() => setShowEssay((v) => !v)}
+          className="flex w-full items-center justify-between gap-3"
+        >
+          <h2 className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Your Essay</h2>
+          <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-500 dark:text-slate-400">
+            {showEssay ? <>Hide <ChevronUp size={14} /></> : <>Show <ChevronDown size={14} /></>}
+          </span>
+        </button>
+        {showEssay && (
+          <p className="mt-3 whitespace-pre-wrap text-[13px] font-medium leading-relaxed text-slate-700 dark:text-slate-300">
+            {answer.studentAnswer || <span className="italic text-slate-400">No answer submitted.</span>}
+          </p>
+        )}
+      </section>
     </div>
   );
 }
