@@ -2,102 +2,125 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Users, ClipboardList, Plus, ArrowUpDown, BookOpen, TrendingUp } from 'lucide-react';
-import { SearchableSelect } from '@/components/ui/SearchableSelect';
-import { adminService } from '@/features/admin/services/admin.service';
-import type { UserItem } from '@/features/admin/services/admin.service';
+import { Map, Plus, BookOpen, Calendar } from 'lucide-react';
+import { DeleteConfirmModal } from '@/features/subjects/components/DeleteConfirmModal';
 import { pathwaysService } from '../services/pathways.service';
-import { usePathways } from '../hooks/usePathways';
+import { pathwayPlansService } from '@/features/pathway-plans/services/pathway-plans.service';
+import { usePathwayPlans } from '@/features/pathway-plans/hooks/usePathwayPlans';
+import { CreatePathwayPlanModal } from '@/features/pathway-plans/components/CreatePathwayPlanModal';
+import { EditPathwayPlanModal } from '@/features/pathway-plans/components/EditPathwayPlanModal';
 import { PathwayCard } from './PathwayCard';
 import { AddPathwayModal } from './AddPathwayModal';
 import { AddNodeModal } from './AddNodeModal';
 import { ReorderNodesModal } from './ReorderNodesModal';
-import { PathwayProgressModal } from './PathwayProgressModal';
+import { QuestionPickerModal } from './QuestionPickerModal';
 import type { PathwayDetail, PathwayNodeItem } from '../types/pathways.types';
+import type { PathwayPlanListItem, PathwayPlanDetail } from '@/features/pathway-plans/types/pathway-plans.types';
+
+function formatDueDate(dueDate: string | null): string | null {
+  if (!dueDate) return null;
+  const d = new Date(dueDate);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+}
 
 export function TutorPathwayView() {
-  const [students, setStudents] = useState<UserItem[]>([]);
-  const [studentsLoading, setStudentsLoading] = useState(false);
-  const [selectedStudentId, setSelectedStudentId] = useState('');
+  const { plans, isLoading: plansLoading, fetchPlans } = usePathwayPlans();
 
-  const { pathways, setPathways, isLoading, fetchPathways } = usePathways();
+  const [selectedPlanId, setSelectedPlanId] = useState<string>('');
+  const [planDetail, setPlanDetail] = useState<PathwayPlanDetail | null>(null);
+  const [planDetailLoading, setPlanDetailLoading] = useState(false);
+  // Full pathway details (with nodes) keyed by pathwayId.
   const [pathwayDetails, setPathwayDetails] = useState<Record<string, PathwayDetail>>({});
 
   // Modals
+  const [createPlanOpen, setCreatePlanOpen] = useState(false);
+  const [editPlanOpen, setEditPlanOpen] = useState(false);
   const [addPathwayOpen, setAddPathwayOpen] = useState(false);
-  const [progressOpen, setProgressOpen] = useState(false);
+  const [deletePlan, setDeletePlan] = useState<PathwayPlanListItem | null>(null);
   const [addNodeState, setAddNodeState] = useState<{ open: boolean; pathway: PathwayDetail | null }>({
     open: false,
     pathway: null,
   });
+  const [pickerState, setPickerState] = useState<{
+    open: boolean;
+    pathway: PathwayDetail | null;
+    node: PathwayNodeItem | null;
+  }>({ open: false, pathway: null, node: null });
   const [reorderState, setReorderState] = useState<{ open: boolean; pathway: PathwayDetail | null }>({
     open: false,
     pathway: null,
   });
 
-  // Load students on mount
   useEffect(() => {
-    setStudentsLoading(true);
-    adminService
-      .listUsers({ role: 'STUDENT', limit: 100 })
-      .then((res) => {
-        if (res.success) setStudents(res.data);
-      })
-      .finally(() => setStudentsLoading(false));
+    void fetchPlans();
+  }, [fetchPlans]);
+
+  // Load the selected plan + each of its pathways' full node detail.
+  const loadPlanDetail = useCallback(async (planId: string) => {
+    setPlanDetailLoading(true);
+    setPathwayDetails({});
+    try {
+      const res = await pathwayPlansService.get(planId);
+      if (!res.success) return;
+      setPlanDetail(res.data);
+
+      const details: Record<string, PathwayDetail> = {};
+      await Promise.all(
+        res.data.pathways.map(async (p) => {
+          const detailRes = await pathwaysService.get(p.id);
+          if (detailRes.success) details[p.id] = detailRes.data;
+        })
+      );
+      setPathwayDetails(details);
+    } finally {
+      setPlanDetailLoading(false);
+    }
   }, []);
 
-  // Fetch pathways when student changes
   useEffect(() => {
-    if (!selectedStudentId) {
-      setPathways([]);
+    if (selectedPlanId) {
+      void loadPlanDetail(selectedPlanId);
+    } else {
+      setPlanDetail(null);
       setPathwayDetails({});
-      return;
     }
-    fetchPathways(selectedStudentId);
-  }, [selectedStudentId, fetchPathways, setPathways]);
+  }, [selectedPlanId, loadPlanDetail]);
 
-  // Load full detail for each pathway
-  const loadDetails = useCallback(async () => {
-    for (const p of pathways) {
-      if (pathwayDetails[p.id]) continue;
-      const res = await pathwaysService.get(p.id);
-      if (res.success) {
-        setPathwayDetails((prev) => ({ ...prev, [p.id]: res.data }));
-      }
+  const refreshPlanDetail = () => {
+    if (selectedPlanId) void loadPlanDetail(selectedPlanId);
+  };
+
+  const handlePlanCreated = (plan: PathwayPlanListItem, intent: 'link' | 'done') => {
+    setCreatePlanOpen(false);
+    void fetchPlans();
+    setSelectedPlanId(plan.id);
+    if (intent === 'link') {
+      // Give the detail a beat to load before opening the add-pathway modal.
+      setAddPathwayOpen(true);
     }
-  }, [pathways, pathwayDetails]);
-
-  useEffect(() => {
-    loadDetails();
-  }, [loadDetails]);
+  };
 
   const handlePathwayCreated = (pathway: PathwayDetail) => {
     setPathwayDetails((prev) => ({ ...prev, [pathway.id]: pathway }));
-    setPathways((prev) => [
-      ...prev,
-      {
-        id: pathway.id,
-        studentId: pathway.studentId,
-        subjectId: pathway.subjectId,
-        tutorId: pathway.tutorId,
-        thresholdCorrect: pathway.thresholdCorrect,
-        nodeCount: pathway.nodes.length,
-        subject: pathway.subject,
-        createdAt: pathway.createdAt,
-        updatedAt: pathway.updatedAt,
-      },
-    ]);
+    setAddPathwayOpen(false);
+    // Re-fetch the open plan so its pathways list includes the new subject
+    // (the rendered list comes from planDetail.pathways, not pathwayDetails).
+    refreshPlanDetail();
+    void fetchPlans();
   };
 
   const handleRemovePathway = async (pathwayId: string) => {
-    const res = await pathwaysService.remove(pathwayId);
+    if (!selectedPlanId) return;
+    const res = await pathwayPlansService.removePathway(selectedPlanId, pathwayId);
     if (res.success) {
-      setPathways((prev) => prev.filter((p) => p.id !== pathwayId));
       setPathwayDetails((prev) => {
         const next = { ...prev };
         delete next[pathwayId];
         return next;
       });
+      refreshPlanDetail();
+      void fetchPlans();
     }
   };
 
@@ -114,7 +137,20 @@ export function TutorPathwayView() {
         },
       };
     });
-    setAddNodeState({ open: false, pathway: null });
+  };
+
+  const handleNodeQuestionsSaved = (pathwayId: string, nodeId: string, questionCount: number) => {
+    setPathwayDetails((prev) => {
+      const detail = prev[pathwayId];
+      if (!detail) return prev;
+      return {
+        ...prev,
+        [pathwayId]: {
+          ...detail,
+          nodes: detail.nodes.map((n) => (n.id === nodeId ? { ...n, questionCount } : n)),
+        },
+      };
+    });
   };
 
   const handleReordered = (pathwayId: string, nodes: PathwayNodeItem[]) => {
@@ -125,239 +161,239 @@ export function TutorPathwayView() {
     });
   };
 
-  const selectedStudent = students.find((s) => s.id === selectedStudentId);
-  const assignedSubjectIds = pathways.map((p) => p.subjectId);
+  const handleConfirmDeletePlan = async () => {
+    if (!deletePlan) return;
+    const res = await pathwayPlansService.remove(deletePlan.id);
+    if (res.success) {
+      if (selectedPlanId === deletePlan.id) setSelectedPlanId('');
+      void fetchPlans();
+    }
+    setDeletePlan(null);
+  };
+
+  // After an edit, refresh the plan list and the open detail header.
+  const handlePlanUpdated = () => {
+    void fetchPlans();
+    refreshPlanDetail();
+  };
+
+  const existingSubjectIds = planDetail?.pathways.map((p) => p.subjectId) ?? [];
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-4 md:p-6 lg:p-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-6">
-          {/* ── Left Panel ────────────────────────────────────────────── */}
+    <div className="min-h-screen bg-slate-50 p-4 dark:bg-slate-950 md:p-6 lg:p-8">
+      <div className="mx-auto max-w-7xl">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[320px_1fr]">
+          {/* ── Left: Plan list ──────────────────────────────────────── */}
           <div className="space-y-4">
-            {/* Select Student */}
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
-              className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 p-5 shadow-sm"
+              className="rounded-3xl border border-slate-100 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"
             >
-              <div className="flex items-center gap-2 mb-4">
-                <Users size={18} className="text-[#0A9AE2]" />
-                <h3 className="font-black text-slate-900 dark:text-white">Select Student</h3>
-              </div>
-
-              {studentsLoading ? (
-                <div className="h-11 w-full animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800" />
-              ) : (
-                <SearchableSelect
-                  value={selectedStudentId}
-                  onChange={setSelectedStudentId}
-                  placeholder="Select a student…"
-                  searchPlaceholder="Search by name…"
-                  emptyText="No students found."
-                  options={students.map((s) => ({
-                    value: s.id,
-                    label: s.fullName,
-                    searchText: s.email,
-                  }))}
-                />
-              )}
-            </motion.div>
-
-            {/* Assessments (assigned pathways list) */}
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.1 }}
-              className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 p-5 shadow-sm"
-            >
-              <div className="flex items-center gap-2 mb-1">
-                <ClipboardList size={18} className="text-[#0A9AE2]" />
-                <h3 className="font-black text-slate-900 dark:text-white">Assessments</h3>
-              </div>
-              <p className="text-xs text-slate-400 mb-4">Student&apos;s assigned assessments</p>
-
-              {!selectedStudentId ? (
-                <p className="text-sm text-slate-400">Select a student to view pathways.</p>
-              ) : isLoading ? (
-                <div className="h-11 w-full animate-pulse rounded-xl bg-slate-100 dark:bg-slate-800" />
-              ) : pathways.length === 0 ? (
-                <p className="text-sm text-slate-400">No pathways assigned yet.</p>
-              ) : (
-                <select
-                  className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 px-3 py-2.5 text-sm text-slate-800 dark:text-slate-200 focus:border-[#0A9AE2] focus:outline-none"
-                  defaultValue=""
+              <div className="mb-4 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Map size={18} className="text-[#0A9AE2]" />
+                  <h3 className="font-black text-slate-900 dark:text-white">My Plans</h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCreatePlanOpen(true)}
+                  className="flex items-center gap-1 rounded-xl bg-[#0A9AE2] px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-[#0659AA]"
                 >
-                  <option value="" disabled>
-                    {pathways.length} pathway{pathways.length !== 1 ? 's' : ''} assigned
-                  </option>
-                  {pathways.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.subject.name}
-                    </option>
+                  <Plus size={12} strokeWidth={3} />
+                  New Plan
+                </button>
+              </div>
+
+              {plansLoading ? (
+                <div className="space-y-2">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="h-16 animate-pulse rounded-2xl bg-slate-100 dark:bg-slate-800" />
                   ))}
-                </select>
+                </div>
+              ) : plans.length === 0 ? (
+                <p className="py-6 text-center text-sm text-slate-400">
+                  No plans yet. Create one to get started.
+                </p>
+              ) : (
+                <div className="space-y-2">
+                  {plans.map((plan) => {
+                    const active = plan.id === selectedPlanId;
+                    return (
+                      <button
+                        key={plan.id}
+                        type="button"
+                        onClick={() => setSelectedPlanId(plan.id)}
+                        className={[
+                          'w-full rounded-2xl border p-3 text-left transition-colors',
+                          active
+                            ? 'border-[#0A9AE2] bg-blue-50 dark:bg-blue-500/10'
+                            : 'border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800',
+                        ].join(' ')}
+                      >
+                        <p
+                          className={[
+                            'text-sm font-black',
+                            active ? 'text-[#0A9AE2]' : 'text-slate-700 dark:text-slate-200',
+                          ].join(' ')}
+                        >
+                          {plan.name}
+                        </p>
+                        <p className="mt-0.5 text-xs text-slate-400">
+                          {plan.studentName ? `${plan.studentName} · ` : ''}
+                          {plan.isComplete
+                            ? 'Complete'
+                            : `${plan.completedNodes}/${plan.totalNodes} topics`}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
               )}
             </motion.div>
           </div>
 
-          {/* ── Right Panel ───────────────────────────────────────────── */}
+          {/* ── Right: Plan detail ───────────────────────────────────── */}
           <div>
-            {/* Header */}
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="flex items-center justify-between mb-6"
-            >
-              <div>
-                <h1 className="text-2xl font-black text-slate-900 dark:text-white">
-                  Pathway Editor
-                </h1>
-                {selectedStudent && (
-                  <p className="text-sm text-slate-400 mt-0.5">
-                    Editing pathways for{' '}
-                    <span className="font-semibold text-slate-600 dark:text-slate-300">
-                      {selectedStudent.fullName}
-                    </span>
-                  </p>
-                )}
-              </div>
-
-              <div className="flex items-center gap-3">
-                {/* Progress Report */}
-                {selectedStudentId && pathways.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setProgressOpen(true)}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-                  >
-                    <TrendingUp size={15} />
-                    Progress Report
-                  </button>
-                )}
-
-                {/* Change Node Index — opens reorder for first pathway if any */}
-                {pathways.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const firstDetail = pathwayDetails[pathways[0].id];
-                      if (firstDetail) {
-                        setReorderState({ open: true, pathway: firstDetail });
-                      }
-                    }}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
-                  >
-                    <ArrowUpDown size={15} />
-                    Change Node Index
-                  </button>
-                )}
-
-                {selectedStudentId && (
-                  <button
-                    type="button"
-                    onClick={() => setAddPathwayOpen(true)}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#0A9AE2] hover:bg-[#0659AA] text-white text-sm font-bold transition-colors shadow-sm shadow-[#0A9AE2]/20"
-                  >
-                    <Plus size={15} />
-                    Add Pathway
-                  </button>
-                )}
-              </div>
-            </motion.div>
-
-            {/* Content */}
-            {!selectedStudentId ? (
+            {!selectedPlanId ? (
               <div className="flex flex-col items-center justify-center py-24 text-slate-400">
-                <div className="w-16 h-16 rounded-3xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
-                  <Users size={28} className="text-slate-300" />
+                <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-slate-100 dark:bg-slate-800">
+                  <Map size={28} className="text-slate-300" />
                 </div>
-                <p className="font-semibold text-slate-500">Select a student to get started</p>
-                <p className="text-sm mt-1">Choose a student from the left panel</p>
-              </div>
-            ) : isLoading ? (
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 animate-pulse">
-                {Array.from({ length: 2 }).map((_, i) => (
-                  <div key={i} className="rounded-3xl border border-slate-100 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="h-10 w-10 rounded-xl bg-slate-200/70 dark:bg-slate-700" />
-                      <div className="space-y-2 flex-1">
-                        <div className="h-5 w-48 rounded bg-slate-200/70 dark:bg-slate-700" />
-                        <div className="h-3 w-32 rounded bg-slate-100 dark:bg-slate-800" />
-                      </div>
-                    </div>
-                    <div className="h-2 w-full rounded-full bg-slate-100 dark:bg-slate-800 mb-4" />
-                    <div className="space-y-3">
-                      {Array.from({ length: 3 }).map((_, j) => (
-                        <div key={j} className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-800/50" />
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : pathways.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-24 text-slate-400">
-                <div className="w-16 h-16 rounded-3xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
-                  <BookOpen size={28} className="text-slate-300" />
-                </div>
-                <p className="font-semibold text-slate-500">No pathways yet</p>
-                <p className="text-sm mt-1">Click &ldquo;Add Pathway&rdquo; to create one</p>
+                <p className="font-semibold text-slate-500">Select a plan to edit</p>
+                <p className="mt-1 text-sm">Or create a new plan from the left panel</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
-                {pathways.map((p) => {
-                  const detail = pathwayDetails[p.id];
-                  if (!detail) {
-                    return (
+              <>
+                {/* Plan header */}
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mb-5 flex items-start justify-between"
+                >
+                  <div>
+                    <h1 className="text-xl font-black text-slate-900 dark:text-white">
+                      {planDetail?.name ?? 'Loading…'}
+                    </h1>
+                    {planDetail && (planDetail.studentName || planDetail.dueDate) && (
+                      <p className="mt-0.5 flex items-center gap-1.5 text-sm text-slate-400">
+                        {planDetail.studentName && <span>{planDetail.studentName}</span>}
+                        {planDetail.studentName && planDetail.dueDate && <span>·</span>}
+                        {planDetail.dueDate && (
+                          <span className="inline-flex items-center gap-1.5">
+                            <Calendar size={13} />
+                            Due {formatDueDate(planDetail.dueDate)}
+                          </span>
+                        )}
+                      </p>
+                    )}
+                  </div>
+                  {planDetail && (
+                    <button
+                      type="button"
+                      onClick={() => setEditPlanOpen(true)}
+                      className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-500 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                    >
+                      Edit Plan
+                    </button>
+                  )}
+                </motion.div>
+
+                {planDetailLoading ? (
+                  <div className="space-y-4">
+                    {Array.from({ length: 2 }).map((_, i) => (
                       <div
-                        key={p.id}
-                        className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-100 dark:border-slate-800 p-6 min-h-[200px] animate-pulse"
-                      >
-                        <div className="flex items-center gap-3 mb-4">
-                          <div className="h-10 w-10 rounded-xl bg-slate-200/70 dark:bg-slate-700" />
-                          <div className="space-y-2 flex-1">
-                            <div className="h-5 w-40 rounded bg-slate-200/70 dark:bg-slate-700" />
-                            <div className="h-3 w-24 rounded bg-slate-100 dark:bg-slate-800" />
-                          </div>
-                        </div>
-                        <div className="h-2 w-full rounded-full bg-slate-100 dark:bg-slate-800 mb-4" />
-                        <div className="space-y-3">
-                          {Array.from({ length: 3 }).map((_, j) => (
-                            <div key={j} className="h-14 rounded-2xl bg-slate-50 dark:bg-slate-800/50" />
-                          ))}
-                        </div>
-                      </div>
-                    );
-                  }
-                  return (
-                    <PathwayCard
-                      key={p.id}
-                      pathway={detail}
-                      isTutorView
-                      onRemove={() => handleRemovePathway(p.id)}
-                      onAddTopic={() => setAddNodeState({ open: true, pathway: detail })}
-                    />
-                  );
-                })}
-              </div>
+                        key={i}
+                        className="min-h-[200px] animate-pulse rounded-3xl border border-slate-100 bg-white p-6 dark:border-slate-800 dark:bg-slate-900"
+                      />
+                    ))}
+                  </div>
+                ) : !planDetail || planDetail.pathways.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-slate-200 py-16 text-slate-400 dark:border-slate-800">
+                    <BookOpen size={28} className="mb-3 text-slate-300" />
+                    <p className="font-semibold text-slate-500">No subjects in this plan yet</p>
+                    <button
+                      type="button"
+                      onClick={() => setAddPathwayOpen(true)}
+                      className="mt-4 flex items-center gap-2 rounded-xl bg-[#0A9AE2] px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#0659AA]"
+                    >
+                      <Plus size={15} strokeWidth={3} />
+                      Add Subject to Plan
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="space-y-4">
+                      {planDetail.pathways.map((p) => {
+                        const detail = pathwayDetails[p.id];
+                        if (!detail) {
+                          return (
+                            <div
+                              key={p.id}
+                              className="min-h-[200px] animate-pulse rounded-3xl border border-slate-100 bg-white p-6 dark:border-slate-800 dark:bg-slate-900"
+                            />
+                          );
+                        }
+                        return (
+                          <PathwayCard
+                            key={p.id}
+                            pathway={detail}
+                            isTutorView
+                            onRemove={() => handleRemovePathway(p.id)}
+                            onAddTopic={() => setAddNodeState({ open: true, pathway: detail })}
+                            onEditNodeQuestions={(node) =>
+                              setPickerState({ open: true, pathway: detail, node })
+                            }
+                            onReorder={() => setReorderState({ open: true, pathway: detail })}
+                          />
+                        );
+                      })}
+                    </div>
+
+                    {/* Add subject to plan */}
+                    <button
+                      type="button"
+                      onClick={() => setAddPathwayOpen(true)}
+                      className="flex w-full items-center justify-center gap-2 rounded-3xl border-2 border-dashed border-slate-200 py-4 text-sm font-bold text-slate-400 transition-colors hover:border-[#0A9AE2] hover:bg-blue-50 hover:text-[#0A9AE2] dark:border-slate-700"
+                    >
+                      <Plus size={16} strokeWidth={2.5} />
+                      Add Subject to Plan
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
       </div>
 
-      {/* Modals */}
-      <PathwayProgressModal
-        isOpen={progressOpen}
-        studentName={selectedStudent?.fullName ?? ''}
-        pathwayDetails={pathwayDetails}
-        onClose={() => setProgressOpen(false)}
+      {/* ── Modals ─────────────────────────────────────────────────── */}
+      <CreatePathwayPlanModal
+        isOpen={createPlanOpen}
+        onClose={() => setCreatePlanOpen(false)}
+        onCreated={handlePlanCreated}
       />
 
-      <AddPathwayModal
-        isOpen={addPathwayOpen}
-        studentId={selectedStudentId}
-        onClose={() => setAddPathwayOpen(false)}
-        onCreated={handlePathwayCreated}
+      <EditPathwayPlanModal
+        isOpen={editPlanOpen}
+        plan={planDetail}
+        onClose={() => setEditPlanOpen(false)}
+        onUpdated={handlePlanUpdated}
+        onDelete={() => {
+          setEditPlanOpen(false);
+          setDeletePlan(plans.find((p) => p.id === selectedPlanId) ?? null);
+        }}
       />
+
+      {selectedPlanId && (
+        <AddPathwayModal
+          isOpen={addPathwayOpen}
+          planId={selectedPlanId}
+          existingSubjectIds={existingSubjectIds}
+          onClose={() => setAddPathwayOpen(false)}
+          onCreated={handlePathwayCreated}
+        />
+      )}
 
       {addNodeState.pathway && (
         <AddNodeModal
@@ -367,6 +403,27 @@ export function TutorPathwayView() {
           existingTopicIds={addNodeState.pathway.nodes.map((n) => n.topicId)}
           onClose={() => setAddNodeState({ open: false, pathway: null })}
           onAdded={(node) => handleNodeAdded(addNodeState.pathway!.id, node)}
+          onAddQuestions={(node) =>
+            setPickerState({ open: true, pathway: addNodeState.pathway, node })
+          }
+        />
+      )}
+
+      {pickerState.pathway && pickerState.node && (
+        <QuestionPickerModal
+          isOpen={pickerState.open}
+          nodeId={pickerState.node.id}
+          subjectId={pickerState.pathway.subjectId}
+          topicId={pickerState.node.topicId}
+          topicName={pickerState.node.topic.name}
+          subjectName={pickerState.pathway.subject.name}
+          nodeLabel={`Node ${pickerState.node.orderIndex + 1} — ${pickerState.node.topic.name}`}
+          thresholdCorrect={pickerState.pathway.thresholdCorrect}
+          onClose={() => setPickerState({ open: false, pathway: null, node: null })}
+          onSaved={(count) => {
+            handleNodeQuestionsSaved(pickerState.pathway!.id, pickerState.node!.id, count);
+            setPickerState({ open: false, pathway: null, node: null });
+          }}
         />
       )}
 
@@ -382,6 +439,18 @@ export function TutorPathwayView() {
           }}
         />
       )}
+
+      <DeleteConfirmModal
+        isOpen={Boolean(deletePlan)}
+        title="Delete this plan?"
+        message={
+          deletePlan
+            ? `Deleting "${deletePlan.name}" removes every subject, topic, and the student's progress inside it. This action cannot be undone.`
+            : ''
+        }
+        onConfirm={handleConfirmDeletePlan}
+        onClose={() => setDeletePlan(null)}
+      />
     </div>
   );
 }

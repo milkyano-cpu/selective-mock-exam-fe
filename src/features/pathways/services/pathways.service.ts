@@ -7,10 +7,13 @@ import type {
   ReorderNodesResponse,
   StartPracticeResponse,
   UpdateProgressResponse,
+  NodeQuestionsResponse,
   CreatePathwayPayload,
   AddNodePayload,
   ReorderNodesPayload,
   UpdateProgressPayload,
+  AddNodeQuestionsPayload,
+  ReorderNodeQuestionsPayload,
 } from '../types/pathways.types';
 
 export const pathwaysService = {
@@ -74,6 +77,37 @@ export const pathwaysService = {
       `/pathways/${pathwayId}/nodes/${nodeId}/progress`,
       payload
     );
+    return response.data;
+  },
+
+  // ── Node question curation (SME-111 / SME-112) ──────────────────────────────
+
+  listNodeQuestions: async (nodeId: string): Promise<NodeQuestionsResponse> => {
+    const response = await mdwClient.get(`/pathways/nodes/${nodeId}/questions`);
+    return response.data;
+  },
+
+  addNodeQuestions: async (
+    nodeId: string,
+    payload: AddNodeQuestionsPayload
+  ): Promise<NodeQuestionsResponse> => {
+    const response = await mdwClient.post(`/pathways/nodes/${nodeId}/questions`, payload);
+    return response.data;
+  },
+
+  removeNodeQuestion: async (
+    nodeId: string,
+    questionId: string
+  ): Promise<{ success: boolean; message: string }> => {
+    const response = await mdwClient.delete(`/pathways/nodes/${nodeId}/questions/${questionId}`);
+    return response.data;
+  },
+
+  reorderNodeQuestions: async (
+    nodeId: string,
+    payload: ReorderNodeQuestionsPayload
+  ): Promise<NodeQuestionsResponse> => {
+    const response = await mdwClient.put(`/pathways/nodes/${nodeId}/questions/reorder`, payload);
     return response.data;
   },
 };

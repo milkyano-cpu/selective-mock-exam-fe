@@ -3,6 +3,7 @@
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { TutorPathwayView } from '@/features/pathways/components/TutorPathwayView';
 import { StudentPathwayView } from '@/features/pathways/components/StudentPathwayView';
+import { ParentPlanView } from '@/features/pathway-plans/components/ParentPlanView';
 import { FeaturePaywall } from '@/components/billing/FeaturePaywall';
 import { hasPremiumAccess } from '@/features/membership/access';
 
@@ -11,6 +12,10 @@ export default function PathwaysPage() {
 
   if (user?.role === 'TUTOR' || user?.role === 'ADMIN') {
     return <TutorPathwayView />;
+  }
+
+  if (user?.role === 'PARENT') {
+    return <ParentPlanView />;
   }
 
   if (user?.role === 'STUDENT' && !hasPremiumAccess(user)) {

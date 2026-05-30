@@ -2,9 +2,9 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { BookOpenCheck, CheckCircle2, Lock, PlusCircle, Target, Trash2, Unlock } from 'lucide-react';
+import { ArrowUpDown, BookOpen, BookOpenCheck, CheckCircle2, Lock, Plus, Target, Unlock } from 'lucide-react';
 import { PathwayNode } from './PathwayNode';
-import type { PathwayDetail } from '../types/pathways.types';
+import type { PathwayDetail, PathwayNodeItem } from '../types/pathways.types';
 
 
 
@@ -47,6 +47,10 @@ interface PathwayCardProps {
   onAddTopic?: () => void;
   onStartPractice?: (nodeId: string) => void;
   startingNodeId?: string | null;
+  /** Tutor: open the question picker for a specific node. */
+  onEditNodeQuestions?: (node: PathwayNodeItem) => void;
+  /** Tutor: open the reorder-nodes modal for this pathway. */
+  onReorder?: () => void;
 }
 
 export function PathwayCard({
@@ -56,6 +60,8 @@ export function PathwayCard({
   onAddTopic,
   onStartPractice,
   startingNodeId,
+  onEditNodeQuestions,
+  onReorder,
 }: PathwayCardProps) {
   const [removing, setRemoving] = useState(false);
   const completedCount = pathway.nodes.filter((node) => node.progress?.completedAt).length;
@@ -242,121 +248,166 @@ export function PathwayCard({
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
-      className="relative bg-white dark:bg-slate-900 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden"
+      className="relative overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900"
     >
-      {/* Card header */}
-      <div className="flex items-start justify-between px-6 pt-6 pb-4">
-        <div>
-          <h3 className="text-xl font-black text-slate-900 dark:text-white">
-            {pathway.subject.name}
-          </h3>
-          <p className="text-sm text-slate-400 mt-0.5">
-            {pathway.nodes.length} module{pathway.nodes.length !== 1 ? 's' : ''}
-          </p>
+      {/* Card header — icon + subject + threshold·nodes, with Reorder/Remove */}
+      <div className="flex items-center justify-between px-5 pt-5 pb-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#0A9AE2]/10">
+            <BookOpen size={16} className="text-[#0A9AE2]" />
+          </div>
+          <div>
+            <h2 className="text-sm font-black text-slate-900 dark:text-white">
+              {pathway.subject.name}
+            </h2>
+            <p className="text-xs text-slate-400">
+              Threshold: {pathway.thresholdCorrect} correct · {pathway.nodes.length} node
+              {pathway.nodes.length !== 1 ? 's' : ''}
+            </p>
+          </div>
         </div>
 
-        {isTutorView && (
+        <div className="flex items-center gap-1.5">
+          {onReorder && pathway.nodes.length > 1 && (
+            <button
+              type="button"
+              onClick={onReorder}
+              className="inline-flex items-center gap-1 rounded-xl border border-slate-200 px-2.5 py-1.5 text-xs font-bold text-slate-400 transition-colors hover:bg-slate-50 hover:text-slate-600 dark:border-slate-700 dark:hover:bg-slate-800"
+            >
+              <ArrowUpDown size={11} />
+              Reorder
+            </button>
+          )}
           <button
             type="button"
             onClick={handleRemove}
             disabled={removing}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-red-500 hover:bg-red-600 active:bg-red-700 text-white text-sm font-bold transition-colors disabled:opacity-60"
+            className="rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500 disabled:opacity-60 dark:hover:bg-red-500/10"
           >
-            <Trash2 size={14} />
-            {removing ? 'Removing…' : 'Remove Pathway'}
+            {removing ? 'Removing…' : 'Remove'}
           </button>
-        )}
+        </div>
       </div>
 
-      {/* Node map layout */}
-      <div className="relative px-6 pb-4 min-h-[120px]">
+      {/* Node rows — four states matching the sample design */}
+      <div className="px-5 pb-3">
         {pathway.nodes.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 text-slate-400">
             <p className="text-sm font-medium">No topics yet</p>
-            <p className="text-xs mt-1">Add topics to build this pathway</p>
+            <p className="mt-1 text-xs">Add topics to build this pathway</p>
           </div>
         ) : (
-          <div 
-            className="relative mx-auto w-full max-w-3xl" 
-            style={{ height: `${Math.max(1, Math.ceil(pathway.nodes.length / NODES_PER_ROW)) * ROW_HEIGHT + (PADDING_Y * 2)}px` }}
-          >
-            {/* SVG Path Background */}
-            <svg 
-              className="absolute inset-0 pointer-events-none" 
-              style={{ width: '100%', height: '100%' }}
-              viewBox={`0 0 100 ${Math.max(1, Math.ceil(pathway.nodes.length / NODES_PER_ROW)) * ROW_HEIGHT + (PADDING_Y * 2)}`}
-              preserveAspectRatio="none"
-            >
-              {pathway.nodes.map((_, i) => {
-                if (i === pathway.nodes.length - 1) return null;
-                const p0 = getNodePosition(i);
-                const p1 = getNodePosition(i + 1);
-
-                let d = `M ${p0.x} ${p0.y}`;
-                if (p0.r === p1.r) {
-                  const midX = (p0.x + p1.x) / 2;
-                  d += ` C ${midX} ${p0.y}, ${midX} ${p1.y}, ${p1.x} ${p1.y}`;
-                } else {
-                  const isRightEdge = p0.c === NODES_PER_ROW - 1;
-                  const extension = isRightEdge ? 12 : -12; 
-                  d += ` C ${p0.x + extension} ${p0.y}, ${p1.x + extension} ${p1.y}, ${p1.x} ${p1.y}`;
-                }
-
-                return (
-                  <path
-                    key={`path-${i}`}
-                    d={d}
-                    fill="none"
-                    strokeWidth="4"
-                    strokeDasharray="8 8"
-                    strokeLinecap="round"
-                    vectorEffect="non-scaling-stroke"
-                    className="stroke-slate-200 dark:stroke-slate-700"
-                  />
-                );
-              })}
-            </svg>
-
-            {/* Nodes */}
+          <div className="space-y-2">
             {pathway.nodes.map((node, i) => {
-              const pos = getNodePosition(i);
+              const isCompleted = Boolean(node.progress?.completedAt);
+              const isUnlocked = node.progress?.isUnlocked ?? false;
+              const hasQuestions = node.questionCount > 0;
+              // Locked = not yet reachable by the student and no questions curated.
+              const isLocked = !isUnlocked && !hasQuestions && !isCompleted;
+
+              const rowClass = isCompleted
+                ? 'border-emerald-100 bg-emerald-50 dark:border-emerald-500/20 dark:bg-emerald-500/10'
+                : hasQuestions
+                  ? 'border-blue-100 bg-blue-50 dark:border-blue-500/20 dark:bg-blue-500/10'
+                  : isLocked
+                    ? 'border-slate-100 bg-slate-50 opacity-60 dark:border-slate-800 dark:bg-slate-800/40'
+                    : 'border-amber-200 bg-amber-50 dark:border-amber-500/20 dark:bg-amber-500/10';
+
+              const indexClass = isCompleted
+                ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-300'
+                : hasQuestions
+                  ? 'bg-blue-100 text-[#0A9AE2] dark:bg-blue-500/20 dark:text-blue-300'
+                  : isLocked
+                    ? 'bg-slate-200 text-slate-400 dark:bg-slate-700 dark:text-slate-400'
+                    : 'bg-amber-100 text-amber-600 dark:bg-amber-500/20 dark:text-amber-300';
+
+              const nameClass = isCompleted
+                ? 'text-emerald-700 dark:text-emerald-300'
+                : hasQuestions
+                  ? 'text-[#0A9AE2]'
+                  : isLocked
+                    ? 'text-slate-400'
+                    : 'text-amber-700 dark:text-amber-300';
+
               return (
-                <motion.div
+                <div
                   key={node.id}
-                  initial={{ opacity: 0, scale: 0.5, y: 20 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  transition={{ delay: i * 0.08, duration: 0.4, type: "spring", bounce: 0.4 }}
-                  className="absolute z-10 flex flex-col items-center justify-center transform -translate-x-1/2 -translate-y-1/2"
-                  style={{
-                    left: `${pos.x}%`,
-                    top: `${pos.y}px`
-                  }}
+                  className={['flex items-center gap-3 rounded-2xl border p-3', rowClass].join(' ')}
                 >
-                  <PathwayNode
-                    node={node}
-                    thresholdCorrect={pathway.thresholdCorrect}
-                    isFirst={i === 0}
-                    sizeCls="w-16 h-16 sm:w-20 sm:h-20"
-                    iconSize={26}
-                    isTutorView={isTutorView}
-                    onStartPractice={() => onStartPractice?.(node.id)}
-                  />
-                </motion.div>
+                  <div
+                    className={[
+                      'flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg text-xs font-black',
+                      indexClass,
+                    ].join(' ')}
+                  >
+                    {i + 1}
+                  </div>
+                  <p className={['flex-1 truncate text-sm font-bold', nameClass].join(' ')}>
+                    {node.topic.name}
+                  </p>
+
+                  {/* Right-side affordances per state */}
+                  {isCompleted ? (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => onEditNodeQuestions?.(node)}
+                        className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-600 transition-colors hover:bg-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-300"
+                        title="Edit questions"
+                      >
+                        {node.questionCount} question{node.questionCount !== 1 ? 's' : ''}
+                      </button>
+                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-300">
+                        Mastered
+                      </span>
+                    </>
+                  ) : hasQuestions ? (
+                    <>
+                      <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-bold text-[#0A9AE2] dark:bg-blue-500/20 dark:text-blue-300">
+                        {node.questionCount} question{node.questionCount !== 1 ? 's' : ''}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => onEditNodeQuestions?.(node)}
+                        className="rounded-lg px-2 py-0.5 text-xs font-bold text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
+                      >
+                        Edit
+                      </button>
+                    </>
+                  ) : isLocked ? (
+                    <button
+                      type="button"
+                      onClick={() => onEditNodeQuestions?.(node)}
+                      className="rounded-lg px-2 py-0.5 text-xs font-bold text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
+                    >
+                      Add Questions
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => onEditNodeQuestions?.(node)}
+                      className="inline-flex items-center gap-1 rounded-lg bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-700 transition-colors hover:bg-amber-200 dark:bg-amber-500/20 dark:text-amber-300"
+                    >
+                      <Plus size={10} strokeWidth={3} />
+                      Add Questions
+                    </button>
+                  )}
+                </div>
               );
             })}
           </div>
         )}
       </div>
 
-      {/* Add Topic button (tutor only) */}
+      {/* Add Topic — compact dashed button, matching the sample */}
       {isTutorView && (
-        <div className="px-6 pb-6">
+        <div className="px-5 pb-5">
           <button
             type="button"
             onClick={onAddTopic}
-            className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 text-slate-500 hover:border-[#0A9AE2] hover:text-[#0A9AE2] transition-colors text-sm font-semibold group"
+            className="group flex w-full items-center justify-center gap-1.5 rounded-2xl border border-dashed border-slate-300 py-2.5 text-xs font-bold text-slate-400 transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-blue-400 dark:border-slate-700"
           >
-            <PlusCircle size={18} className="group-hover:scale-110 transition-transform" />
+            <Plus size={13} strokeWidth={3} className="transition-transform group-hover:scale-110" />
             Add Topic
           </button>
         </div>

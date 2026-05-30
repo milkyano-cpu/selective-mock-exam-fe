@@ -11,14 +11,17 @@ import type { PathwayDetail } from '../types/pathways.types';
 
 interface AddPathwayModalProps {
   isOpen: boolean;
-  studentId: string;
+  planId: string;
+  /** Subjects already in this plan — filtered out of the picker. */
+  existingSubjectIds?: string[];
   onClose: () => void;
   onCreated: (pathway: PathwayDetail) => void;
 }
 
 export function AddPathwayModal({
   isOpen,
-  studentId,
+  planId,
+  existingSubjectIds = [],
   onClose,
   onCreated,
 }: AddPathwayModalProps) {
@@ -63,7 +66,7 @@ export function AddPathwayModal({
     setError(null);
     try {
       const res = await pathwaysService.create({
-        studentId,
+        planId,
         subjectId: selectedSubjectId,
         thresholdCorrect,
       });
@@ -140,11 +143,13 @@ export function AddPathwayModal({
                 placeholder="Select subject…"
                 searchPlaceholder="Search subject…"
                 emptyText="No subjects found."
-                options={subjects.map((s) => ({
-                  value: s.id,
-                  label: s.name,
-                  searchText: s.description ?? '',
-                }))}
+                options={subjects
+                  .filter((s) => !existingSubjectIds.includes(s.id))
+                  .map((s) => ({
+                    value: s.id,
+                    label: s.name,
+                    searchText: s.description ?? '',
+                  }))}
               />
             )}
           </div>

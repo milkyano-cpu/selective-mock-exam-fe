@@ -37,6 +37,7 @@ export const studentMenuItems = [
 export const parentMenuItems = [
   { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
   { icon: TrendingUp, label: 'Results', href: '/dashboard/results' },
+  { icon: Map, label: 'Pathways', href: '/dashboard/pathways' },
   { icon: MessageSquare, label: 'Forum', href: '/dashboard/forum' },
   { icon: CreditCard, label: 'Billing', href: '/dashboard/billing' },
   { icon: Megaphone, label: 'Announcements', href: '/dashboard/announcements' },

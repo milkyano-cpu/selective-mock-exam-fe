@@ -6,6 +6,7 @@ import { motion } from 'framer-motion';
 import {
   Trophy,
   ArrowLeft,
+  ArrowRight,
   RotateCcw,
   CheckCircle2,
   XCircle,
@@ -18,8 +19,16 @@ import {
   Target,
 } from 'lucide-react';
 import { practiceService } from '@/features/practice/services/practice.service';
+import { pathwaysService } from '@/features/pathways/services/pathways.service';
 import { QuestionLatexRenderer } from '@/components/ui/QuestionLatexRenderer';
+import { PlanCompletionWatcher } from '@/features/pathway-plans/components/PlanCompletionWatcher';
 import type { PracticeSessionDetail, PracticeResultAnswer } from '@/features/practice/types/practice.types';
+
+interface NextPathwayNode {
+  pathwayId: string;
+  nodeId: string;
+  topicName: string;
+}
 
 function ScoreRing({ percent }: { percent: number | null }) {
   const r = 48;
@@ -76,7 +85,7 @@ function getScoreTone(percent: number | null) {
   if (percent >= 70) {
     return {
       title: 'Strong finish',
-      note: 'You are building real command here.',
+      note: "You're really mastering this. Keep it up!",
       badge: 'bg-emerald-50 text-emerald-700 ring-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-300 dark:ring-emerald-900/60',
       progress: 'bg-emerald-500',
     };
@@ -215,6 +224,43 @@ export default function PracticeResultPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isRetrying, setIsRetrying] = useState(false);
+  // For pathway sessions: the next unlocked node that already has questions, so
+  // the student can jump straight in without going back to the pathways list.
+  const [nextNode, setNextNode] = useState<NextPathwayNode | null>(null);
+  const [isStartingNext, setIsStartingNext] = useState(false);
+
+  // Find the next node the student can practise right now: the earliest node
+  // (by order) that is unlocked, not yet completed, and has curated questions.
+  // The current node is excluded so we don't loop back to the one just finished.
+  const resolveNextNode = useCallback(
+    async (detail: PracticeSessionDetail) => {
+      if (detail.sourceType !== 'PATHWAY' || !detail.pathwayId) return;
+      try {
+        const res = await pathwaysService.get(detail.pathwayId);
+        if (!res.success) return;
+        const candidate = res.data.nodes
+          .slice()
+          .sort((a, b) => a.orderIndex - b.orderIndex)
+          .find(
+            (node) =>
+              node.id !== detail.pathwayNodeId &&
+              (node.progress?.isUnlocked ?? false) &&
+              node.progress?.completedAt == null &&
+              node.questionCount > 0
+          );
+        if (candidate) {
+          setNextNode({
+            pathwayId: res.data.id,
+            nodeId: candidate.id,
+            topicName: candidate.topic.name,
+          });
+        }
+      } catch {
+        /* non-critical — the student can still navigate back to pathways */
+      }
+    },
+    []
+  );
 
   const loadSession = useCallback(async () => {
     try {
@@ -228,12 +274,13 @@ export default function PracticeResultPage() {
         return;
       }
       setSession(res.data);
+      void resolveNextNode(res.data);
     } catch {
       setError('Failed to load results');
     } finally {
       setIsLoading(false);
     }
-  }, [sessionId, router]);
+  }, [sessionId, router, resolveNextNode]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -245,7 +292,7 @@ export default function PracticeResultPage() {
   const handlePracticeAgain = async () => {
     if (isRetrying || !session) return;
     if (session.sourceType === 'PATHWAY') {
-      router.push('/dashboard/practice');
+      router.push('/dashboard/pathways');
       return;
     }
     setIsRetrying(true);
@@ -256,6 +303,21 @@ export default function PracticeResultPage() {
       }
     } finally {
       setIsRetrying(false);
+    }
+  };
+
+  const handleStartNextNode = async () => {
+    if (isStartingNext || !nextNode) return;
+    setIsStartingNext(true);
+    try {
+      const res = await pathwaysService.startPractice(nextNode.pathwayId, nextNode.nodeId);
+      if (res.success) {
+        router.push(`/dashboard/practice/sessions/${res.data.sessionId}`);
+      } else {
+        setIsStartingNext(false);
+      }
+    } catch {
+      setIsStartingNext(false);
     }
   };
 
@@ -320,15 +382,22 @@ export default function PracticeResultPage() {
   const practiceName = session.topicName
     ?? (session.subjectName ? `${session.subjectName} - All Topics` : 'Mixed Practice');
 
+  // Pathway sessions belong to a learning plan — send the student back there
+  // rather than to the generic practice hub.
+  const isPathway = session.sourceType === 'PATHWAY';
+  const backHref = isPathway ? '/dashboard/pathways' : '/dashboard/practice';
+  const backLabel = isPathway ? 'Back to Pathways' : 'Back to Practice';
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 p-3 sm:p-4 md:p-8">
+      <PlanCompletionWatcher planId={session.sourceType === 'PATHWAY' ? session.planId : null} />
       <div className="mx-auto max-w-3xl">
 
         {/* Header */}
         <div className="flex items-center gap-3 mb-6">
           <button
             type="button"
-            onClick={() => router.push('/dashboard/practice')}
+            onClick={() => router.push(backHref)}
             className="flex items-center gap-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm font-semibold transition-colors"
           >
             <ArrowLeft size={16} />
@@ -424,12 +493,30 @@ export default function PracticeResultPage() {
             <div className="mt-4 grid grid-cols-2 gap-2.5 sm:mt-5 sm:gap-3">
             <button
               type="button"
-              onClick={() => router.push('/dashboard/practice')}
+              onClick={() => router.push(backHref)}
               className="flex h-11 flex-1 items-center justify-center gap-2 rounded-2xl bg-white/10 text-sm font-black text-white ring-1 ring-white/15 transition-colors hover:bg-white/15"
             >
               <ArrowLeft size={14} />
-              Back to Practice
+              {backLabel}
             </button>
+            {isPathway && nextNode && (
+              <button
+                type="button"
+                onClick={handleStartNextNode}
+                disabled={isStartingNext}
+                title={`Continue to ${nextNode.topicName}`}
+                className="flex h-11 flex-1 items-center justify-center gap-2 rounded-2xl bg-cyan-400 text-sm font-black text-slate-950 shadow-lg shadow-cyan-950/30 transition-colors hover:bg-cyan-300 disabled:opacity-60"
+              >
+                {isStartingNext ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <ArrowRight size={14} />
+                )}
+                <span className="max-w-[150px] truncate">
+                  {isStartingNext ? 'Starting...' : `Next: ${nextNode.topicName}`}
+                </span>
+              </button>
+            )}
             {session.sourceType !== 'PATHWAY' && (
               <button
                 type="button"

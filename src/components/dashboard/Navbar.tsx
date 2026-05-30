@@ -388,7 +388,7 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
                             ? '/dashboard/questions?status=PENDING_APPROVAL'
                             : n.type === 'FORUM_REPLY' && typeof n.data?.threadId === 'string'
                               ? `/dashboard/forum/${n.data.threadId}`
-                              : n.type === 'PATHWAY_ASSIGNED' || n.type === 'PATHWAY_NODE_UNLOCKED'
+                              : n.type.startsWith('PATHWAY_')
                                 ? '/dashboard/pathways'
                                 : undefined;
                         void handleNotificationClick(n.id, n.isRead, url);
@@ -402,15 +402,17 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
                           ? 'bg-amber-100 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400'
                           : n.type === 'FORUM_REPLY'
                             ? 'bg-violet-100 text-violet-600 dark:bg-violet-500/10 dark:text-violet-400'
-                            : n.type === 'PATHWAY_ASSIGNED' || n.type === 'PATHWAY_NODE_UNLOCKED'
-                              ? 'bg-[#0A9AE2]/10 text-[#0A9AE2]'
-                              : n.type === 'PRACTICE_ASSIGNED'
-                                ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400'
-                              : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
+                            : n.type === 'PATHWAY_OVERDUE'
+                              ? 'bg-red-100 text-red-600 dark:bg-red-500/10 dark:text-red-400'
+                              : n.type.startsWith('PATHWAY_')
+                                ? 'bg-[#0A9AE2]/10 text-[#0A9AE2]'
+                                : n.type === 'PRACTICE_ASSIGNED'
+                                  ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400'
+                                : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
                       }`}>
                         {n.type === 'QUESTION_PENDING_APPROVAL' ? <FileQuestion size={16} />
                           : n.type === 'FORUM_REPLY' ? <MessageSquare size={16} />
-                          : n.type === 'PATHWAY_ASSIGNED' || n.type === 'PATHWAY_NODE_UNLOCKED' ? <Map size={16} />
+                          : n.type.startsWith('PATHWAY_') ? <Map size={16} />
                           : n.type === 'PRACTICE_ASSIGNED' ? <ClipboardList size={16} />
                           : <Bell size={16} />}
                       </div>

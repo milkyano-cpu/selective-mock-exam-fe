@@ -386,7 +386,9 @@ export default function PracticeSessionPage() {
         <div className="flex items-center justify-between mb-6">
           <button
             type="button"
-            onClick={() => router.push('/dashboard/practice')}
+            onClick={() =>
+              router.push(session.sourceType === 'PATHWAY' ? '/dashboard/pathways' : '/dashboard/practice')
+            }
             className="flex items-center gap-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm font-semibold transition-colors"
           >
             <ArrowLeft size={16} />

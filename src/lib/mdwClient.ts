@@ -328,6 +328,24 @@ function hasInteractiveSuccess(url: string | undefined, method: string | undefin
   ) {
     return false;
   }
+  // Submitting a practice session navigates the user straight to the result
+  // page, which is itself the confirmation — the generic "Submitted
+  // successfully" toast on top of it is redundant noise.
+  if (
+    normalizedMethod === 'PATCH' &&
+    Boolean(url?.match(/\/practice\/sessions\/[^/]+\/submit$/))
+  ) {
+    return false;
+  }
+  // Starting a pathway node practice navigates the user straight to the practice
+  // runner page — the destination is itself the confirmation, so the generic
+  // "Saved successfully" toast on top of it is redundant noise.
+  if (
+    normalizedMethod === 'POST' &&
+    Boolean(url?.match(/\/pathways\/[^/]+\/nodes\/[^/]+\/practice$/))
+  ) {
+    return false;
+  }
   if (normalizedMethod === 'GET') return Boolean(url?.includes('/download'));
   return true;
 }

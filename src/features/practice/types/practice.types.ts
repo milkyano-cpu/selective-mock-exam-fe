@@ -72,6 +72,10 @@ export interface PracticeSessionDetail {
   subjectId: string | null;
   subjectName: string | null;
   sourceType: PracticeSourceType;
+  // Pathway linkage — present only for PATHWAY sessions.
+  pathwayNodeId: string | null;
+  pathwayId: string | null;
+  planId: string | null;
   difficulty: DifficultyFilter;
   questionCount: number;
   status: PracticeStatus;

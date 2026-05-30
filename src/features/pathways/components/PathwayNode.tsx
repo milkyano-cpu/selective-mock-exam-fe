@@ -1,6 +1,6 @@
 'use client';
 
-import { BookOpen, CheckCircle2, Lock, PlayCircle, Target } from 'lucide-react';
+import { BookOpen, CheckCircle2, Clock, Lock, PlayCircle, Target } from 'lucide-react';
 import type { PathwayNodeItem } from '../types/pathways.types';
 
 interface PathwayNodeProps {
@@ -34,7 +34,21 @@ export function PathwayNode({
   const progressPercent = Math.min(100, Math.round((correctAnswers / Math.max(thresholdCorrect, 1)) * 100));
 
   const isLocked = !isTutorView && !isUnlocked;
-  const statusLabel = isCompleted ? 'Completed' : isLocked ? 'Locked' : totalAttempts > 0 ? 'Continue' : 'Ready';
+  // Unlocked but the tutor hasn't curated any questions yet → "Waiting" state.
+  // Only relevant for students/parents; tutors manage questions elsewhere.
+  const isWaiting = !isTutorView && isUnlocked && !isCompleted && node.questionCount === 0;
+  // Read-only contexts (e.g. parent view) pass no start handler — the node is
+  // then shown without interactive affordances.
+  const canStart = !isTutorView && !isLocked && !isWaiting && Boolean(onStartPractice);
+  const statusLabel = isCompleted
+    ? 'Completed'
+    : isLocked
+      ? 'Locked'
+      : isWaiting
+        ? 'Waiting'
+        : totalAttempts > 0
+          ? 'Continue'
+          : 'Ready';
 
   const circleClasses = [
     'relative overflow-hidden rounded-full border-4 flex items-center justify-center transition-all duration-200 select-none',
@@ -43,11 +57,15 @@ export function PathwayNode({
       ? 'border-[#0A9AE2] bg-[#0A9AE2]/10'
       : isLocked
         ? 'border-slate-200 bg-slate-100 opacity-60 cursor-not-allowed'
-        : 'border-slate-200 bg-white shadow-md hover:shadow-xl hover:scale-105 cursor-pointer active:scale-95',
+        : isWaiting
+          ? 'border-amber-200 bg-amber-100 cursor-not-allowed'
+          : canStart
+            ? 'border-slate-200 bg-white shadow-md hover:shadow-xl hover:scale-105 cursor-pointer active:scale-95'
+            : 'border-slate-200 bg-white shadow-md cursor-default',
   ].join(' ');
 
   const handleClick = () => {
-    if (!isLocked && !isTutorView && onStartPractice) {
+    if (canStart && onStartPractice) {
       onStartPractice();
     }
   };
@@ -57,7 +75,7 @@ export function PathwayNode({
       <button
         type="button"
         onClick={handleClick}
-        disabled={isLocked || isTutorView || isStarting}
+        disabled={isLocked || isWaiting || isTutorView || isStarting || !canStart}
         className={[
           'group relative w-full overflow-hidden rounded-2xl border p-4 text-left transition-all duration-200',
           'focus:outline-none focus:ring-2 focus:ring-[#0A9AE2]/30',
@@ -65,9 +83,19 @@ export function PathwayNode({
             ? 'border-emerald-200 bg-emerald-50/80 shadow-sm dark:border-emerald-500/20 dark:bg-emerald-500/10'
             : isLocked
               ? 'border-slate-200 bg-slate-50 opacity-75 dark:border-slate-800 dark:bg-slate-900/70'
-              : 'border-slate-200 bg-white shadow-sm hover:-translate-y-0.5 hover:border-[#0A9AE2]/40 hover:shadow-lg dark:border-slate-800 dark:bg-slate-900 dark:hover:border-[#0A9AE2]/50',
+              : isWaiting
+                ? 'border-amber-200 bg-amber-50/80 dark:border-amber-500/20 dark:bg-amber-500/10'
+                : canStart
+                  ? 'border-slate-200 bg-white shadow-sm hover:-translate-y-0.5 hover:border-[#0A9AE2]/40 hover:shadow-lg dark:border-slate-800 dark:bg-slate-900 dark:hover:border-[#0A9AE2]/50'
+                  : 'border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900',
         ].join(' ')}
-        title={isLocked ? 'Complete previous topics to unlock this module' : `Practice ${node.topic.name}`}
+        title={
+          isLocked
+            ? 'Complete previous topics to unlock this module'
+            : isWaiting
+              ? "Your tutor hasn't added questions yet"
+              : `Practice ${node.topic.name}`
+        }
       >
         <div className="flex items-center gap-4">
           <div
@@ -77,13 +105,17 @@ export function PathwayNode({
                 ? 'border-emerald-200 bg-white text-emerald-600 dark:border-emerald-500/20 dark:bg-emerald-500/10'
                 : isLocked
                   ? 'border-slate-200 bg-white text-slate-300 dark:border-slate-700 dark:bg-slate-800'
-                  : 'border-[#0A9AE2]/20 bg-[#0A9AE2]/10 text-[#0A9AE2] group-hover:bg-[#0A9AE2] group-hover:text-white',
+                  : isWaiting
+                    ? 'border-amber-200 bg-white text-amber-500 dark:border-amber-500/20 dark:bg-amber-500/10'
+                    : 'border-[#0A9AE2]/20 bg-[#0A9AE2]/10 text-[#0A9AE2] group-hover:bg-[#0A9AE2] group-hover:text-white',
             ].join(' ')}
           >
             {isCompleted ? (
               <CheckCircle2 size={22} />
             ) : isLocked ? (
               <Lock size={19} />
+            ) : isWaiting ? (
+              <Clock size={20} />
             ) : (
               <BookOpen size={22} />
             )}
@@ -98,7 +130,9 @@ export function PathwayNode({
                     ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300'
                     : isLocked
                       ? 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500'
-                      : 'bg-blue-100 text-[#0A9AE2] dark:bg-blue-500/20 dark:text-blue-300',
+                      : isWaiting
+                        ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300'
+                        : 'bg-blue-100 text-[#0A9AE2] dark:bg-blue-500/20 dark:text-blue-300',
                 ].join(' ')}
               >
                 {statusLabel}
@@ -112,23 +146,29 @@ export function PathwayNode({
             <p className="mt-2 truncate text-base font-black text-slate-900 dark:text-slate-100">
               {node.topic.name}
             </p>
-            <div className="mt-2 flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
-              <Target size={13} />
-              <span>{correctAnswers} of {thresholdCorrect} correct</span>
-              {totalAttempts > 0 && <span>{totalAttempts} attempt{totalAttempts !== 1 ? 's' : ''}</span>}
-            </div>
+            {isWaiting ? (
+              <p className="mt-2 text-xs font-semibold text-amber-600 dark:text-amber-400">
+                Your tutor hasn&apos;t added questions yet
+              </p>
+            ) : (
+              <div className="mt-2 flex items-center gap-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
+                <Target size={13} />
+                <span>{correctAnswers} of {thresholdCorrect} correct</span>
+                {totalAttempts > 0 && <span>{totalAttempts} attempt{totalAttempts !== 1 ? 's' : ''}</span>}
+              </div>
+            )}
             <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
               <div
                 className={[
                   'h-full rounded-full transition-all duration-500',
-                  isCompleted ? 'bg-emerald-500' : isLocked ? 'bg-slate-200 dark:bg-slate-700' : 'bg-[#0A9AE2]',
+                  isCompleted ? 'bg-emerald-500' : isLocked || isWaiting ? 'bg-slate-200 dark:bg-slate-700' : 'bg-[#0A9AE2]',
                 ].join(' ')}
-                style={{ width: `${isLocked ? 0 : progressPercent}%` }}
+                style={{ width: `${isLocked || isWaiting ? 0 : progressPercent}%` }}
               />
             </div>
           </div>
 
-          {!isLocked && !isTutorView && (
+          {!isLocked && !isWaiting && !isTutorView && canStart && (
             <div className="hidden shrink-0 items-center gap-2 rounded-xl bg-slate-900 px-3 py-2 text-xs font-black text-white transition-transform group-hover:translate-x-0.5 dark:bg-slate-100 dark:text-slate-900 sm:inline-flex">
               <PlayCircle size={15} />
               {isStarting ? 'Starting' : isCompleted ? 'Review' : 'Practice'}
@@ -152,20 +192,22 @@ export function PathwayNode({
       <button
         type="button"
         onClick={handleClick}
-        disabled={isLocked || isTutorView}
+        disabled={isLocked || isWaiting || isTutorView || !canStart}
         className={circleClasses}
-        title={node.topic.name}
+        title={isWaiting ? "Your tutor hasn't added questions yet" : node.topic.name}
       >
         {/* Icon */}
         {isCompleted ? (
           <CheckCircle2 size={iconSize} className="text-[#0A9AE2] relative z-10" />
         ) : isLocked ? (
           <Lock size={iconSize - 4} className="text-slate-300 relative z-10" />
+        ) : isWaiting ? (
+          <Clock size={iconSize - 2} className="text-amber-500 relative z-10" />
         ) : (
           <BookOpen size={iconSize} className="text-slate-500 relative z-10" />
         )}
 
-        {/* Blue wave arc at the bottom */}
+        {/* Wave arc at the bottom */}
         <svg
           className="absolute bottom-0 left-0 w-full"
           viewBox="0 0 80 22"
@@ -174,23 +216,32 @@ export function PathwayNode({
         >
           <path
             d="M0,11 Q20,1 40,11 Q60,21 80,11 L80,22 L0,22 Z"
-            fill={isLocked ? '#e2e8f0' : '#0A9AE2'}
+            fill={isLocked ? '#e2e8f0' : isWaiting ? '#fcd34d' : '#0A9AE2'}
             opacity={isLocked ? 0.5 : 0.9}
           />
         </svg>
       </button>
 
       {/* Topic name */}
-      <p className="max-w-[90px] text-center text-[10px] font-semibold text-slate-600 leading-tight">
+      <p
+        className={[
+          'max-w-[90px] text-center text-[10px] font-semibold leading-tight',
+          isWaiting ? 'text-amber-700' : 'text-slate-600',
+        ].join(' ')}
+      >
         {node.topic.name}
       </p>
 
-      {/* Progress indicator */}
-      {!isLocked && !isTutorView && (
+      {/* Progress / status indicator */}
+      {isWaiting ? (
+        <p className="max-w-[96px] text-center text-[9px] font-semibold text-amber-500">
+          Waiting for questions
+        </p>
+      ) : !isLocked && !isTutorView ? (
         <p className="text-[9px] text-slate-400 font-medium">
           {correctAnswers} / {thresholdCorrect}
         </p>
-      )}
+      ) : null}
     </div>
   );
 }

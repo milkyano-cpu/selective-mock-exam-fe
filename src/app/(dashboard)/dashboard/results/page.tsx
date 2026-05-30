@@ -58,6 +58,30 @@ function MetricCard({ icon: Icon, label, value, tone }: {
   );
 }
 
+// Mirrors the real analytics layout: metric cards row → 3-col summary row →
+// two chart blocks. Used by both loading states so the skeleton matches.
+function AnalyticsSkeleton() {
+  return (
+    <div className="space-y-4 animate-pulse">
+      {/* Top metric cards */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="h-28 rounded-2xl border border-slate-200/60 bg-white dark:border-slate-800 dark:bg-slate-900" />
+        ))}
+      </div>
+      {/* Summary + Ranking + Weak Topics */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="h-48 rounded-[2rem] border border-slate-200/60 bg-white dark:border-slate-800 dark:bg-slate-900" />
+        ))}
+      </div>
+      {/* Chart blocks */}
+      <div className="h-[300px] rounded-[2rem] border border-slate-200/60 bg-white dark:border-slate-800 dark:bg-slate-900" />
+      <div className="h-[300px] rounded-[2rem] border border-slate-200/60 bg-white dark:border-slate-800 dark:bg-slate-900" />
+    </div>
+  );
+}
+
 function ChildSelectorDropdown({
   children,
   selectedId,
@@ -316,14 +340,10 @@ function StudentResultsView() {
             Detailed performance breakdown for each linked student.
           </p>
         </header>
-        <div className="space-y-4 animate-pulse">
-          <div className="h-10 w-48 rounded-full bg-slate-200/50 dark:bg-slate-800/50" />
-          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-28 rounded-2xl border border-slate-200/60 bg-white dark:border-slate-800 dark:bg-slate-900" />
-            ))}
-          </div>
-          <div className="h-64 rounded-2xl border border-slate-200/60 bg-white dark:border-slate-800 dark:bg-slate-900" />
+        <div className="space-y-4">
+          {/* Child selector placeholder — matches the rounded-xl dropdown */}
+          <div className="h-[52px] w-full animate-pulse rounded-xl bg-slate-200/50 dark:bg-slate-800/50 sm:w-72" />
+          <AnalyticsSkeleton />
         </div>
       </div>
     );
@@ -361,14 +381,7 @@ function StudentResultsView() {
 
           {/* Tahap 2 — Analytics for selected child */}
           {isLoadingAnalytics ? (
-            <div className="space-y-4 animate-pulse">
-              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <div key={i} className="h-28 rounded-2xl border border-slate-200/60 bg-white dark:border-slate-800 dark:bg-slate-900" />
-                ))}
-              </div>
-              <div className="h-64 rounded-2xl border border-slate-200/60 bg-white dark:border-slate-800 dark:bg-slate-900" />
-            </div>
+            <AnalyticsSkeleton />
           ) : analytics ? (
             <>
               {/* Top Metric Cards */}
