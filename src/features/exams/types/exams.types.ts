@@ -60,6 +60,7 @@ export interface ExamItem {
   hasSessions: boolean;
   createdAt: string;
   updatedAt: string;
+  requiredTier: 'BASIC' | 'STANDARD' | 'PREMIUM';
   thresholdSuperior: number;
   thresholdAboveAverage: number;
   thresholdHighAverage: number;
@@ -195,6 +196,9 @@ export interface SessionResult {
   gradingType: GradingType;
   startTime: string;
   endTime: string | null;
+  /** Tier of the student who owns this session — used to gate result sections
+   *  by the OWNER's tier (so a parent sees their child's tier, not their own). */
+  ownerTier: 'BASIC' | 'STANDARD' | 'PREMIUM';
   answers: SessionResultAnswer[];
 }
 
@@ -251,6 +255,7 @@ export interface CreateExamPayload {
   examType: ExamType;
   durationMinutes: number;
   gradingType: GradingType;
+  requiredTier?: 'BASIC' | 'STANDARD' | 'PREMIUM';
   thresholdSuperior?: number;
   thresholdAboveAverage?: number;
   thresholdHighAverage?: number;
@@ -262,6 +267,7 @@ export interface UpdateExamPayload {
   examType?: ExamType;
   durationMinutes?: number;
   gradingType?: GradingType;
+  requiredTier?: 'BASIC' | 'STANDARD' | 'PREMIUM';
   thresholdSuperior?: number;
   thresholdAboveAverage?: number;
   thresholdHighAverage?: number;

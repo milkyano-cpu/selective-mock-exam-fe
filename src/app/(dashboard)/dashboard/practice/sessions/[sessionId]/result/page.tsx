@@ -20,7 +20,9 @@ import {
 } from 'lucide-react';
 import { practiceService } from '@/features/practice/services/practice.service';
 import { pathwaysService } from '@/features/pathways/services/pathways.service';
+import { useAuthStore } from '@/features/auth/store/auth.store';
 import { QuestionLatexRenderer } from '@/components/ui/QuestionLatexRenderer';
+import { FeaturePaywall } from '@/components/billing/FeaturePaywall';
 import { PlanCompletionWatcher } from '@/features/pathway-plans/components/PlanCompletionWatcher';
 import type { PracticeSessionDetail, PracticeResultAnswer } from '@/features/practice/types/practice.types';
 
@@ -106,10 +108,14 @@ function getScoreTone(percent: number | null) {
   };
 }
 
-function AnswerCard({ answer, index }: { answer: PracticeResultAnswer; index: number }) {
+function AnswerCard({ answer, index, userTier }: { answer: PracticeResultAnswer; index: number; userTier: 'BASIC' | 'STANDARD' | 'PREMIUM' }) {
   const [expanded, setExpanded] = useState(false);
   const isEssay = answer.type === 'ESSAY';
   const feedback = answer.aiFeedback?.overallFeedback ?? answer.aiFeedback?.feedback ?? null;
+  // Band descriptor + overall feedback unlock at Standard; the per-criterion AI
+  // breakdown (strengths / improvements) is Premium only.
+  const isStandardPlus = userTier === 'STANDARD' || userTier === 'PREMIUM';
+  const isPremium = userTier === 'PREMIUM';
 
   return (
     <div
@@ -161,36 +167,62 @@ function AnswerCard({ answer, index }: { answer: PracticeResultAnswer; index: nu
             </span>
           </div>
 
-          {isEssay && (answer.bandLabel || feedback) && (
-            <div className="mt-3 rounded-xl bg-white/70 p-3 text-xs font-medium text-slate-700 dark:bg-slate-800/60 dark:text-slate-300">
-              {answer.bandLabel && <p className="font-black uppercase text-blue-600 dark:text-blue-400">{answer.bandLabel}</p>}
-              {answer.bandDescriptor && <p className="mt-1">{answer.bandDescriptor}</p>}
-              {feedback && <p className="mt-2 whitespace-pre-wrap">{feedback}</p>}
-              {(answer.aiFeedback?.strengths?.length ?? 0) > 0 && (
-                <div className="mt-2">
-                  <p className="text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400">Strengths</p>
-                  <ul className="mt-0.5 space-y-0.5">
-                    {answer.aiFeedback?.strengths?.map((s: string, i: number) => (
-                      <li key={i} className="flex items-start gap-1.5 text-xs text-emerald-700 dark:text-emerald-300">
-                        <span className="mt-1 block h-1 w-1 shrink-0 rounded-full bg-emerald-400" />{s}
-                      </li>
-                    ))}
-                  </ul>
+          {isEssay && (
+            isStandardPlus ? (
+              (answer.bandLabel || feedback || answer.bandDescriptor) && (
+                <div className="mt-3 rounded-xl bg-white/70 p-3 text-xs font-medium text-slate-700 dark:bg-slate-800/60 dark:text-slate-300">
+                  {answer.bandLabel && <p className="font-black uppercase text-blue-600 dark:text-blue-400">{answer.bandLabel}</p>}
+                  {answer.bandDescriptor && <p className="mt-1">{answer.bandDescriptor}</p>}
+                  {feedback && <p className="mt-2 whitespace-pre-wrap">{feedback}</p>}
+                  {isPremium ? (
+                    <>
+                      {(answer.aiFeedback?.strengths?.length ?? 0) > 0 && (
+                        <div className="mt-2">
+                          <p className="text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400">Strengths</p>
+                          <ul className="mt-0.5 space-y-0.5">
+                            {answer.aiFeedback?.strengths?.map((s: string, i: number) => (
+                              <li key={i} className="flex items-start gap-1.5 text-xs text-emerald-700 dark:text-emerald-300">
+                                <span className="mt-1 block h-1 w-1 shrink-0 rounded-full bg-emerald-400" />{s}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {(answer.aiFeedback?.improvements?.length ?? 0) > 0 && (
+                        <div className="mt-2">
+                          <p className="text-[10px] font-black uppercase text-amber-600 dark:text-amber-400">Areas to Improve</p>
+                          <ul className="mt-0.5 space-y-0.5">
+                            {answer.aiFeedback?.improvements?.map((s: string, i: number) => (
+                              <li key={i} className="flex items-start gap-1.5 text-xs text-amber-700 dark:text-amber-300">
+                                <span className="mt-1 block h-1 w-1 shrink-0 rounded-full bg-amber-400" />{s}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="mt-3">
+                      <FeaturePaywall
+                        title="Detailed AI Feedback"
+                        description="Per-criterion strengths and improvements are available on Premium. Ask your parent to upgrade your plan."
+                        requiredTier="PREMIUM"
+                        compact
+                      />
+                    </div>
+                  )}
                 </div>
-              )}
-              {(answer.aiFeedback?.improvements?.length ?? 0) > 0 && (
-                <div className="mt-2">
-                  <p className="text-[10px] font-black uppercase text-amber-600 dark:text-amber-400">Areas to Improve</p>
-                  <ul className="mt-0.5 space-y-0.5">
-                    {answer.aiFeedback?.improvements?.map((s: string, i: number) => (
-                      <li key={i} className="flex items-start gap-1.5 text-xs text-amber-700 dark:text-amber-300">
-                        <span className="mt-1 block h-1 w-1 shrink-0 rounded-full bg-amber-400" />{s}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
+              )
+            ) : (
+              <div className="mt-3">
+                <FeaturePaywall
+                  title="Essay Feedback"
+                  description="Available on Standard and above. Ask your parent to upgrade your plan."
+                  requiredTier="STANDARD"
+                  compact
+                />
+              </div>
+            )
           )}
 
           {answer.explanation && (
@@ -219,6 +251,7 @@ function AnswerCard({ answer, index }: { answer: PracticeResultAnswer; index: nu
 export default function PracticeResultPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const router = useRouter();
+  const userTier = useAuthStore((s) => s.user?.tier) ?? 'BASIC';
 
   const [session, setSession] = useState<PracticeSessionDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -549,7 +582,7 @@ export default function PracticeResultPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: idx * 0.03 }}
               >
-                <AnswerCard answer={answer} index={idx} />
+                <AnswerCard answer={answer} index={idx} userTier={userTier} />
               </motion.div>
             ))}
           </div>

@@ -16,6 +16,7 @@ export interface Topic {
   subjectId: string;
   name: string;
   description: string | null;
+  isFreeTopic: boolean;
   createdAt: string;
   updatedAt: string;
   _count?: {
@@ -43,6 +44,7 @@ export interface CreateTopicPayload {
 export interface UpdateTopicPayload {
   name?: string;
   description?: string | null;
+  isFreeTopic?: boolean;
 }
 
 export interface EnsureSubjectTopicsPayload {

@@ -10,6 +10,7 @@ import {
   AreaChart, Area, BarChart, Bar, Cell, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from 'recharts';
 import { analyticsService } from '@/features/analytics/services/analytics.service';
+import { FeaturePaywall } from '@/components/billing/FeaturePaywall';
 import type {
   ChildSummary,
   Leaderboard as LeaderboardType,
@@ -329,6 +330,13 @@ function StudentResultsView() {
   const weakTopics = (analytics?.topicPerformance ?? []).filter((t) => t.scoreAvg < 50);
   const childRank = leaderboard?.entries.find((e) => e.studentId === selectedId) ?? null;
 
+  // Mirror the student's own analytics gating, keyed on the SELECTED CHILD's
+  // tier: Basic children only see the basic metric cards; the richer analytics
+  // (leaderboard, weak topics, score trend, subject performance) need Standard+.
+  const childTier = selectedChildSummary?.tier ?? 'BASIC';
+  const canViewStandardAnalytics = childTier === 'STANDARD' || childTier === 'PREMIUM';
+  const canViewPremiumAnalytics = childTier === 'PREMIUM';
+
   if (!user || user.role !== 'PARENT') return null;
 
   if (isLoadingList) {
@@ -392,6 +400,15 @@ function StudentResultsView() {
                 <MetricCard icon={Target} label="Subjects covered" value={subjectPerf.length} tone="bg-violet-50 text-violet-600 dark:bg-violet-900/20 dark:text-violet-300" />
               </div>
 
+              {!canViewStandardAnalytics ? (
+                <FeaturePaywall
+                  compact
+                  requiredTier="STANDARD"
+                  title="Detailed Analytics"
+                  description={`Topic mastery, weak areas, score trend, and subject performance are available on Standard and above. Upgrade ${selectedChildSummary?.studentName ?? 'your child'}'s plan to unlock them.`}
+                />
+              ) : (
+              <>
               {/* Summary + Ranking + Weak Topics */}
               <div className="grid gap-4 lg:grid-cols-3">
                 {/* Summary */}
@@ -633,9 +650,11 @@ function StudentResultsView() {
                   )}
                 </div>
               )}
+              </>
+              )}
 
               {/* Writing Performance — PREMIUM only */}
-              {(analytics.writingPerformance ?? []).length > 0 && (
+              {canViewPremiumAnalytics && (analytics.writingPerformance ?? []).length > 0 && (
                 <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
                   <div className="mb-4">
                     <div className="flex items-center gap-2">

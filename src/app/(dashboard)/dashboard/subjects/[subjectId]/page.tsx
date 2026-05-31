@@ -19,6 +19,7 @@ export default function TopicsPage({ params }: { params: Promise<{ subjectId: st
   const [selectedTopic, setSelectedTopic] = useState<Topic | null>(null);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [togglingTopicId, setTogglingTopicId] = useState<string | null>(null);
 
   useEffect(() => {
     fetchTopics(subjectId, { page, limit: 10, search });
@@ -42,6 +43,15 @@ export default function TopicsPage({ params }: { params: Promise<{ subjectId: st
   const handleDelete = (topic: Topic) => {
     setSelectedTopic(topic);
     setIsDeleteModalOpen(true);
+  };
+
+  const handleToggleFreeTopic = async (topic: Topic) => {
+    setTogglingTopicId(topic.id);
+    const success = await updateTopic(subjectId, topic.id, { isFreeTopic: !topic.isFreeTopic });
+    if (success) {
+      await fetchTopics(subjectId, { page, limit: 10, search });
+    }
+    setTogglingTopicId(null);
   };
 
   const onSubmitTopic = async (data: { name: string; description?: string | null }) => {
@@ -121,6 +131,7 @@ export default function TopicsPage({ params }: { params: Promise<{ subjectId: st
                 <th className="px-4 sm:px-8 py-3 sm:py-5 font-bold">Topic Name</th>
                 <th className="hidden md:table-cell px-8 py-5 font-bold">Description</th>
                 <th className="hidden sm:table-cell px-8 py-5 font-bold text-center">Questions</th>
+                <th className="hidden sm:table-cell px-8 py-5 font-bold text-center">Free Topic</th>
                 <th className="px-4 sm:px-8 py-3 sm:py-5 font-bold text-right">Actions</th>
               </tr>
             </thead>
@@ -137,6 +148,9 @@ export default function TopicsPage({ params }: { params: Promise<{ subjectId: st
                     <td className="hidden px-8 py-5 sm:table-cell">
                       <div className="mx-auto h-4 w-16 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />
                     </td>
+                    <td className="hidden px-8 py-5 sm:table-cell">
+                      <div className="mx-auto h-5 w-9 animate-pulse rounded-full bg-slate-100 dark:bg-slate-800" />
+                    </td>
                     <td className="px-4 py-4 sm:px-8 sm:py-5">
                       <div className="ml-auto h-4 w-12 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />
                     </td>
@@ -144,7 +158,7 @@ export default function TopicsPage({ params }: { params: Promise<{ subjectId: st
                 ))
               ) : topics.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="px-4 sm:px-8 py-8 sm:py-12 text-center">
+                  <td colSpan={5} className="px-4 sm:px-8 py-8 sm:py-12 text-center">
                     <div className="flex flex-col items-center gap-2">
                       <Layers className="h-8 w-8 text-slate-200 dark:text-slate-800 sm:h-12 sm:w-12" />
                       <p className="text-xs sm:text-sm font-medium text-slate-500">No topics found matching your criteria.</p>
@@ -178,6 +192,28 @@ export default function TopicsPage({ params }: { params: Promise<{ subjectId: st
                       <span className="inline-flex items-center justify-center bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-[10px] sm:text-xs font-bold dark:bg-blue-500/10 dark:text-blue-400 border border-blue-100 dark:border-blue-500/20">
                         {topic._count?.questions || 0} Questions
                       </span>
+                    </td>
+                    <td className="hidden sm:table-cell px-8 py-5 text-center">
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={topic.isFreeTopic}
+                        aria-label={topic.isFreeTopic ? 'Disable free topic' : 'Enable free topic'}
+                        onClick={() => handleToggleFreeTopic(topic)}
+                        disabled={togglingTopicId === topic.id}
+                        title={topic.isFreeTopic ? 'Free for Basic members' : 'Locked for Basic members'}
+                        className={[
+                          'relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors disabled:opacity-50',
+                          topic.isFreeTopic ? 'bg-[#0A9AE2]' : 'bg-slate-200 dark:bg-slate-700',
+                        ].join(' ')}
+                      >
+                        <span
+                          className={[
+                            'inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform',
+                            topic.isFreeTopic ? 'translate-x-4' : 'translate-x-0.5',
+                          ].join(' ')}
+                        />
+                      </button>
                     </td>
                     <td className="px-4 sm:px-8 py-4 sm:py-5 text-right">
                       <div className="flex items-center justify-end gap-0.5 sm:gap-1">

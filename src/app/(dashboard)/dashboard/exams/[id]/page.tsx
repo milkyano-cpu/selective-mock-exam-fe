@@ -7,6 +7,7 @@ import { useAuthStore } from '@/features/auth/store/auth.store';
 import { examService } from '@/features/exams/services/exams.service';
 import { questionsService } from '@/features/questions/services/questions.service';
 import { QuestionLatexRenderer } from '@/components/ui/QuestionLatexRenderer';
+import { showClientErrorAlert } from '@/lib/errorAlert';
 import type { ExamItem, ExamQuestionItem, ManualGradingQueueStatus, ManualGradingSubmission } from '@/features/exams/types/exams.types';
 import { DeleteConfirmModal } from '@/features/subjects/components/DeleteConfirmModal';
 import { ExamDetailSkeleton } from './ExamDetailSkeleton';
@@ -485,7 +486,6 @@ export default function ExamDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(false);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [removeTargetId, setRemoveTargetId] = useState<string | null>(null);
@@ -564,12 +564,15 @@ export default function ExamDetailPage() {
       if (res.success) {
         router.push(`/dashboard/exams/${id}/session`);
         return; // Keep loading state active during navigation
-      } else {
-        setError(res.message);
-        setIsStarting(false);
       }
+      setIsStarting(false);
     } catch (err) {
-      setError(isAxiosError(err) ? err.response?.data?.message || 'Failed to start exam' : 'Failed to start exam');
+      // Surface the backend reason (e.g. tier / monthly mock-exam limit). The
+      // global client suppresses 403 toasts, so show it explicitly here.
+      const message = isAxiosError(err)
+        ? err.response?.data?.message || 'Failed to start exam'
+        : 'Failed to start exam';
+      void showClientErrorAlert(message, 'Cannot start exam');
       setIsStarting(false);
     }
   };
@@ -581,15 +584,12 @@ export default function ExamDetailPage() {
     try {
       const res = await examService.removeQuestion(id, questionId);
       if (res.success) {
-        setSuccessMsg('Question removed');
         setRemoveTargetId(null);
         setQuestions((prev) => prev.filter((q) => q.questionId !== questionId));
         setExam((prev) => prev ? { ...prev, questionCount: prev.questionCount - 1 } : prev);
-      } else {
-        setError(res.message);
       }
-    } catch (err) {
-      setError(isAxiosError(err) ? err.response?.data?.message || 'Failed to remove question' : 'Failed to remove question');
+    } catch {
+      /* error toast handled globally by the API client */
     } finally {
       setRemovingId(null);
     }
@@ -691,20 +691,6 @@ export default function ExamDetailPage() {
           Back
         </button>
       </div>
-
-      {/* ── Alerts ── */}
-      {successMsg && (
-        <div className="flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700 dark:border-green-800/50 dark:bg-green-900/20 dark:text-green-400">
-          <CheckCircle2 size={16} /> {successMsg}
-          <button className="ml-auto" onClick={() => setSuccessMsg(null)}><X size={14} /></button>
-        </div>
-      )}
-      {error && (
-        <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 dark:border-red-800/50 dark:bg-red-900/20 dark:text-red-400">
-          <AlertCircle size={16} /> {error}
-          <button className="ml-auto" onClick={() => setError(null)}><X size={14} /></button>
-        </div>
-      )}
 
       {/* ── Body: sidebar + main ── */}
       <div className="min-w-0 flex flex-col gap-5 overflow-x-hidden lg:flex-row lg:items-start">
@@ -1162,7 +1148,7 @@ export default function ExamDetailPage() {
           examGradingType={exam.gradingType}
           existingQuestionIds={new Set(questions.map((q) => q.questionId))}
           onClose={() => setShowAddModal(false)}
-          onAdded={() => { loadExam(); setSuccessMsg('Questions added successfully'); }}
+          onAdded={() => { loadExam(); }}
         />
       )}
 

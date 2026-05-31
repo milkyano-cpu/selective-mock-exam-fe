@@ -19,7 +19,6 @@ import {
   Trash2,
   Edit2,
   PlayCircle,
-  CheckCircle2,
   Check,
   AlertCircle,
   X,
@@ -32,12 +31,20 @@ import {
   RotateCcw,
   Star,
   RefreshCw,
+  Lock,
 } from 'lucide-react';
+import { FeaturePaywall } from '@/components/billing/FeaturePaywall';
 
 const PAGE_LIMIT = 20;
 
 const EXAM_TYPE_LABELS: Record<string, string> = { MOCK_EXAM: 'Mock Exam', ASSIGNMENT: 'Assignment' };
 const GRADING_TYPE_LABELS: Record<string, string> = { AUTO: 'Auto', MANUAL: 'Manual' };
+const TIER_LABELS: Record<'BASIC' | 'STANDARD' | 'PREMIUM', string> = { BASIC: 'Basic', STANDARD: 'Standard', PREMIUM: 'Premium' };
+const TIER_BADGE_CLASS: Record<'BASIC' | 'STANDARD' | 'PREMIUM', string> = {
+  BASIC: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
+  STANDARD: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+  PREMIUM: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300',
+};
 const RANKING_LABELS: Record<string, string> = {
   SUPERIOR: 'Superior',
   ABOVE_AVERAGE: 'Above Average',
@@ -80,27 +87,19 @@ function AdminExamView() {
   const [meta, setMeta] = useState<PaginationMeta | null>(null);
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
-  const [listError, setListError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingExam, setEditingExam] = useState<ExamItem | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [publishingId, setPublishingId] = useState<string | null>(null);
-  const [isPublishModalOpen, setIsPublishModalOpen] = useState(false);
-  const [publishExamData, setPublishExamData] = useState<{ 
-    exam: ExamItem; 
-    hasEssay: boolean;
-    durationMinutes: string;
-    gradingType: GradingType;
-  } | null>(null);
   const [form, setForm] = useState({
     title: '',
     examType: 'MOCK_EXAM' as 'MOCK_EXAM' | 'ASSIGNMENT',
     durationMinutes: 90,
     gradingType: 'AUTO' as GradingType,
+    requiredTier: 'BASIC' as 'BASIC' | 'STANDARD' | 'PREMIUM',
     thresholdSuperior: 72,
     thresholdAboveAverage: 60,
     thresholdHighAverage: 50,
@@ -110,17 +109,14 @@ function AdminExamView() {
 
   const loadExams = useCallback(async (p: number) => {
     setIsLoading(true);
-    setListError(null);
     try {
       const res = await examService.list({ page: p, limit: PAGE_LIMIT });
       if (res.success) {
         setExams(res.data);
         setMeta(res.meta);
-      } else {
-        setListError(res.message);
       }
-    } catch (err) {
-      setListError(isAxiosError(err) ? err.response?.data?.message || 'Failed to load exams' : 'Failed to load exams');
+    } catch {
+      /* error toast handled globally by the API client */
     } finally {
       setIsLoading(false);
     }
@@ -136,7 +132,7 @@ function AdminExamView() {
 
   const openCreate = () => {
     setEditingExam(null);
-    setForm({ title: '', examType: 'MOCK_EXAM', durationMinutes: 90, gradingType: 'AUTO', thresholdSuperior: 72, thresholdAboveAverage: 60, thresholdHighAverage: 50, thresholdAverage: 40 });
+    setForm({ title: '', examType: 'MOCK_EXAM', durationMinutes: 90, gradingType: 'AUTO', requiredTier: 'BASIC', thresholdSuperior: 72, thresholdAboveAverage: 60, thresholdHighAverage: 50, thresholdAverage: 40 });
     setShowThresholds(false);
     setFormError(null);
     setIsModalOpen(true);
@@ -149,6 +145,7 @@ function AdminExamView() {
       examType: exam.examType,
       durationMinutes: exam.durationMinutes ?? 90,
       gradingType: exam.gradingType,
+      requiredTier: exam.requiredTier,
       thresholdSuperior: exam.thresholdSuperior,
       thresholdAboveAverage: exam.thresholdAboveAverage,
       thresholdHighAverage: exam.thresholdHighAverage,
@@ -174,7 +171,6 @@ function AdminExamView() {
       if (editingExam) {
         const res = await examService.update(editingExam.id, form);
         if (res.success) {
-          setSuccessMsg('Exam updated');
           setIsModalOpen(false);
           loadExams(page);
         } else {
@@ -183,7 +179,6 @@ function AdminExamView() {
       } else {
         const res = await examService.create(form);
         if (res.success) {
-          setSuccessMsg('Exam created');
           setIsModalOpen(false);
           loadExams(page);
         } else {
@@ -204,11 +199,10 @@ function AdminExamView() {
     try {
       const res = await examService.remove(id);
       if (res.success) {
-        setSuccessMsg('Exam deleted');
         loadExams(page);
       }
-    } catch (err) {
-      setListError(isAxiosError(err) ? err.response?.data?.message || 'Failed to delete exam' : 'Failed to delete exam');
+    } catch {
+      /* error toast handled globally by the API client */
     } finally {
       setDeleteTargetId(null);
       setDeletingId(null);
@@ -219,81 +213,25 @@ function AdminExamView() {
     if (exam.status === 'PUBLISHED') return;
 
     setPublishingId(exam.id);
-    setListError(null);
     try {
-      // 1. Fetch questions to check status and type
-      const res = await examService.getWithQuestions(exam.id);
-      if (!res.success) {
-        setListError(res.message);
-        return;
+      // Exams are created via the UI with duration + grading type already set,
+      // so publishing no longer needs a confirmation modal — publish directly.
+      // The backend validates questions and reuses the exam's stored settings.
+      // Errors are surfaced by the global toast, so no inline banner is set here.
+      const res = await examService.publish(exam.id, { status: 'PUBLISHED' });
+      if (res.success) {
+        setExams((prev) => prev.map((e) => (e.id === exam.id ? res.data : e)));
       }
-
-      const questions = res.data.questions;
-      if (questions.length === 0) {
-        setListError('Cannot publish an exam with no questions');
-        return;
-      }
-
-      // 2. Validation: Check if all questions are published
-      // Note: Backend also has this check, but we do it here for UX
-      // The backend uses 'questionId' (internal uuid) vs 'questionId' (readable id)
-      // Actually, let's just rely on backend or check status field if it exists in the type
-      // Wait, ExamQuestionItem.question has status? Let me check types.
-      // Ah, types.ts doesn't show status in ExamQuestionItem.question.
-      // But I added it to the backend serializer.
-      
-      // Let's assume the backend will throw error if not published, but we can still check essay presence.
-      const hasEssay = questions.some(q => q.question.type === 'ESSAY');
-
-      setPublishExamData({
-        exam,
-        hasEssay,
-        durationMinutes: String(exam.durationMinutes ?? 90),
-        gradingType: exam.gradingType,
-      });
-      setFormError(null);
-      setIsPublishModalOpen(true);
-    } catch (err) {
-      setListError(isAxiosError(err) ? err.response?.data?.message || 'Failed to prepare publishing' : 'Failed to prepare publishing');
+    } catch {
+      /* error toast handled globally by the API client */
     } finally {
       setPublishingId(null);
     }
   };
 
-  const confirmPublish = async () => {
-    if (!publishExamData) return;
-    const durationMinutes = Number.parseInt(publishExamData.durationMinutes, 10);
-
-    if (!Number.isInteger(durationMinutes) || durationMinutes < 1 || durationMinutes > 600) {
-      setFormError('Duration must be between 1 and 600 minutes');
-      return;
-    }
-
-    setIsSubmitting(true);
-    setFormError(null);
-    try {
-      const res = await examService.publish(publishExamData.exam.id, {
-        status: 'PUBLISHED',
-        durationMinutes,
-        gradingType: publishExamData.gradingType,
-      });
-      if (res.success) {
-        setSuccessMsg('Exam published successfully');
-        setIsPublishModalOpen(false);
-        setExams((prev) => prev.map((e) => e.id === publishExamData.exam.id ? res.data : e));
-      } else {
-        setFormError(res.message);
-      }
-    } catch (err) {
-      setFormError(isAxiosError(err) ? err.response?.data?.message || 'Failed to publish exam' : 'Failed to publish exam');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const totalQuestions = exams.reduce((sum, e) => sum + e.questionCount, 0);
-  const mockExamCount = exams.filter((e) => e.examType === 'MOCK_EXAM').length;
-  const autoGradedCount = exams.filter((e) => e.gradingType === 'AUTO').length;
+  const basicCount = exams.filter((e) => e.requiredTier === 'BASIC').length;
+  const standardCount = exams.filter((e) => e.requiredTier === 'STANDARD').length;
+  const premiumCount = exams.filter((e) => e.requiredTier === 'PREMIUM').length;
 
   const navigateToExamDetail = useCallback((examId: string) => {
     router.push(`/dashboard/exams/${examId}`);
@@ -352,45 +290,31 @@ function AdminExamView() {
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3.5 dark:border-slate-800 dark:bg-slate-900">
             <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800">
+                <BookOpen size={15} className="text-slate-500 dark:text-slate-300" />
+              </div>
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Basic</p>
+            </div>
+            <p className="mt-2 text-2xl font-black text-slate-900 dark:text-slate-100">{basicCount}</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3.5 dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex items-center gap-2.5">
               <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-900/20">
-                <BookOpen size={15} className="text-blue-600 dark:text-blue-400" />
+                <BarChart3 size={15} className="text-blue-600 dark:text-blue-400" />
               </div>
-              <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Questions</p>
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Standard</p>
             </div>
-            <p className="mt-2 text-2xl font-black text-slate-900 dark:text-slate-100">{totalQuestions}</p>
+            <p className="mt-2 text-2xl font-black text-slate-900 dark:text-slate-100">{standardCount}</p>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3.5 dark:border-slate-800 dark:bg-slate-900">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-purple-50 dark:bg-purple-900/20">
-                <BarChart3 size={15} className="text-purple-600 dark:text-purple-400" />
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-violet-50 dark:bg-violet-900/20">
+                <Zap size={15} className="text-violet-600 dark:text-violet-400" />
               </div>
-              <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Mock Exams</p>
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Premium</p>
             </div>
-            <p className="mt-2 text-2xl font-black text-slate-900 dark:text-slate-100">{mockExamCount}</p>
+            <p className="mt-2 text-2xl font-black text-slate-900 dark:text-slate-100">{premiumCount}</p>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3.5 dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex items-center gap-2.5">
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-green-50 dark:bg-green-900/20">
-                <Zap size={15} className="text-green-600 dark:text-green-400" />
-              </div>
-              <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Auto-Graded</p>
-            </div>
-            <p className="mt-2 text-2xl font-black text-slate-900 dark:text-slate-100">{autoGradedCount}</p>
-          </div>
-        </div>
-      )}
-
-      {/* Alerts */}
-      {successMsg && (
-        <div className="flex items-center gap-2 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-700 dark:border-green-800/50 dark:bg-green-900/20 dark:text-green-400">
-          <CheckCircle2 size={16} /> {successMsg}
-          <button className="ml-auto" onClick={() => setSuccessMsg(null)}><X size={14} /></button>
-        </div>
-      )}
-      {listError && (
-        <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 dark:border-red-800/50 dark:bg-red-900/20 dark:text-red-400">
-          <AlertCircle size={16} /> {listError}
-          <button className="ml-auto" onClick={() => setListError(null)}><X size={14} /></button>
         </div>
       )}
 
@@ -430,6 +354,7 @@ function AdminExamView() {
                 <th className="hidden px-5 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400 md:table-cell">Type</th>
                 <th className="hidden px-5 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400 lg:table-cell">Duration</th>
                 <th className="hidden px-5 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400 lg:table-cell">Grading</th>
+                <th className="hidden px-5 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400 md:table-cell">Tier</th>
                 <th className="hidden px-5 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400 xl:table-cell">Questions</th>
                 <th className="hidden px-5 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400 xl:table-cell">Created By</th>
               </tr>
@@ -447,6 +372,11 @@ function AdminExamView() {
                     <span className="text-left font-semibold text-slate-900 transition-colors group-hover:text-[#FF6900] group-focus-visible:text-[#FF6900] dark:text-slate-100 dark:group-hover:text-orange-400 dark:group-focus-visible:text-orange-400">
                       {exam.title}
                     </span>
+                    {exam.requiredTier !== 'BASIC' && (
+                      <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-violet-700 dark:bg-violet-900/30 dark:text-violet-300 md:hidden">
+                        {exam.requiredTier}
+                      </span>
+                    )}
                     <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-slate-400 sm:hidden">
                       <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-bold ${exam.status === 'PUBLISHED' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}`}>
                         {exam.status === 'PUBLISHED' ? 'Published' : 'Draft'}
@@ -476,6 +406,12 @@ function AdminExamView() {
                   <td className="hidden px-5 py-4 lg:table-cell">
                     <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold ${exam.gradingType === 'AUTO' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'}`}>
                       {GRADING_TYPE_LABELS[exam.gradingType]}
+                    </span>
+                  </td>
+                  <td className="hidden px-5 py-4 md:table-cell">
+                    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold ${TIER_BADGE_CLASS[exam.requiredTier]}`}>
+                      {exam.requiredTier !== 'BASIC' && <Lock size={10} />}
+                      {TIER_LABELS[exam.requiredTier]}
                     </span>
                   </td>
                   <td className="hidden px-5 py-4 xl:table-cell">
@@ -639,6 +575,33 @@ function AdminExamView() {
                 </p>
               </div>
 
+              <div>
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Required Tier</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['BASIC', 'STANDARD', 'PREMIUM'] as const).map((tier) => {
+                    const active = form.requiredTier === tier;
+                    return (
+                      <button
+                        key={tier}
+                        type="button"
+                        onClick={() => setForm((f) => ({ ...f, requiredTier: tier }))}
+                        className={[
+                          'rounded-xl border px-3 py-2.5 text-sm font-bold transition-colors',
+                          active
+                            ? 'border-[#FF6900] bg-orange-50 text-[#FF6900] dark:border-[#FF6900] dark:bg-orange-900/20'
+                            : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700',
+                        ].join(' ')}
+                      >
+                        {tier.charAt(0) + tier.slice(1).toLowerCase()}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="mt-1 text-xs font-medium text-slate-400 dark:text-slate-500">
+                  Minimum membership a student needs to take this exam. Default Basic.
+                </p>
+              </div>
+
               {/* Ranking Thresholds */}
               <div>
                 <button
@@ -696,92 +659,6 @@ function AdminExamView() {
         </div>
       )}
 
-      {/* Publish Confirmation Modal */}
-      {isPublishModalOpen && publishExamData && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-[2rem] border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-orange-100 dark:bg-orange-900/30">
-                  <Globe className="text-[#FF6900]" size={20} />
-                </div>
-                <h2 className="text-lg font-black text-slate-900 dark:text-slate-100">
-                  Publish Exam
-                </h2>
-              </div>
-              <button onClick={() => setIsPublishModalOpen(false)} className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">
-                <X size={18} />
-              </button>
-            </div>
-
-            <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">
-              You are about to publish <span className="font-bold text-slate-700 dark:text-slate-300">&quot;{publishExamData.exam.title}&quot;</span>.
-              Please confirm the final settings below.
-            </p>
-
-            <div className="mt-6 space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Total Exam Duration (Minutes)</label>
-                <div className="relative">
-                  <Clock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                  <input
-                    type="number"
-                    min={1}
-                    max={600}
-                    value={publishExamData.durationMinutes}
-                    onChange={(e) => {
-                      const nextValue = e.target.value.replace(/\D/g, '');
-                      setPublishExamData(d => d ? { ...d, durationMinutes: nextValue } : null);
-                    }}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 pl-11 pr-4 py-3 text-sm font-bold text-slate-900 focus:border-[#FF6900] focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-                  />
-                </div>
-              </div>
-
-              {publishExamData.hasEssay && (
-                <div>
-                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Essay Grading System</label>
-                  <p className="mb-2 text-[10px] leading-tight text-slate-400">This exam contains Essay questions. Select how they should be graded.</p>
-                  <select
-                    value={publishExamData.gradingType}
-                    onChange={(e) => setPublishExamData(d => d ? { ...d, gradingType: e.target.value as GradingType } : null)}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-900 focus:border-[#FF6900] focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-                  >
-                    <option value="AUTO">Auto</option>
-                    <option value="MANUAL">Manual</option>
-                  </select>
-                </div>
-              )}
-
-              {formError && (
-                <div className="flex items-center gap-2 rounded-xl bg-red-50 p-3 text-xs font-bold text-red-600 dark:bg-red-900/20 dark:text-red-400">
-                  <AlertCircle size={14} />
-                  {formError}
-                </div>
-              )}
-
-              <div className="flex gap-3 pt-2">
-                <button 
-                  type="button" 
-                  onClick={() => setIsPublishModalOpen(false)} 
-                  className="flex-1 rounded-xl border border-slate-200 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button 
-                  onClick={confirmPublish}
-                  disabled={isSubmitting || publishExamData.durationMinutes.trim() === ''} 
-                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-[#FF6900] py-3 text-sm font-bold text-white shadow-lg shadow-orange-500/20 transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-60 disabled:hover:scale-100"
-                >
-                  {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <CheckCircle2 size={16} />}
-                  Confirm & Publish
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       <DeleteConfirmModal
         isOpen={!!deleteTargetId}
         onClose={() => setDeleteTargetId(null)}
@@ -798,6 +675,7 @@ function AdminExamView() {
 
 function StudentExamView() {
   const router = useRouter();
+  const userTier = useAuthStore((s) => s.user?.tier) ?? 'BASIC';
   const [exams, setExams] = useState<ExamItem[]>([]);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -807,6 +685,13 @@ function StudentExamView() {
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
   const [isStartingRetake, setIsStartingRetake] = useState(false);
   const [activeTab, setActiveTab] = useState<StudentExamTab>('all');
+  // The exam whose locked paywall is currently shown (clicked Start on a tier-gated exam).
+  const [paywallExam, setPaywallExam] = useState<ExamItem | null>(null);
+
+  // Tier ordering for the lock check — BASIC < STANDARD < PREMIUM.
+  const TIER_ORDER: Array<'BASIC' | 'STANDARD' | 'PREMIUM'> = ['BASIC', 'STANDARD', 'PREMIUM'];
+  const isExamLocked = (exam: ExamItem) =>
+    TIER_ORDER.indexOf(userTier) < TIER_ORDER.indexOf(exam.requiredTier);
 
   useEffect(() => {
     const loadData = async () => {
@@ -892,9 +777,12 @@ function StudentExamView() {
         router.push(`/dashboard/exams/${examId}/session`);
       }
     } catch (err) {
-      if (!isAxiosError(err)) {
-        void showClientErrorAlert('Failed to start retake.');
-      }
+      // Surface the backend reason (e.g. tier / retake-limit 403). The global
+      // client suppresses 403 toasts, so show it explicitly here.
+      const message = isAxiosError(err)
+        ? err.response?.data?.message || 'Failed to start retake.'
+        : 'Failed to start retake.';
+      void showClientErrorAlert(message, 'Cannot start retake');
     } finally {
       setIsStartingRetake(false);
     }
@@ -1017,6 +905,7 @@ function StudentExamView() {
             const latestSession = getLatestSession(exam.id);
             const bestSession = getBestSession(exam.id);
             const attemptCount = getAttemptCount(exam.id);
+            const locked = isExamLocked(exam);
             const borderClass =
               status === 'in_progress'
                 ? 'border-[#FF6900] dark:border-[#FF6900]/70'
@@ -1032,9 +921,16 @@ function StudentExamView() {
               >
                 {/* Type + status badges */}
                 <div className="flex items-start justify-between gap-2">
-                  <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${exam.examType === 'MOCK_EXAM' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'}`}>
-                    {EXAM_TYPE_LABELS[exam.examType]}
-                  </span>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${exam.examType === 'MOCK_EXAM' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'}`}>
+                      {EXAM_TYPE_LABELS[exam.examType]}
+                    </span>
+                    {locked && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-bold text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
+                        <Lock size={11} /> {exam.requiredTier}
+                      </span>
+                    )}
+                  </div>
                   {status === 'in_progress' && (
                     <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-semibold text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
                       <Clock size={11} /> In Progress
@@ -1098,7 +994,7 @@ function StudentExamView() {
                       .filter((s) => s.status !== 'IN_PROGRESS')
                       .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
                     return (
-                      <div className="mt-2 space-y-1">
+                      <div className="mt-2 max-h-28 space-y-1 overflow-y-auto pr-0.5">
                         {examSessions.map((s, idx) => {
                           const attemptNum = examSessions.length - idx;
                           const isBest = bestSession?.sessionId === s.sessionId;
@@ -1136,12 +1032,21 @@ function StudentExamView() {
                 {/* CTA buttons */}
                 <div className="mt-4 space-y-2">
                   {status === 'not_started' && (
-                    <button
-                      onClick={() => router.push(`/dashboard/exams/${exam.id}`)}
-                      className="w-full rounded-xl bg-[#FF6900] px-4 py-2.5 text-sm font-bold text-white transition-transform hover:scale-[1.02] active:scale-[0.98]"
-                    >
-                      Start Exam
-                    </button>
+                    locked ? (
+                      <button
+                        onClick={() => setPaywallExam(exam)}
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-4 py-2.5 text-sm font-bold text-violet-700 transition-colors hover:bg-violet-100 dark:border-violet-900/40 dark:bg-violet-900/20 dark:text-violet-300 dark:hover:bg-violet-900/30"
+                      >
+                        <Lock size={14} /> {exam.requiredTier} REQUIRED
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => router.push(`/dashboard/exams/${exam.id}`)}
+                        className="w-full rounded-xl bg-[#FF6900] px-4 py-2.5 text-sm font-bold text-white transition-transform hover:scale-[1.02] active:scale-[0.98]"
+                      >
+                        Start Exam
+                      </button>
+                    )
                   )}
                   {status === 'in_progress' && (
                     <button
@@ -1301,6 +1206,30 @@ function StudentExamView() {
             ) : (
               <p className="py-8 text-center text-sm text-slate-500">Failed to load attempt summary.</p>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Tier paywall — shown when a student taps Start on a tier-locked exam */}
+      {paywallExam && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="relative w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-800 dark:bg-slate-900">
+            <button
+              onClick={() => setPaywallExam(null)}
+              className="absolute right-4 top-4 rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+            >
+              <X size={18} />
+            </button>
+            <FeaturePaywall
+              title="Exam Locked"
+              description={
+                paywallExam.requiredTier === 'PREMIUM'
+                  ? `"${paywallExam.title}" is available on Premium. Ask your parent to upgrade your plan.`
+                  : `"${paywallExam.title}" is available on Standard and above. Ask your parent to upgrade your plan.`
+              }
+              requiredTier={paywallExam.requiredTier === 'PREMIUM' ? 'PREMIUM' : 'STANDARD'}
+              compact
+            />
           </div>
         </div>
       )}

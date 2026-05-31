@@ -244,6 +244,7 @@ export interface PracticeAccessResponse {
     tier: MembershipTier;
     fullPracticeAccess: boolean;
     freeTopics: FreePracticeTopic[];
+    dailyUsage: { used: number; limit: number } | null;
   };
 }
 

@@ -337,6 +337,18 @@ function hasInteractiveSuccess(url: string | undefined, method: string | undefin
   ) {
     return false;
   }
+  // Starting a practice session (self-selected, weak-area, or retake) navigates
+  // the user straight to the practice runner page — the destination is itself
+  // the confirmation, so the generic "Saved successfully" toast is redundant.
+  if (
+    normalizedMethod === 'POST' &&
+    (url === '/practice/sessions' ||
+      Boolean(url?.match(/\/practice\/sessions(\?|$)/)) ||
+      url?.includes('/practice/sessions/weak-area') ||
+      Boolean(url?.match(/\/practice\/sessions\/[^/]+\/retake$/)))
+  ) {
+    return false;
+  }
   // Starting a pathway node practice navigates the user straight to the practice
   // runner page — the destination is itself the confirmation, so the generic
   // "Saved successfully" toast on top of it is redundant noise.

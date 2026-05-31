@@ -8,6 +8,7 @@ import { examService } from '@/features/exams/services/exams.service';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { showClientErrorAlert } from '@/lib/errorAlert';
 import { QuestionLatexRenderer } from '@/components/ui/QuestionLatexRenderer';
+import { FeaturePaywall } from '@/components/billing/FeaturePaywall';
 import type { SessionResult, SessionResultAnswer, SessionInsightsResponse } from '@/features/exams/types/exams.types';
 import type { ExamAttemptSummary } from '@/features/exams/types/exams.types';
 import {
@@ -54,7 +55,7 @@ function isPendingReview(answer: SessionResultAnswer) {
   return answer.reviewStatus === 'PENDING_REVIEW';
 }
 
-function AnswerCard({ answer, index, sessionId }: { answer: SessionResultAnswer; index: number; sessionId: string }) {
+function AnswerCard({ answer, index, sessionId, userTier }: { answer: SessionResultAnswer; index: number; sessionId: string; userTier: 'BASIC' | 'STANDARD' | 'PREMIUM' }) {
   const [expanded, setExpanded] = useState(false);
   const isPendingAnswer = isPendingReview(answer);
   const isEssayAnswer = answer.type === 'ESSAY';
@@ -145,28 +146,52 @@ function AnswerCard({ answer, index, sessionId }: { answer: SessionResultAnswer;
           )}
 
           {answer.type === 'ESSAY' && (
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-2">
-                <div className="rounded-xl bg-blue-50 px-3 py-2.5 dark:bg-blue-900/10">
-                  <p className="text-xs font-bold uppercase text-slate-400">Band</p>
-                  <p className="mt-1 text-sm font-black text-blue-700 dark:text-blue-300">
-                    {answer.aiFeedback?.bandLabel ?? (isPendingAnswer ? 'Pending review' : 'Not assigned')}
-                  </p>
+            userTier === 'BASIC' ? (
+              <FeaturePaywall
+                title="Essay Feedback"
+                description="Available on Standard and above. Ask your parent to upgrade your plan."
+                requiredTier="STANDARD"
+                compact
+              />
+            ) : (
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-xl bg-blue-50 px-3 py-2.5 dark:bg-blue-900/10">
+                    <p className="text-xs font-bold uppercase text-slate-400">Band</p>
+                    <p className="mt-1 text-sm font-black text-blue-700 dark:text-blue-300">
+                      {answer.aiFeedback?.bandLabel ?? (isPendingAnswer ? 'Pending review' : 'Not assigned')}
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-blue-50 px-3 py-2.5 dark:bg-blue-900/10">
+                    <p className="text-xs font-bold uppercase text-slate-400">Score</p>
+                    <p className="mt-1 text-sm font-black text-blue-700 dark:text-blue-300">
+                      {isPendingAnswer ? 'Pending review' : essayScore === null ? 'Not available' : `${essayScore}/${answer.maxMarks}`}
+                    </p>
+                  </div>
                 </div>
-                <div className="rounded-xl bg-blue-50 px-3 py-2.5 dark:bg-blue-900/10">
-                  <p className="text-xs font-bold uppercase text-slate-400">Score</p>
-                  <p className="mt-1 text-sm font-black text-blue-700 dark:text-blue-300">
-                    {isPendingAnswer ? 'Pending review' : essayScore === null ? 'Not available' : `${essayScore}/${answer.maxMarks}`}
-                  </p>
-                </div>
+                {answer.aiFeedback?.bandDescriptor && (
+                  <div className="rounded-xl bg-blue-50 px-3 py-2.5 dark:bg-blue-900/10">
+                    <p className="text-xs font-bold uppercase text-slate-400">Band Descriptor</p>
+                    <p className="mt-1 text-sm font-medium text-blue-700 dark:text-blue-300">{answer.aiFeedback.bandDescriptor}</p>
+                  </div>
+                )}
+                {userTier === 'PREMIUM' ? (
+                  <Link
+                    href={`/dashboard/exams/sessions/${sessionId}/result/essays/${encodeURIComponent(answer.questionId)}`}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-blue-700"
+                  >
+                    See Full Review <ArrowRight size={15} />
+                  </Link>
+                ) : (
+                  <FeaturePaywall
+                    title="Detailed AI Feedback"
+                    description="Per-criterion breakdown, strengths, and improvements are available on Premium. Ask your parent to upgrade your plan."
+                    requiredTier="PREMIUM"
+                    compact
+                  />
+                )}
               </div>
-              <Link
-                href={`/dashboard/exams/sessions/${sessionId}/result/essays/${encodeURIComponent(answer.questionId)}`}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-blue-700"
-              >
-                See Full Review <ArrowRight size={15} />
-              </Link>
-            </div>
+            )
           )}
 
           {!isEssayAnswer && isPendingAnswer && (
@@ -193,13 +218,26 @@ function AnswerCard({ answer, index, sessionId }: { answer: SessionResultAnswer;
             </div>
           )}
 
-          {!isEssayAnswer && answer.explanation && (
-            <div className="mt-3 rounded-xl bg-slate-50 px-3 py-2.5 dark:bg-slate-800">
-              <p className="text-xs font-bold uppercase text-slate-400">Explanation</p>
-              <div className="mt-1 text-sm font-medium text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
-                <QuestionLatexRenderer text={answer.explanation} latexEnabled={answer.latexEnabled} />
+          {!isEssayAnswer && !isPendingAnswer && (
+            userTier !== 'BASIC' ? (
+              answer.explanation && (
+                <div className="mt-3 rounded-xl bg-slate-50 px-3 py-2.5 dark:bg-slate-800">
+                  <p className="text-xs font-bold uppercase text-slate-400">Explanation</p>
+                  <div className="mt-1 text-sm font-medium text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
+                    <QuestionLatexRenderer text={answer.explanation} latexEnabled={answer.latexEnabled} />
+                  </div>
+                </div>
+              )
+            ) : (
+              <div className="mt-3">
+                <FeaturePaywall
+                  title="Answer Explanation"
+                  description="Available on Standard and above. Ask your parent to upgrade your plan."
+                  requiredTier="STANDARD"
+                  compact
+                />
               </div>
-            </div>
+            )
           )}
 
           {!isEssayAnswer && answer.tutorFeedback && (
@@ -254,9 +292,12 @@ export default function ExamResultPage() {
         router.push(`/dashboard/exams/${examId}/session`);
       }
     } catch (err) {
-      if (!isAxiosError(err)) {
-        void showClientErrorAlert('Failed to start retake.');
-      }
+      // Surface the backend reason (e.g. tier / retake-limit 403). The global
+      // client suppresses 403 toasts, so show it explicitly here.
+      const message = isAxiosError(err)
+        ? err.response?.data?.message || 'Failed to start retake.'
+        : 'Failed to start retake.';
+      void showClientErrorAlert(message, 'Cannot start retake');
     } finally {
       setIsStartingRetake(false);
     }
@@ -695,7 +736,7 @@ export default function ExamResultPage() {
           <h2 className="text-base font-black text-slate-900 dark:text-slate-100">Answer Review</h2>
           {result.answers.map((answer, i) => {
             if (!answer.studentAnswer || answer.studentAnswer.trim() === '') return null;
-            return <AnswerCard key={answer.questionId} answer={answer} index={i} sessionId={sessionId} />;
+            return <AnswerCard key={answer.questionId} answer={answer} index={i} sessionId={sessionId} userTier={result.ownerTier} />;
           })}
         </div>
       )}

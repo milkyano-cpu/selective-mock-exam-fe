@@ -27,6 +27,7 @@ import {
 import { subjectsService } from '@/features/subjects/services/subjects.service';
 import { practiceService } from '@/features/practice/services/practice.service';
 import { analyticsService } from '@/features/analytics/services/analytics.service';
+import { FeaturePaywall } from '@/components/billing/FeaturePaywall';
 import type { Subject, Topic } from '@/features/subjects/types/subjects.types';
 import type {
   FreePracticeTopic,
@@ -140,6 +141,7 @@ export default function PracticeHubPage() {
   const [isLoadingSessions, setIsLoadingSessions] = useState(true);
   const [freeTopics, setFreeTopics] = useState<FreePracticeTopic[]>([]);
   const [hasFullPracticeAccess, setHasFullPracticeAccess] = useState(true);
+  const [dailyUsage, setDailyUsage] = useState<{ used: number; limit: number } | null>(null);
 
   const [topicPerformance, setTopicPerformance] = useState<TopicPerformanceItem[]>([]);
   const [weakTopics, setWeakTopics] = useState<RecommendationItem[]>([]);
@@ -226,11 +228,13 @@ export default function PracticeHubPage() {
       if (res.success) {
         setHasFullPracticeAccess(res.data.fullPracticeAccess);
         setFreeTopics(res.data.freeTopics);
+        setDailyUsage(res.data.dailyUsage);
         if (res.data.fullPracticeAccess) void loadWeakTopics();
         else setWeakTopics([]);
       }
     } catch {
       setHasFullPracticeAccess(true);
+      setDailyUsage(null);
       setWeakTopics([]);
     }
   }, [loadWeakTopics]);
@@ -267,7 +271,7 @@ export default function PracticeHubPage() {
   const isBasicLimited = !hasFullPracticeAccess;
   const isTopicAccessible = (topicId: string | null | undefined) =>
     !isBasicLimited || (topicId ? freeTopicIds.has(topicId) : false);
-  const lockedPracticeMessage = 'Basic members can only practice the first topic in each subject.';
+  const lockedPracticeMessage = 'Basic members can only practice free topics.';
 
   const inProgressSessionMap = new Map(
     sessions.filter((s) => s.status === 'IN_PROGRESS' && s.topicId).map((s) => [s.topicId!, s])
@@ -533,16 +537,44 @@ export default function PracticeHubPage() {
         </section>
 
         {isBasicLimited && (
-          <div className="flex items-start gap-3 rounded-3xl border border-slate-200 bg-white px-5 py-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300">
-              <LockKeyhole size={18} />
-            </div>
-            <div className="min-w-0">
-              <p className="text-sm font-black text-slate-900 dark:text-slate-100">Basic practice access</p>
-              <p className="text-xs font-bold text-slate-500 dark:text-slate-400">
-                You can open the first topic in each subject. Ask your parent to upgrade your plan to unlock every practice mode.
-              </p>
-            </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            {/* Locked feature paywall */}
+            <FeaturePaywall
+              title="Full Practice Locked"
+              description="Basic members can only practice free topics. Unlock every topic, subject practice, and weak-area drills on Standard. Ask your parent to upgrade your plan."
+              requiredTier="STANDARD"
+              compact
+            />
+
+            {/* Daily session usage indicator */}
+            {dailyUsage && (
+              <div className="flex flex-col justify-center rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-black text-slate-900 dark:text-slate-100">Daily Sessions</p>
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: dailyUsage.limit }).map((_, i) => (
+                        <span
+                          key={i}
+                          className={[
+                            'h-2.5 w-2.5 rounded-full',
+                            i < dailyUsage.used
+                              ? 'bg-[#0A9AE2]'
+                              : 'bg-slate-200 dark:bg-slate-700',
+                          ].join(' ')}
+                        />
+                      ))}
+                    </div>
+                    <span className="text-xs font-bold text-slate-500 dark:text-slate-400">
+                      {dailyUsage.used} of {dailyUsage.limit} used
+                    </span>
+                  </div>
+                </div>
+                <p className="mt-2 text-xs font-medium text-slate-400 dark:text-slate-500">
+                  Resets at midnight · Ask your parent to upgrade for unlimited →
+                </p>
+              </div>
+            )}
           </div>
         )}
 
