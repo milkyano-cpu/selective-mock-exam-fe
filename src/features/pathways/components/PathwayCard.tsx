@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowUpDown, BookOpen, BookOpenCheck, CheckCircle2, Lock, Plus, Target, Unlock } from 'lucide-react';
+import { AlertTriangle, ArrowUpDown, BookOpen, BookOpenCheck, CheckCircle2, Loader2, Lock, Plus, Target, Trash2, Unlock } from 'lucide-react';
 import { PathwayNode } from './PathwayNode';
 import type { PathwayDetail, PathwayNodeItem } from '../types/pathways.types';
 
@@ -51,6 +51,8 @@ interface PathwayCardProps {
   onEditNodeQuestions?: (node: PathwayNodeItem) => void;
   /** Tutor: open the reorder-nodes modal for this pathway. */
   onReorder?: () => void;
+  /** Tutor: remove a single node from the pathway (inline-confirmed in the row). */
+  onRemoveNode?: (node: PathwayNodeItem) => void | Promise<void>;
 }
 
 export function PathwayCard({
@@ -62,8 +64,11 @@ export function PathwayCard({
   startingNodeId,
   onEditNodeQuestions,
   onReorder,
+  onRemoveNode,
 }: PathwayCardProps) {
   const [removing, setRemoving] = useState(false);
+  const [confirmingNodeId, setConfirmingNodeId] = useState<string | null>(null);
+  const [removingNodeId, setRemovingNodeId] = useState<string | null>(null);
   const completedCount = pathway.nodes.filter((node) => node.progress?.completedAt).length;
   const unlockedCount = pathway.nodes.filter((node) => node.progress?.isUnlocked).length;
   const lockedCount = Math.max(pathway.nodes.length - unlockedCount, 0);
@@ -77,6 +82,17 @@ export function PathwayCard({
     setRemoving(true);
     await onRemove?.();
     setRemoving(false);
+  };
+
+  const handleRemoveNode = async (node: PathwayNodeItem) => {
+    if (removingNodeId) return;
+    setRemovingNodeId(node.id);
+    try {
+      await onRemoveNode?.(node);
+      setConfirmingNodeId(null);
+    } finally {
+      setRemovingNodeId(null);
+    }
   };
 
   if (!isTutorView) {
@@ -329,68 +345,110 @@ export function PathwayCard({
                     ? 'text-slate-400'
                     : 'text-amber-700 dark:text-amber-300';
 
+              const isConfirming = confirmingNodeId === node.id;
               return (
                 <div
                   key={node.id}
-                  className={['flex items-center gap-3 rounded-2xl border p-3', rowClass].join(' ')}
+                  className={['rounded-2xl border', rowClass].join(' ')}
                 >
-                  <div
-                    className={[
-                      'flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg text-xs font-black',
-                      indexClass,
-                    ].join(' ')}
-                  >
-                    {i + 1}
-                  </div>
-                  <p className={['flex-1 truncate text-sm font-bold', nameClass].join(' ')}>
-                    {node.topic.name}
-                  </p>
+                  <div className="flex items-center gap-3 p-3">
+                    <div
+                      className={[
+                        'flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg text-xs font-black',
+                        indexClass,
+                      ].join(' ')}
+                    >
+                      {i + 1}
+                    </div>
+                    <p className={['flex-1 truncate text-sm font-bold', nameClass].join(' ')}>
+                      {node.topic.name}
+                    </p>
 
-                  {/* Right-side affordances per state */}
-                  {isCompleted ? (
-                    <>
+                    {/* Right-side affordances per state */}
+                    {isCompleted ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => onEditNodeQuestions?.(node)}
+                          className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-600 transition-colors hover:bg-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-300"
+                          title="Edit questions"
+                        >
+                          {node.questionCount} question{node.questionCount !== 1 ? 's' : ''}
+                        </button>
+                        <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-300">
+                          Mastered
+                        </span>
+                      </>
+                    ) : hasQuestions ? (
+                      <>
+                        <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-bold text-[#0A9AE2] dark:bg-blue-500/20 dark:text-blue-300">
+                          {node.questionCount} question{node.questionCount !== 1 ? 's' : ''}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => onEditNodeQuestions?.(node)}
+                          className="rounded-lg px-2 py-0.5 text-xs font-bold text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
+                        >
+                          Edit
+                        </button>
+                      </>
+                    ) : isLocked ? (
                       <button
                         type="button"
                         onClick={() => onEditNodeQuestions?.(node)}
-                        className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-600 transition-colors hover:bg-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-300"
-                        title="Edit questions"
+                        className="rounded-lg px-2 py-0.5 text-xs font-bold text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
                       >
-                        {node.questionCount} question{node.questionCount !== 1 ? 's' : ''}
+                        Add Questions
                       </button>
-                      <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-300">
-                        Mastered
-                      </span>
-                    </>
-                  ) : hasQuestions ? (
-                    <>
-                      <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs font-bold text-[#0A9AE2] dark:bg-blue-500/20 dark:text-blue-300">
-                        {node.questionCount} question{node.questionCount !== 1 ? 's' : ''}
-                      </span>
+                    ) : (
                       <button
                         type="button"
                         onClick={() => onEditNodeQuestions?.(node)}
-                        className="rounded-lg px-2 py-0.5 text-xs font-bold text-slate-500 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
+                        className="inline-flex items-center gap-1 rounded-lg bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-700 transition-colors hover:bg-amber-200 dark:bg-amber-500/20 dark:text-amber-300"
                       >
-                        Edit
+                        <Plus size={10} strokeWidth={3} />
+                        Add Questions
                       </button>
-                    </>
-                  ) : isLocked ? (
-                    <button
-                      type="button"
-                      onClick={() => onEditNodeQuestions?.(node)}
-                      className="rounded-lg px-2 py-0.5 text-xs font-bold text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800"
-                    >
-                      Add Questions
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      onClick={() => onEditNodeQuestions?.(node)}
-                      className="inline-flex items-center gap-1 rounded-lg bg-amber-100 px-2.5 py-1 text-xs font-bold text-amber-700 transition-colors hover:bg-amber-200 dark:bg-amber-500/20 dark:text-amber-300"
-                    >
-                      <Plus size={10} strokeWidth={3} />
-                      Add Questions
-                    </button>
+                    )}
+
+                    {onRemoveNode && (
+                      <button
+                        type="button"
+                        onClick={() => setConfirmingNodeId(node.id)}
+                        className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10"
+                        title="Remove node"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
+
+                  {isConfirming && (
+                    <div className="border-t border-red-200/70 px-3 py-3 dark:border-red-500/20">
+                      <p className="flex items-start gap-2 text-xs font-semibold text-red-700 dark:text-red-300">
+                        <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+                        Removing this node will delete the student&apos;s progress for this topic.
+                      </p>
+                      <div className="mt-3 flex justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setConfirmingNodeId(null)}
+                          disabled={removingNodeId === node.id}
+                          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveNode(node)}
+                          disabled={removingNodeId === node.id}
+                          className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-red-700 disabled:opacity-60"
+                        >
+                          {removingNodeId === node.id ? <Loader2 size={12} className="animate-spin" /> : null}
+                          Yes, remove node
+                        </button>
+                      </div>
+                    </div>
                   )}
                 </div>
               );

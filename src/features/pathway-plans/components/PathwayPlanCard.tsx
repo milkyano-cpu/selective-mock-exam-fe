@@ -101,6 +101,14 @@ export function PathwayPlanCard({
           )}
         </div>
 
+        {/* Draft is tutor/admin-only in practice — students and parents never
+            receive unpublished plans from the API. */}
+        {!plan.isPublished && (
+          <span className="whitespace-nowrap rounded-full bg-amber-100 px-2.5 py-1 text-xs font-black text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+            Draft
+          </span>
+        )}
+
         {plan.isComplete ? (
           <span className="whitespace-nowrap rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-black text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
             Complete

@@ -2,8 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Map, Plus, BookOpen, Calendar } from 'lucide-react';
-import { DeleteConfirmModal } from '@/features/subjects/components/DeleteConfirmModal';
+import { Map, Plus, BookOpen, Calendar, Send, Loader2 } from 'lucide-react';
 import { pathwaysService } from '../services/pathways.service';
 import { pathwayPlansService } from '@/features/pathway-plans/services/pathway-plans.service';
 import { usePathwayPlans } from '@/features/pathway-plans/hooks/usePathwayPlans';
@@ -36,8 +35,8 @@ export function TutorPathwayView() {
   // Modals
   const [createPlanOpen, setCreatePlanOpen] = useState(false);
   const [editPlanOpen, setEditPlanOpen] = useState(false);
+  const [isPublishing, setIsPublishing] = useState(false);
   const [addPathwayOpen, setAddPathwayOpen] = useState(false);
-  const [deletePlan, setDeletePlan] = useState<PathwayPlanListItem | null>(null);
   const [addNodeState, setAddNodeState] = useState<{ open: boolean; pathway: PathwayDetail | null }>({
     open: false,
     pathway: null,
@@ -161,20 +160,50 @@ export function TutorPathwayView() {
     });
   };
 
-  const handleConfirmDeletePlan = async () => {
-    if (!deletePlan) return;
-    const res = await pathwayPlansService.remove(deletePlan.id);
+  // Delete the plan currently open in the edit modal. The modal handles the
+  // inline confirmation, so reaching here means the tutor already confirmed.
+  const handleDeleteCurrentPlan = async () => {
+    if (!selectedPlanId) return;
+    const res = await pathwayPlansService.remove(selectedPlanId);
     if (res.success) {
-      if (selectedPlanId === deletePlan.id) setSelectedPlanId('');
+      setEditPlanOpen(false);
+      setSelectedPlanId('');
       void fetchPlans();
     }
-    setDeletePlan(null);
+  };
+
+  const handleRemoveNode = async (pathwayId: string, nodeId: string) => {
+    const res = await pathwaysService.removeNode(pathwayId, nodeId);
+    if (!res.success) return;
+    setPathwayDetails((prev) => {
+      const detail = prev[pathwayId];
+      if (!detail) return prev;
+      const nodes = detail.nodes.filter((n) => n.id !== nodeId);
+      return { ...prev, [pathwayId]: { ...detail, nodes, nodeCount: nodes.length } };
+    });
+    // Keep the left-hand plan list's topic counts in sync.
+    void fetchPlans();
   };
 
   // After an edit, refresh the plan list and the open detail header.
   const handlePlanUpdated = () => {
     void fetchPlans();
     refreshPlanDetail();
+  };
+
+  // Publish the open draft plan: one-way, no confirm (not destructive).
+  const handlePublishPlan = async () => {
+    if (!selectedPlanId || isPublishing) return;
+    setIsPublishing(true);
+    try {
+      const res = await pathwayPlansService.publish(selectedPlanId);
+      if (res.success) {
+        setPlanDetail((prev) => (prev ? { ...prev, isPublished: true } : prev));
+        void fetchPlans();
+      }
+    } finally {
+      setIsPublishing(false);
+    }
   };
 
   const existingSubjectIds = planDetail?.pathways.map((p) => p.subjectId) ?? [];
@@ -231,14 +260,21 @@ export function TutorPathwayView() {
                             : 'border-slate-200 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800',
                         ].join(' ')}
                       >
-                        <p
-                          className={[
-                            'text-sm font-black',
-                            active ? 'text-[#0A9AE2]' : 'text-slate-700 dark:text-slate-200',
-                          ].join(' ')}
-                        >
-                          {plan.name}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <p
+                            className={[
+                              'truncate text-sm font-black',
+                              active ? 'text-[#0A9AE2]' : 'text-slate-700 dark:text-slate-200',
+                            ].join(' ')}
+                          >
+                            {plan.name}
+                          </p>
+                          {!plan.isPublished && (
+                            <span className="shrink-0 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+                              Draft
+                            </span>
+                          )}
+                        </div>
                         <p className="mt-0.5 text-xs text-slate-400">
                           {plan.studentName ? `${plan.studentName} · ` : ''}
                           {plan.isComplete
@@ -289,13 +325,31 @@ export function TutorPathwayView() {
                     )}
                   </div>
                   {planDetail && (
-                    <button
-                      type="button"
-                      onClick={() => setEditPlanOpen(true)}
-                      className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-500 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-                    >
-                      Edit Plan
-                    </button>
+                    <div className="flex shrink-0 items-center gap-2">
+                      {!planDetail.isPublished && (
+                        <>
+                          <span className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-black uppercase tracking-wide text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+                            Draft
+                          </span>
+                          <button
+                            type="button"
+                            onClick={handlePublishPlan}
+                            disabled={isPublishing}
+                            className="flex items-center gap-1.5 rounded-xl bg-[#0A9AE2] px-4 py-2 text-sm font-bold text-white transition-colors hover:bg-[#0659AA] disabled:opacity-60"
+                          >
+                            {isPublishing ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
+                            Publish Plan
+                          </button>
+                        </>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setEditPlanOpen(true)}
+                        className="flex items-center gap-1.5 rounded-xl border border-slate-200 px-4 py-2 text-sm font-bold text-slate-500 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                      >
+                        Edit Plan
+                      </button>
+                    </div>
                   )}
                 </motion.div>
 
@@ -345,6 +399,7 @@ export function TutorPathwayView() {
                               setPickerState({ open: true, pathway: detail, node })
                             }
                             onReorder={() => setReorderState({ open: true, pathway: detail })}
+                            onRemoveNode={(node) => handleRemoveNode(detail.id, node.id)}
                           />
                         );
                       })}
@@ -379,10 +434,7 @@ export function TutorPathwayView() {
         plan={planDetail}
         onClose={() => setEditPlanOpen(false)}
         onUpdated={handlePlanUpdated}
-        onDelete={() => {
-          setEditPlanOpen(false);
-          setDeletePlan(plans.find((p) => p.id === selectedPlanId) ?? null);
-        }}
+        onDelete={handleDeleteCurrentPlan}
       />
 
       {selectedPlanId && (
@@ -439,18 +491,6 @@ export function TutorPathwayView() {
           }}
         />
       )}
-
-      <DeleteConfirmModal
-        isOpen={Boolean(deletePlan)}
-        title="Delete this plan?"
-        message={
-          deletePlan
-            ? `Deleting "${deletePlan.name}" removes every subject, topic, and the student's progress inside it. This action cannot be undone.`
-            : ''
-        }
-        onConfirm={handleConfirmDeletePlan}
-        onClose={() => setDeletePlan(null)}
-      />
     </div>
   );
 }

@@ -21,6 +21,7 @@ export interface PathwayPlanListItem {
   tutorName: string | null;
   dueDate: string | null;
   completedAt: string | null;
+  isPublished: boolean;
   createdAt: string;
   updatedAt: string;
   subjects: PlanSubjectSummary[];
@@ -59,6 +60,7 @@ export interface ListPlansResponse {
 export type GetPlanResponse = ApiResponse<PathwayPlanDetail>;
 export type CreatePlanResponse = ApiResponse<PathwayPlanListItem>;
 export type UpdatePlanResponse = ApiResponse<PathwayPlanListItem>;
+export type PublishPlanResponse = ApiResponse<PathwayPlanListItem>;
 
 export interface AddPlanPathwayData {
   id: string;

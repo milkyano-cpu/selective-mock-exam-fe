@@ -4,6 +4,7 @@ import type {
   GetPlanResponse,
   CreatePlanResponse,
   UpdatePlanResponse,
+  PublishPlanResponse,
   AddPlanPathwayResponse,
   ListPlansQuery,
   CreatePlanPayload,
@@ -34,6 +35,11 @@ export const pathwayPlansService = {
 
   remove: async (id: string): Promise<{ success: boolean; message: string }> => {
     const response = await mdwClient.delete(`/pathway-plans/${id}`);
+    return response.data;
+  },
+
+  publish: async (id: string): Promise<PublishPlanResponse> => {
+    const response = await mdwClient.patch(`/pathway-plans/${id}/publish`);
     return response.data;
   },
 

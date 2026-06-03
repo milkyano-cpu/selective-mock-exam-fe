@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { isAxiosError } from 'axios';
-import { X, Loader2, Map, Trash2 } from 'lucide-react';
+import { X, Loader2, Map, Trash2, AlertTriangle } from 'lucide-react';
 import { pathwayPlansService } from '../services/pathway-plans.service';
 import type { PathwayPlanDetail, PathwayPlanListItem } from '../types/pathway-plans.types';
 
@@ -11,7 +11,8 @@ interface EditPathwayPlanModalProps {
   plan: PathwayPlanDetail | PathwayPlanListItem | null;
   onClose: () => void;
   onUpdated: (plan: PathwayPlanListItem) => void;
-  onDelete: () => void;
+  /** Executes the delete; the modal only calls it after inline confirmation. */
+  onDelete: () => void | Promise<void>;
 }
 
 // Convert an ISO datetime to the yyyy-MM-dd value a <input type="date"> expects.
@@ -36,12 +37,17 @@ export function EditPathwayPlanModal({
   const [dueDate, setDueDate] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Delete is confirmed inline inside this modal (no second modal), so the
+  // tutor never sees the edit modal close before they've confirmed.
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (isOpen && plan) {
       setName(plan.name);
       setDueDate(toDateInputValue(plan.dueDate));
       setError(null);
+      setConfirmingDelete(false);
     }
   }, [isOpen, plan]);
 
@@ -73,6 +79,17 @@ export function EditPathwayPlanModal({
       );
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    try {
+      await onDelete();
+      // The parent closes this modal on success. If it didn't (delete failed),
+      // clear the spinner so the tutor can retry or cancel.
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -133,34 +150,65 @@ export function EditPathwayPlanModal({
             </p>
           )}
 
-          <div className="flex items-center justify-between gap-3 pt-2">
-            <button
-              type="button"
-              onClick={onDelete}
-              className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-bold text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-500/10"
-            >
-              <Trash2 size={14} />
-              Delete
-            </button>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={onClose}
-                className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSave}
-                disabled={isSaving}
-                className="flex items-center justify-center gap-2 rounded-xl bg-[#0A9AE2] px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#0659AA] disabled:opacity-60"
-              >
-                {isSaving ? <Loader2 size={14} className="animate-spin" /> : null}
-                Save
-              </button>
+          {confirmingDelete ? (
+            <div className="rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-500/30 dark:bg-red-500/10">
+              <p className="flex items-start gap-2 text-sm font-medium text-red-700 dark:text-red-300">
+                <AlertTriangle size={16} className="mt-0.5 shrink-0" />
+                <span>
+                  Deleting this plan will permanently remove all subjects, topics, and the
+                  student&apos;s progress inside it. This cannot be undone.
+                </span>
+              </p>
+              <div className="mt-4 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setConfirmingDelete(false)}
+                  disabled={isDeleting}
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                  className="flex items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-red-700 disabled:opacity-60"
+                >
+                  {isDeleting ? <Loader2 size={14} className="animate-spin" /> : null}
+                  Yes, delete this plan
+                </button>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="flex items-center justify-between gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmingDelete(true)}
+                className="inline-flex items-center gap-1.5 rounded-xl px-3 py-2.5 text-sm font-bold text-red-500 transition-colors hover:bg-red-50 dark:hover:bg-red-500/10"
+              >
+                <Trash2 size={14} />
+                Delete
+              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className="flex items-center justify-center gap-2 rounded-xl bg-[#0A9AE2] px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#0659AA] disabled:opacity-60"
+                >
+                  {isSaving ? <Loader2 size={14} className="animate-spin" /> : null}
+                  Save
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

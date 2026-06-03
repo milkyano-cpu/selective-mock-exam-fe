@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { isAxiosError } from 'axios';
 import { examService } from '@/features/exams/services/exams.service';
 import { QuestionLatexRenderer } from '@/components/ui/QuestionLatexRenderer';
+import { env } from '@/lib/env';
 import type { ExamSession, SessionQuestion, BatchAnswerItem } from '@/features/exams/types/exams.types';
 import {
   AlertCircle,
@@ -835,13 +836,25 @@ export default function ExamSessionPage() {
 
                 {/* Essay text area */}
                 {currentQuestion.type === 'ESSAY' && (
-                  <textarea
-                    value={answers.get(currentQuestion.questionId) ?? ''}
-                    onChange={(e) => handleSelectAnswer(currentQuestion.questionId, e.target.value)}
-                    placeholder="Write your answer here..."
-                    rows={5}
-                    className="mt-5 w-full rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm font-medium text-slate-900 placeholder-slate-400 focus:border-[#FF6900] focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
-                  />
+                  <>
+                    <textarea
+                      value={answers.get(currentQuestion.questionId) ?? ''}
+                      onChange={(e) => handleSelectAnswer(currentQuestion.questionId, e.target.value)}
+                      // Students must type their essay during a live exam: block
+                      // paste and drag-drop of pre-written text. Production only —
+                      // dev keeps paste so we can test with sample answers.
+                      onPaste={env.isProduction ? (e) => e.preventDefault() : undefined}
+                      onDrop={env.isProduction ? (e) => e.preventDefault() : undefined}
+                      placeholder="Write your answer here..."
+                      rows={5}
+                      className="mt-5 w-full rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm font-medium text-slate-900 placeholder-slate-400 focus:border-[#FF6900] focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                    />
+                    {env.isProduction && (
+                      <p className="mt-2 text-xs font-medium text-slate-400">
+                        Pasting is disabled — please type your answer.
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
 
