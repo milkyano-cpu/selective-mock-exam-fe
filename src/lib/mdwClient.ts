@@ -358,6 +358,17 @@ function hasInteractiveSuccess(url: string | undefined, method: string | undefin
   ) {
     return false;
   }
+  // Flashcard actions (create, edit, delete, review, generate) each surface their
+  // own inline status message on the flashcards page. The generic toast is
+  // redundant there, and a non-zero `skipped`/dedup count (normal for generation)
+  // would otherwise trip the misleading "Saved with warnings" toast — students
+  // should only see the page's own feedback.
+  if (
+    (normalizedMethod === 'POST' || normalizedMethod === 'PATCH' || normalizedMethod === 'DELETE') &&
+    Boolean(url?.includes('/flashcards'))
+  ) {
+    return false;
+  }
   if (normalizedMethod === 'GET') return Boolean(url?.includes('/download'));
   return true;
 }

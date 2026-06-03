@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Brain, CheckCircle2, Layers3, Plus, RotateCcw, Sparkles, Trash2, type LucideIcon } from "lucide-react";
+import { Brain, CheckCircle2, ChevronLeft, ChevronRight, Layers3, Plus, RotateCcw, Sparkles, Trash2, type LucideIcon } from "lucide-react";
 import { isAxiosError } from "axios";
 import { FeaturePaywall } from "@/components/billing/FeaturePaywall";
 import { useAuthStore } from "@/features/auth/store/auth.store";
@@ -35,6 +35,19 @@ type Stats = {
 };
 
 const emptyStats: Stats = { total: 0, due: 0, newCards: 0, reviewed: 0 };
+
+const PAGE_SIZE = 10;
+
+type ListMeta = { total: number; totalPages: number };
+
+// Sliding window of up to 5 page numbers centred on the current page.
+function getPageWindow(current: number, total: number): number[] {
+  const start = Math.max(1, Math.min(current - 2, total - 4));
+  const end = Math.min(total, start + 4);
+  const pages: number[] = [];
+  for (let i = start; i <= end; i += 1) pages.push(i);
+  return pages;
+}
 
 const statCards: Array<[string, keyof Stats, LucideIcon]> = [
   ["Due today", "due", Brain],
@@ -78,6 +91,8 @@ export default function FlashcardsPage() {
   const [error, setError] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [page, setPage] = useState(1);
+  const [meta, setMeta] = useState<ListMeta>({ total: 0, totalPages: 1 });
 
   const activeCard = dueCards[0] ?? null;
 
@@ -87,16 +102,35 @@ export default function FlashcardsPage() {
     return `${remaining} card${remaining === 1 ? "" : "s"} left today`;
   }, [dueCards.length, stats.due]);
 
+  async function loadList(targetPage: number) {
+    const res = await readJson<{ data: Flashcard[]; meta: ListMeta }>(
+      `/api/flashcards?page=${targetPage}&limit=${PAGE_SIZE}`
+    );
+    // After deletions the last page can become empty — step back to a real page.
+    if (res.data.length === 0 && targetPage > 1) {
+      await loadList(targetPage - 1);
+      return;
+    }
+    setCards(res.data);
+    setMeta({ total: res.meta.total, totalPages: Math.max(1, res.meta.totalPages) });
+    setPage(targetPage);
+  }
+
   async function loadData() {
     setError("");
-    const [listRes, dueRes, statsRes] = await Promise.all([
-      readJson<{ data: Flashcard[] }>("/api/flashcards?limit=50"),
+    const [, dueRes, statsRes] = await Promise.all([
+      loadList(page),
       readJson<{ data: Flashcard[] }>("/api/flashcards/due"),
       readJson<{ data: Stats }>("/api/flashcards/stats"),
     ]);
-    setCards(listRes.data);
     setDueCards(dueRes.data);
     setStats(statsRes.data);
+  }
+
+  function goToPage(target: number) {
+    if (target < 1 || target > meta.totalPages || target === page) return;
+    setError("");
+    loadList(target).catch((err) => setError(getVisibleError(err, "Failed to load flashcards")));
   }
 
   useEffect(() => {
@@ -349,6 +383,48 @@ export default function FlashcardsPage() {
             ))
           )}
         </div>
+
+        {!isLoading && meta.total > 0 && (
+          <div className="mt-6 flex flex-col items-center justify-between gap-4 border-t border-slate-100 pt-5 dark:border-slate-800 sm:flex-row">
+            <p className="text-sm font-bold text-slate-500 dark:text-slate-400">
+              Showing {(page - 1) * PAGE_SIZE + 1}–{(page - 1) * PAGE_SIZE + cards.length} of {meta.total}
+            </p>
+            {meta.totalPages > 1 && (
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => goToPage(page - 1)}
+                  disabled={page <= 1}
+                  aria-label="Previous page"
+                  className="inline-flex items-center gap-1 rounded-xl border border-slate-200 px-3 py-2 text-sm font-black text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                >
+                  <ChevronLeft size={16} /> Prev
+                </button>
+                {getPageWindow(page, meta.totalPages).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => goToPage(p)}
+                    aria-current={p === page ? "page" : undefined}
+                    className={`min-w-9 rounded-xl px-3 py-2 text-sm font-black transition ${
+                      p === page
+                        ? "bg-[#0A9AE2] text-white"
+                        : "border border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ))}
+                <button
+                  onClick={() => goToPage(page + 1)}
+                  disabled={page >= meta.totalPages}
+                  aria-label="Next page"
+                  className="inline-flex items-center gap-1 rounded-xl border border-slate-200 px-3 py-2 text-sm font-black text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                >
+                  Next <ChevronRight size={16} />
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </section>
 
       <DeleteConfirmModal
