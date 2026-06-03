@@ -175,21 +175,14 @@ function AnswerCard({ answer, index, sessionId, userTier }: { answer: SessionRes
                     <p className="mt-1 text-sm font-medium text-blue-700 dark:text-blue-300">{answer.aiFeedback.bandDescriptor}</p>
                   </div>
                 )}
-                {userTier === 'PREMIUM' ? (
-                  <Link
-                    href={`/dashboard/exams/sessions/${sessionId}/result/essays/${encodeURIComponent(answer.questionId)}`}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-blue-700"
-                  >
-                    See Full Review <ArrowRight size={15} />
-                  </Link>
-                ) : (
-                  <FeaturePaywall
-                    title="Detailed AI Feedback"
-                    description="Per-criterion breakdown, strengths, and improvements are available on Premium. Ask your parent to upgrade your plan."
-                    requiredTier="PREMIUM"
-                    compact
-                  />
-                )}
+                {/* BASIC is handled above, so STANDARD and PREMIUM both reach
+                    here and can open the full essay review. */}
+                <Link
+                  href={`/dashboard/exams/sessions/${sessionId}/result/essays/${encodeURIComponent(answer.questionId)}`}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-bold text-white transition-colors hover:bg-blue-700"
+                >
+                  See Full Review <ArrowRight size={15} />
+                </Link>
               </div>
             )
           )}

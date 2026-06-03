@@ -10,6 +10,7 @@ import {
   ChevronUp,
 } from 'lucide-react';
 import { QuestionLatexRenderer } from '@/components/ui/QuestionLatexRenderer';
+import { FeaturePaywall } from '@/components/billing/FeaturePaywall';
 import { examService } from '@/features/exams/services/exams.service';
 import type { SessionResultAnswer } from '@/features/exams/types/exams.types';
 
@@ -79,12 +80,16 @@ export default function EssayFullReviewPage() {
   const { sessionId, questionId } = useParams<{ sessionId: string; questionId: string }>();
   const router = useRouter();
   const [answer, setAnswer] = useState<SessionResultAnswer | null>(null);
+  const [ownerTier, setOwnerTier] = useState<'BASIC' | 'STANDARD' | 'PREMIUM' | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showEssay, setShowEssay] = useState(false);
 
   useEffect(() => {
     let isCancelled = false;
+    // Keep the loading skeleton up while we bounce BASIC users away, so they
+    // never see a flash of the review page they aren't allowed to open.
+    let isRedirecting = false;
 
     const loadReview = async () => {
       try {
@@ -94,6 +99,15 @@ export default function EssayFullReviewPage() {
           setError(response.message);
           return;
         }
+
+        // Guard: BASIC has no essay-review access, so deep-linking here must
+        // bounce back to the result page (where they see the STANDARD paywall).
+        if (response.data.ownerTier === 'BASIC') {
+          isRedirecting = true;
+          router.replace(`/dashboard/exams/sessions/${sessionId}/result`);
+          return;
+        }
+        setOwnerTier(response.data.ownerTier);
 
         const essay = response.data.answers.find(
           (item) => item.questionId === questionId && item.type === 'ESSAY'
@@ -109,7 +123,7 @@ export default function EssayFullReviewPage() {
           setError(isAxiosError(err) ? err.response?.data?.message || 'Failed to load essay review.' : 'Failed to load essay review.');
         }
       } finally {
-        if (!isCancelled) setIsLoading(false);
+        if (!isCancelled && !isRedirecting) setIsLoading(false);
       }
     };
 
@@ -117,7 +131,7 @@ export default function EssayFullReviewPage() {
     return () => {
       isCancelled = true;
     };
-  }, [questionId, sessionId]);
+  }, [questionId, sessionId, router]);
 
   const goBack = () => router.push(`/dashboard/exams/sessions/${sessionId}/result`);
 
@@ -233,46 +247,62 @@ export default function EssayFullReviewPage() {
         </section>
       )}
 
-      {/* Strengths */}
-      {strengths.length > 0 && <FeedbackList title="Strengths" entries={strengths} tone="positive" />}
+      {/* Detailed feedback — Strengths, Areas to Improve and the per-criterion
+          breakdown are PREMIUM-only. STANDARD sees the overall review above but
+          gets a paywall here instead. */}
+      {ownerTier === 'PREMIUM' ? (
+        <>
+          {/* Strengths */}
+          {strengths.length > 0 && <FeedbackList title="Strengths" entries={strengths} tone="positive" />}
 
-      {/* Areas to improve */}
-      {improvements.length > 0 && <FeedbackList title="Areas to Improve" entries={improvements} tone="improvement" />}
+          {/* Areas to improve */}
+          {improvements.length > 0 && <FeedbackList title="Areas to Improve" entries={improvements} tone="improvement" />}
 
-      {/* Criterion breakdown — one main card wrapping nested purple criterion cards */}
-      {criterionScores.length > 0 && (
+          {/* Criterion breakdown — one main card wrapping nested purple criterion cards */}
+          {criterionScores.length > 0 && (
+            <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 sm:p-5">
+              <h2 className="text-xs font-black uppercase tracking-wider text-violet-700 dark:text-violet-400">Criterion Breakdown</h2>
+              <div className="mt-4 space-y-4">
+                {criterionScores.map((criterion) => {
+                  const pct = criterion.maxScore > 0 ? Math.min(100, (criterion.score / criterion.maxScore) * 100) : 0;
+                  return (
+                    <article
+                      key={criterion.criterionId}
+                      className="rounded-2xl border border-violet-100 bg-purple-50 p-4 dark:border-violet-900/30 dark:bg-violet-950/10 sm:p-5"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <h3 className="text-sm font-black text-violet-900 dark:text-violet-300">{criterion.criterionName}</h3>
+                        <span className="shrink-0 rounded-full bg-violet-100 px-2.5 py-1 text-xs font-black text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
+                          {criterion.score} / {criterion.maxScore}
+                        </span>
+                      </div>
+                      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-violet-900/30">
+                        <div className="h-full rounded-full bg-gradient-to-r from-violet-600 to-purple-500" style={{ width: `${pct}%` }} />
+                      </div>
+                      {criterion.feedback && (
+                        <p className="mt-3 text-sm font-medium leading-relaxed text-violet-900/90 dark:text-violet-200/90">{criterion.feedback}</p>
+                      )}
+                      {(criterion.strengths?.length ?? 0) > 0 && (
+                        <CriterionPoints title="Strengths" entries={criterion.strengths ?? []} tone="positive" />
+                      )}
+                      {(criterion.improvements?.length ?? 0) > 0 && (
+                        <CriterionPoints title="To Improve" entries={criterion.improvements ?? []} tone="improvement" />
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+        </>
+      ) : (
         <section className="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900 sm:p-5">
-          <h2 className="text-xs font-black uppercase tracking-wider text-violet-700 dark:text-violet-400">Criterion Breakdown</h2>
-          <div className="mt-4 space-y-4">
-            {criterionScores.map((criterion) => {
-              const pct = criterion.maxScore > 0 ? Math.min(100, (criterion.score / criterion.maxScore) * 100) : 0;
-              return (
-                <article
-                  key={criterion.criterionId}
-                  className="rounded-2xl border border-violet-100 bg-purple-50 p-4 dark:border-violet-900/30 dark:bg-violet-950/10 sm:p-5"
-                >
-                  <div className="flex items-center justify-between gap-3">
-                    <h3 className="text-sm font-black text-violet-900 dark:text-violet-300">{criterion.criterionName}</h3>
-                    <span className="shrink-0 rounded-full bg-violet-100 px-2.5 py-1 text-xs font-black text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
-                      {criterion.score} / {criterion.maxScore}
-                    </span>
-                  </div>
-                  <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-violet-900/30">
-                    <div className="h-full rounded-full bg-gradient-to-r from-violet-600 to-purple-500" style={{ width: `${pct}%` }} />
-                  </div>
-                  {criterion.feedback && (
-                    <p className="mt-3 text-sm font-medium leading-relaxed text-violet-900/90 dark:text-violet-200/90">{criterion.feedback}</p>
-                  )}
-                  {(criterion.strengths?.length ?? 0) > 0 && (
-                    <CriterionPoints title="Strengths" entries={criterion.strengths ?? []} tone="positive" />
-                  )}
-                  {(criterion.improvements?.length ?? 0) > 0 && (
-                    <CriterionPoints title="To Improve" entries={criterion.improvements ?? []} tone="improvement" />
-                  )}
-                </article>
-              );
-            })}
-          </div>
+          <FeaturePaywall
+            title="Detailed Criterion Breakdown"
+            description="Per-criterion scores, strengths, and improvements are available on Premium. Ask your parent to upgrade your plan."
+            requiredTier="PREMIUM"
+            compact
+          />
         </section>
       )}
 
