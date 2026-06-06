@@ -1,9 +1,12 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Geist, Geist_Mono, Poppins, Patrick_Hand, Kalam } from "next/font/google";
 import "./globals.css";
+import "katex/dist/katex.min.css";
 import { ThemeProvider } from "@/components/providers/ThemeProvider";
 import { ServiceWorkerRegister } from "@/components/pwa/ServiceWorkerRegister";
 import { InstallPrompt } from "@/components/pwa/InstallPrompt";
+import { FeedbackBootstrap } from "@/components/feedback/FeedbackBootstrap";
+import { SessionExpiryBootstrap } from "@/components/feedback/SessionExpiryBootstrap";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,12 +18,47 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const poppins = Poppins({
+  variable: "--font-poppins",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800", "900"],
+});
+
+const patrickHand = Patrick_Hand({
+  variable: "--font-patrick-hand",
+  subsets: ["latin"],
+  weight: "400",
+});
+
+const kalam = Kalam({
+  variable: "--font-kalam",
+  subsets: ["latin"],
+  weight: ["400", "700"],
+});
+
 const APP_NAME = "Aspire Selective Entry Preparation";
 const APP_SHORT_NAME = "Aspire";
 const APP_DESCRIPTION =
   "Comprehensive platform for student preparation, mock exams, and analytics.";
 
+function getMetadataBase() {
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (process.env.VERCEL_PROJECT_PRODUCTION_URL
+      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+      : process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : "http://localhost:3000");
+
+  try {
+    return new URL(appUrl);
+  } catch {
+    return new URL("http://localhost:3000");
+  }
+}
+
 export const metadata: Metadata = {
+  metadataBase: getMetadataBase(),
   applicationName: APP_NAME,
   title: {
     default: APP_NAME,
@@ -75,11 +113,13 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${poppins.variable} ${patrickHand.variable} ${kalam.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col" suppressHydrationWarning>
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} themes={["light", "dark"]} disableTransitionOnChange>
+          <FeedbackBootstrap />
+          <SessionExpiryBootstrap />
           {children}
           <ServiceWorkerRegister />
           <InstallPrompt />

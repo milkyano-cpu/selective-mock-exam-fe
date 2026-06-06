@@ -1,15 +1,33 @@
 @import "tailwindcss";
 
+@keyframes shine {
+  100% { left: 200%; }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  15% { transform: translateX(-6px); }
+  30% { transform: translateX(6px); }
+  45% { transform: translateX(-4px); }
+  60% { transform: translateX(4px); }
+  75% { transform: translateX(-2px); }
+  90% { transform: translateX(2px); }
+}
+
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
-  --background: #f8fafc;
+  --background: #eefbff;
   --foreground: #0f172a;
   --brand-primary: #0A9AE2;
   --brand-secondary: #0864B6;
   --brand-dark: #0659AA;
   --brand-action: #FF6900;
   color-scheme: light;
+}
+
+html {
+  background: var(--background);
 }
 
 @theme inline {
@@ -71,3 +89,18 @@ input::-ms-clear {
   scrollbar-color: #cbd5e1 transparent;
 }
 
+
+/* Hide scrollbar but keep scroll functionality */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide bottom nav when a full-screen modal is open */
+html[data-modal-open] [data-bottom-nav] {
+  display: none;
+}

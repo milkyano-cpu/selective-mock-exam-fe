@@ -1,6 +1,7 @@
 export interface Subject {
   id: string;
   name: string;
+  questionCode: string | null;
   description: string | null;
   createdAt: string;
   updatedAt: string;
@@ -15,6 +16,7 @@ export interface Topic {
   subjectId: string;
   name: string;
   description: string | null;
+  isFreeTopic: boolean;
   createdAt: string;
   updatedAt: string;
   _count?: {
@@ -24,11 +26,13 @@ export interface Topic {
 
 export interface CreateSubjectPayload {
   name: string;
+  questionCode: string;
   description?: string | null;
 }
 
 export interface UpdateSubjectPayload {
   name?: string;
+  questionCode?: string;
   description?: string | null;
 }
 
@@ -40,6 +44,17 @@ export interface CreateTopicPayload {
 export interface UpdateTopicPayload {
   name?: string;
   description?: string | null;
+  isFreeTopic?: boolean;
+}
+
+export interface EnsureSubjectTopicsPayload {
+  subject: CreateSubjectPayload;
+  topics: CreateTopicPayload[];
+}
+
+export interface EnsureSubjectTopicsResult {
+  subject: Subject;
+  topics: Topic[];
 }
 
 export interface PaginationMeta {
@@ -73,4 +88,6 @@ export interface ListQuery {
   search?: string;
   sortBy?: string;
   order?: 'asc' | 'desc';
+  publishedOnly?: boolean;
+  practiceOnly?: boolean;
 }

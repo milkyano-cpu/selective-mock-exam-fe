@@ -18,17 +18,26 @@ export async function fetchFromBackend(req: Request, path: string, options: Requ
 
   const authHeader = req.headers.get("authorization");
   const cookieHeader = req.headers.get('cookie');
+  const originHeader = req.headers.get('origin');
   const accessTokenFromCookie = getCookieValue(cookieHeader, ACCESS_TOKEN_COOKIE);
   const refreshTokenFromCookie = getCookieValue(cookieHeader, REFRESH_TOKEN_COOKIE);
   const isFormDataBody = typeof FormData !== 'undefined' && options.body instanceof FormData;
+  const hasBody = options.body !== undefined && options.body !== null;
 
   // Build headers
   const defaultHeaders: Record<string, string> = {
     "X-Trace-Id": traceId,
   };
 
-  if (!isFormDataBody) {
+  if (hasBody && !isFormDataBody) {
     defaultHeaders["Content-Type"] = "application/json";
+  }
+
+  // Forward the request's Origin so backend handlers (e.g. Stripe checkout)
+  // can build success/cancel URLs that point back to the same environment
+  // the request came from. Falls back to backend's env.APP_URL when absent.
+  if (originHeader) {
+    defaultHeaders["Origin"] = originHeader;
   }
 
   if (authHeader) {
@@ -39,7 +48,8 @@ export async function fetchFromBackend(req: Request, path: string, options: Requ
 
   // Forward the refresh token as a Cookie header matching the backend's expected
   // cookie name. The backend reads request.cookies.refresh_token on /auth/refresh.
-  if (refreshTokenFromCookie) {
+  // Scoped to that path only — prevents the token from reaching every backend endpoint.
+  if (refreshTokenFromCookie && path === '/auth/refresh') {
     defaultHeaders['Cookie'] = `refresh_token=${refreshTokenFromCookie}`;
   }
 
@@ -66,7 +76,7 @@ export async function fetchFromBackend(req: Request, path: string, options: Requ
     return new Response(
       JSON.stringify({
         success: false,
-        message: "Gagal menghubungi Backend Server.",
+        message: "Failed to connect to the backend server.",
         traceId,
       }),
       {

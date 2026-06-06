@@ -20,8 +20,8 @@ export function DeleteConfirmModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-      <div className="w-full max-w-sm bg-white rounded-3xl shadow-xl overflow-hidden dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 text-center">
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+      <div className="w-full max-w-sm bg-white rounded-3xl shadow-xl overflow-hidden dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-6 pb-12 sm:pb-6 text-center">
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-100 mb-6 dark:bg-red-500/20">
           <AlertTriangle className="h-8 w-8 text-red-600 dark:text-red-500" />
         </div>

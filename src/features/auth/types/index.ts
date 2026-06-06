@@ -5,6 +5,7 @@ export interface User {
   name?: string;
   role: 'STUDENT' | 'PARENT' | 'TUTOR' | 'ADMIN';
   status?: 'ACTIVE' | 'SUSPENDED' | 'BANNED';
+  tier?: 'BASIC' | 'STANDARD' | 'PREMIUM';
   hasProfilePhoto?: boolean;
   profilePhotoUpdatedAt?: string | null;
 }
@@ -14,8 +15,9 @@ export interface AuthResponse {
   message?: string;
   data: {
     user: User;
-    accessToken: string;
-    refreshToken?: string;
+    expiresIn?: string;
+    accessTokenExpiresAt?: string;
+    sessionExpiresAt?: string;
   };
 }
 
@@ -38,6 +40,7 @@ export interface RegisterCredentials {
     yearLevel: string;
     schoolName: string;
   }>;
+  agreedToTerms: true;
 }
 
 export interface ChangePasswordPayload {

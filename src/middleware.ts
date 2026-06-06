@@ -20,6 +20,8 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
+  // Dashboard content is client-rendered and validates the user through mdwClient.
+  // Keeping rotation there avoids racing one-time refresh tokens against this middleware.
   if (isAuthPage && (accessToken || refreshToken) && pathname !== '/reset-password') {
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }

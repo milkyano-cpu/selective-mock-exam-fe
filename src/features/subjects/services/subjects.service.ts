@@ -1,4 +1,4 @@
-import mdwClient from '@/lib/mdwClient';
+import mdwClient, { buildFeedbackHeaders, type MdwRequestOptions } from '@/lib/mdwClient';
 import {
   Subject,
   Topic,
@@ -6,6 +6,8 @@ import {
   UpdateSubjectPayload,
   CreateTopicPayload,
   UpdateTopicPayload,
+  EnsureSubjectTopicsPayload,
+  EnsureSubjectTopicsResult,
   PaginatedResponse,
   SingleResponse,
   ActionResponse,
@@ -14,8 +16,8 @@ import {
 
 export const subjectsService = {
   // --- Subjects ---
-  listSubjects: async (query?: ListQuery): Promise<PaginatedResponse<Subject>> => {
-    const response = await mdwClient.get('/subjects', { params: query });
+  listSubjects: async (query?: ListQuery, options?: MdwRequestOptions): Promise<PaginatedResponse<Subject>> => {
+    const response = await mdwClient.get('/subjects', { params: query, headers: buildFeedbackHeaders(options) });
     return response.data;
   },
 
@@ -26,6 +28,11 @@ export const subjectsService = {
 
   createSubject: async (payload: CreateSubjectPayload): Promise<SingleResponse<Subject>> => {
     const response = await mdwClient.post('/subjects', payload);
+    return response.data;
+  },
+
+  ensureSubjectWithTopics: async (payload: EnsureSubjectTopicsPayload): Promise<SingleResponse<EnsureSubjectTopicsResult>> => {
+    const response = await mdwClient.post('/subjects/import/ensure', payload);
     return response.data;
   },
 
@@ -40,8 +47,8 @@ export const subjectsService = {
   },
 
   // --- Topics ---
-  listTopics: async (subjectId: string, query?: ListQuery): Promise<PaginatedResponse<Topic>> => {
-    const response = await mdwClient.get(`/subjects/${subjectId}/topics`, { params: query });
+  listTopics: async (subjectId: string, query?: ListQuery, options?: MdwRequestOptions): Promise<PaginatedResponse<Topic>> => {
+    const response = await mdwClient.get(`/subjects/${subjectId}/topics`, { params: query, headers: buildFeedbackHeaders(options) });
     return response.data;
   },
 

@@ -138,3 +138,71 @@ self.addEventListener('fetch', (event) => {
 self.addEventListener('message', (event) => {
   if (event.data === 'SKIP_WAITING') self.skipWaiting();
 });
+
+// Push Event: Receiving push notifications
+self.addEventListener('push', (event) => {
+  if (!event.data) return;
+
+  try {
+    const payload = event.data.json();
+    
+    // Fallback default values
+    const title = payload.title || 'Aspire PWA';
+    const message = payload.message || 'You have a new notification';
+    
+    // We can also extract the target route to open on click
+    // We attach it to the notification data so notificationclick can use it
+    const notificationData = {
+      url: '/dashboard/notifications',
+      ...payload.data // in case we want to override with a specific route
+    };
+
+    event.waitUntil(
+      self.registration.showNotification(title, {
+        body: message,
+        icon: '/icon-192.png',
+        badge: '/icon-192.png', // Small monochrome icon for Android badge
+        data: notificationData,
+        vibrate: [100, 50, 100],
+      })
+    );
+  } catch (err) {
+    // If payload is plain text
+    event.waitUntil(
+      self.registration.showNotification('Aspire PWA', {
+        body: event.data.text(),
+        icon: '/icon-192.png',
+        badge: '/icon-192.png',
+      })
+    );
+  }
+});
+
+// Notification Click Event: Open app or focus tab
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+
+  const urlToOpen = new URL(
+    event.notification.data?.url || '/dashboard/notifications',
+    self.location.origin
+  ).href;
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+      // Check if there is already a window/tab open with the target URL
+      for (let client of windowClients) {
+        if (client.url === urlToOpen && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      // If not, check if any app window is open and focus it, then navigate
+      if (windowClients.length > 0 && 'focus' in windowClients[0]) {
+        return windowClients[0].focus().then((client) => client.navigate(urlToOpen));
+      }
+      // If no window is open, open a new one
+      if (self.clients.openWindow) {
+        return self.clients.openWindow(urlToOpen);
+      }
+    })
+  );
+});

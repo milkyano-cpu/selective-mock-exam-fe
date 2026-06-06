@@ -1,30 +1,30 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
 import { User } from '../types';
 
 interface AuthState {
   user: User | null;
+  accessTokenExpiresAt: string | null;
+  sessionExpiresAt: string | null;
   setAuth: (user: User) => void;
+  setAccessTokenExpiry: (accessTokenExpiresAt: string | null) => void;
+  setSessionExpiry: (sessionExpiresAt: string | null) => void;
   updateUser: (updates: Partial<User>) => void;
   clearAuth: () => void;
 }
 
-export const useAuthStore = create<AuthState>()(
-  persist(
-    (set) => ({
-      user: null,
-      setAuth: (user) => set({ user }),
-      updateUser: (updates) =>
-        set((state) => ({
-          user: state.user ? { ...state.user, ...updates } : state.user,
-        })),
-      clearAuth: () => set({ user: null }),
-    }),
-    {
-      name: 'auth-storage',
-      partialize: (state) => ({
-        user: state.user,
-      }),
-    }
-  )
-);
+export const useAuthStore = create<AuthState>()((set) => ({
+  user: null,
+  accessTokenExpiresAt: null,
+  sessionExpiresAt: null,
+  setAuth: (user) => set({ user }),
+  setAccessTokenExpiry: (accessTokenExpiresAt) => set({ accessTokenExpiresAt }),
+  setSessionExpiry: (sessionExpiresAt) => set({ sessionExpiresAt }),
+  updateUser: (updates) =>
+    set((state) => ({
+      user: state.user ? { ...state.user, ...updates } : state.user,
+    })),
+  clearAuth: () => {
+    try { sessionStorage.removeItem('aspire.pwa.installDismissed'); } catch (_) { /* ignore */ }
+    set({ user: null, accessTokenExpiresAt: null, sessionExpiresAt: null });
+  },
+}));

@@ -1,11 +1,24 @@
 'use client';
 
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { Users, Plus, ArrowRight, BookOpen, Clock } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function MyStudentsPage() {
   const user = useAuthStore((state) => state.user);
+  const router = useRouter();
+
+  useEffect(() => {
+    if (user?.role === 'PARENT') {
+      router.replace('/dashboard');
+    }
+  }, [router, user?.role]);
+
+  if (user?.role === 'PARENT') {
+    return null;
+  }
 
   return (
     <div className="space-y-8">

@@ -1,22 +1,35 @@
 'use client';
 
-import { useForm, useFieldArray, FieldErrors } from 'react-hook-form';
+import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { registerSchema, RegisterValues } from '../schemas/register.schema';
 import { useAuth } from '../hooks/useAuth';
-import { Loader2, Plus, Trash2, ArrowRight, User, Users, Mail, Phone, Home, Building2, IdCard, ChevronDown, PlusCircle, FileText } from 'lucide-react';
+import { Loader2, Trash2, ArrowRight, User, Mail, Phone, Home, Building2, IdCard, PlusCircle, FileText } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import Link from 'next/link';
+import Image from 'next/image';
 import termsData from '../data/terms.json';
+import { SearchableSelect } from '@/components/ui/SearchableSelect';
+
+const YEAR_LEVEL_OPTIONS = [
+  'Year 3',
+  'Year 4',
+  'Year 5',
+  'Year 6',
+  'Year 7',
+  'Year 8',
+  'Year 9',
+  'Year 10',
+  'Year 11',
+  'Year 12',
+].map((yearLevel) => ({ value: yearLevel, label: yearLevel }));
 
 export const RegisterForm = () => {
   const { register: registerUser, isLoading, error } = useAuth();
   const router = useRouter();
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [hasScrolledToBottom, setHasScrolledToBottom] = useState(false);
   const termsRef = useRef<HTMLDivElement>(null);
   const wasLoading = useRef(false);
@@ -47,6 +60,7 @@ export const RegisterForm = () => {
     register,
     control,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<RegisterValues>({
     resolver: zodResolver(registerSchema),
@@ -69,6 +83,8 @@ export const RegisterForm = () => {
     },
   });
 
+  const agreedToTerms = watch('agreedToTerms') === true;
+
   const { fields, append, remove } = useFieldArray({
     control,
     name: 'students',
@@ -84,7 +100,7 @@ export const RegisterForm = () => {
     }
   };
 
-  const onError = (_errors: FieldErrors<RegisterValues>) => {
+  const onError = () => {
     setTimeout(() => {
       const activeElement = document.activeElement;
       if (activeElement && activeElement.tagName !== 'BODY') {
@@ -118,13 +134,35 @@ export const RegisterForm = () => {
       className="w-full"
     >
       {/* Header Section */}
-      <div className="mb-6 lg:mb-10 text-left">
+      <div className="mb-6 lg:mb-10 text-left relative pt-28 sm:pt-0">
+        {/* Mobile Logo - Absolute positioned to bypass image whitespace */}
+        <div className="sm:hidden absolute -top-4 -left-4 z-10">
+          <Image 
+            src="/logo.png" 
+            alt="Aspire Logo" 
+            width={160} 
+            height={60} 
+            priority
+            className="object-contain"
+          />
+        </div>
         <h1 className="text-[28px] lg:text-4xl font-extrabold tracking-tight text-slate-900">
           Create Account <span className="text-[#0A9AE2]">.</span>
         </h1>
         <p className="mt-2 text-slate-500 font-medium text-sm lg:text-lg">
           Join Aspire Selective Entry Preparation today.
         </p>
+        {/* Logo - Absolute positioning to avoid affecting other components */}
+        <div className="absolute -top-12 right-0 hidden sm:block">
+          <Image 
+            src="/logo.png" 
+            alt="Aspire Logo" 
+            width={180} 
+            height={60} 
+            priority
+            className="object-contain"
+          />
+        </div>
       </div>
 
       <div className="w-full">
@@ -142,8 +180,8 @@ export const RegisterForm = () => {
         <form onSubmit={handleSubmit(onSubmit, onError)} className="space-y-6">
           
           {/* Parent Information Card */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center gap-3 rounded-t-2xl">
               <User className="text-[#0A9AE2]" size={20} />
               <h3 className="text-[16px] font-bold text-slate-900">Parent Information</h3>
             </div>
@@ -202,9 +240,9 @@ export const RegisterForm = () => {
               key={field.id}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden relative"
+              className="bg-white rounded-2xl border border-slate-200 shadow-sm relative"
             >
-              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
+              <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between gap-3 rounded-t-2xl">
                 <div className="flex items-center gap-3">
                   <User className="text-[#0A9AE2]" size={20} />
                   <h3 className="text-[16px] font-bold text-slate-900">Student {index + 1} Information</h3>
@@ -249,24 +287,20 @@ export const RegisterForm = () => {
                   </div>
                   <div className="space-y-1.5">
                     <label htmlFor={`student-grade-${index}`} className="text-[13px] font-medium text-slate-900 ml-1">School Grade <span className="text-red-500">*</span></label>
-                    <div className="relative">
-                      <select id={`student-grade-${index}`} {...register(`students.${index}.yearLevel`)} className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:border-[#0A9AE2] focus:ring-1 focus:ring-[#0A9AE2] transition-all text-slate-900 text-[14px] appearance-none">
-                        <option value="" disabled>Select Grade</option>
-                        <option value="Year 3">Year 3</option>
-                        <option value="Year 4">Year 4</option>
-                        <option value="Year 5">Year 5</option>
-                        <option value="Year 6">Year 6</option>
-                        <option value="Year 7">Year 7</option>
-                        <option value="Year 8">Year 8</option>
-                        <option value="Year 9">Year 9</option>
-                        <option value="Year 10">Year 10</option>
-                        <option value="Year 11">Year 11</option>
-                        <option value="Year 12">Year 12</option>
-                      </select>
-                      <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
-                        <ChevronDown className="text-slate-400" size={16} />
-                      </div>
-                    </div>
+                    <Controller
+                      name={`students.${index}.yearLevel`}
+                      control={control}
+                      render={({ field }) => (
+                        <SearchableSelect
+                          value={field.value}
+                          onChange={field.onChange}
+                          placeholder="Select Grade"
+                          searchPlaceholder="Search grade..."
+                          options={YEAR_LEVEL_OPTIONS}
+                          triggerClassName="bg-white text-[14px]"
+                        />
+                      )}
+                    />
                     {errors.students?.[index]?.yearLevel && <p className="text-xs text-red-500 ml-1">{errors.students[index]?.yearLevel?.message}</p>}
                   </div>
                 </div>
@@ -323,31 +357,40 @@ export const RegisterForm = () => {
               </div>
 
               <label htmlFor="register-terms" className={`flex items-start gap-3 pt-2 ${!hasScrolledToBottom ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}>
-                <input id="register-terms" type="checkbox" 
-                  checked={agreedToTerms} 
-                  onChange={(e) => {
-                    if (hasScrolledToBottom) setAgreedToTerms(e.target.checked);
-                  }} 
+                <input
+                  id="register-terms"
+                  type="checkbox"
+                  {...register('agreedToTerms')}
                   disabled={!hasScrolledToBottom}
-                  className={`w-4 h-4 mt-0.5 accent-[#0A9AE2] border-slate-300 rounded ${!hasScrolledToBottom ? 'cursor-not-allowed' : 'cursor-pointer'}`} 
+                  className={`w-4 h-4 mt-0.5 accent-[#0A9AE2] border-slate-300 rounded ${!hasScrolledToBottom ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                 />
                 <div className="flex flex-col">
                   <span className="text-[14px] text-slate-900 font-medium leading-tight">I agree to the Terms & Conditions, Payment Policy and Privacy Policy</span>
                   {!hasScrolledToBottom && (
                     <span className="text-[12px] text-[#FF6900] mt-1 font-medium">* Please scroll to the bottom of the terms to agree</span>
                   )}
+                  {errors.agreedToTerms && (
+                    <span className="text-xs text-red-500 mt-1">{errors.agreedToTerms.message}</span>
+                  )}
                 </div>
               </label>
             </div>
           </div>
 
-          <div className="flex justify-end pt-4">
+          <div className="flex flex-col-reverse sm:flex-row justify-between items-center gap-4 pt-4">
+            <p className="text-slate-400 font-medium text-[13px]">
+              Already have an account?{' '}
+              <Link href="/login" className="font-bold text-[#0659AA] hover:text-[#0A9AE2] transition-colors">
+                Login
+              </Link>
+            </p>
+
             <motion.button
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
               type="submit"
               disabled={isLoading || !agreedToTerms}
-              className="relative py-2.5 px-6 font-bold text-white text-[14px] rounded-lg overflow-hidden shadow-lg shadow-[#FF6900]/20 disabled:bg-slate-300 disabled:shadow-none disabled:cursor-not-allowed transition-all bg-[#FF6900] hover:bg-[#E55E00] flex items-center gap-2"
+              className="relative py-2.5 px-6 font-bold text-white text-[14px] rounded-lg overflow-hidden shadow-lg shadow-[#FF6900]/20 disabled:bg-[#FF6900]/20 disabled:text-white/60 disabled:shadow-none disabled:cursor-not-allowed transition-all bg-[#FF6900] hover:bg-[#E55E00] flex items-center gap-2"
             >
               {isLoading ? (
                 <>
@@ -363,15 +406,6 @@ export const RegisterForm = () => {
             </motion.button>
           </div>
         </form>
-      </div>
-      
-      <div className="mt-6 flex flex-col items-center gap-4 w-full">
-        <p className="text-slate-400 font-medium text-[13px]">
-          Already have an account?{' '}
-          <Link href="/login" className="font-bold text-[#0659AA] hover:text-[#0A9AE2] transition-colors">
-            Login
-          </Link>
-        </p>
       </div>
 
     </motion.div>

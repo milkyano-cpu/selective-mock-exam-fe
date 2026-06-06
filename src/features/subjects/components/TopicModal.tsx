@@ -50,7 +50,7 @@ export function TopicModal({ isOpen, onClose, onSubmit, initialData, isLoading }
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
       <div className="w-full max-w-md bg-white rounded-3xl shadow-xl overflow-hidden dark:bg-slate-900 border border-slate-200 dark:border-slate-800">
         <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-slate-800">
           <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
@@ -92,7 +92,7 @@ export function TopicModal({ isOpen, onClose, onSubmit, initialData, isLoading }
             {errors.description && <p className="text-xs text-red-500 font-bold mt-1">{errors.description.message}</p>}
           </div>
 
-          <div className="flex gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+          <div className="flex gap-3 pt-4 pb-8 sm:pb-0 border-t border-slate-100 dark:border-slate-800">
             <button
               type="button"
               onClick={onClose}

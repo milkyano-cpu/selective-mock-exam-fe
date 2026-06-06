@@ -1,0 +1,1252 @@
+'use client';
+
+import { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { isAxiosError } from 'axios';
+import { useAuthStore } from '@/features/auth/store/auth.store';
+import { showClientErrorAlert } from '@/lib/errorAlert';
+import { examService } from '@/features/exams/services/exams.service';
+import type { ExamItem, GradingType, PaginationMeta, SessionSummary, ExamAttemptSummary } from '@/features/exams/types/exams.types';
+import { DeleteConfirmModal } from '@/features/subjects/components/DeleteConfirmModal';
+import {
+  Plus,
+  Loader2,
+  Clock,
+  FileText,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Trash2,
+  Edit2,
+  PlayCircle,
+  Check,
+  AlertCircle,
+  X,
+  BookOpen,
+  Zap,
+  BarChart3,
+  ArrowRight,
+  Globe,
+  EyeOff,
+  RotateCcw,
+  Star,
+  RefreshCw,
+  Lock,
+} from 'lucide-react';
+import { FeaturePaywall } from '@/components/billing/FeaturePaywall';
+
+const PAGE_LIMIT = 20;
+
+const EXAM_TYPE_LABELS: Record<string, string> = { MOCK_EXAM: 'Mock Exam', ASSIGNMENT: 'Assignment' };
+const GRADING_TYPE_LABELS: Record<string, string> = { AUTO: 'Auto', MANUAL: 'Manual' };
+const TIER_LABELS: Record<'BASIC' | 'STANDARD' | 'PREMIUM', string> = { BASIC: 'Basic', STANDARD: 'Standard', PREMIUM: 'Premium' };
+const TIER_BADGE_CLASS: Record<'BASIC' | 'STANDARD' | 'PREMIUM', string> = {
+  BASIC: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400',
+  STANDARD: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+  PREMIUM: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300',
+};
+const RANKING_LABELS: Record<string, string> = {
+  SUPERIOR: 'Superior',
+  ABOVE_AVERAGE: 'Above Average',
+  HIGH_AVERAGE: 'High Average',
+  AVERAGE: 'Average',
+  LOW_AVERAGE: 'Low Average',
+};
+
+// Student exam filter tabs. "all" has no counter; awaiting_review exams only
+// appear under "all" (they are neither started, in-progress, nor graded).
+const STUDENT_EXAM_TABS = [
+  { key: 'all', label: 'All' },
+  { key: 'not_started', label: 'Not Started' },
+  { key: 'in_progress', label: 'In Progress' },
+  { key: 'completed', label: 'Completed' },
+] as const;
+
+type StudentExamTab = (typeof STUDENT_EXAM_TABS)[number]['key'];
+
+// Counter badge colors per status — orange for in-progress, green for completed.
+const TAB_BADGE_CLASS: Record<Exclude<StudentExamTab, 'all'>, string> = {
+  not_started: 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300',
+  in_progress: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-400',
+  completed: 'bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400',
+};
+
+function formatDuration(minutes: number | null) {
+  if (minutes === null || minutes === undefined) return 'Not set';
+  if (minutes < 60) return `${minutes} min`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
+
+// ── Admin / Tutor view ────────────────────────────────────────────────────────
+
+function AdminExamView() {
+  const router = useRouter();
+  const [exams, setExams] = useState<ExamItem[]>([]);
+  const [meta, setMeta] = useState<PaginationMeta | null>(null);
+  const [page, setPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingExam, setEditingExam] = useState<ExamItem | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [publishingId, setPublishingId] = useState<string | null>(null);
+  const [form, setForm] = useState({
+    title: '',
+    examType: 'MOCK_EXAM' as 'MOCK_EXAM' | 'ASSIGNMENT',
+    durationMinutes: 90,
+    gradingType: 'AUTO' as GradingType,
+    requiredTier: 'BASIC' as 'BASIC' | 'STANDARD' | 'PREMIUM',
+    thresholdSuperior: 72,
+    thresholdAboveAverage: 60,
+    thresholdHighAverage: 50,
+    thresholdAverage: 40,
+  });
+  const [showThresholds, setShowThresholds] = useState(false);
+
+  const loadExams = useCallback(async (p: number) => {
+    setIsLoading(true);
+    try {
+      const res = await examService.list({ page: p, limit: PAGE_LIMIT });
+      if (res.success) {
+        setExams(res.data);
+        setMeta(res.meta);
+      }
+    } catch {
+      /* error toast handled globally by the API client */
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      void loadExams(page);
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [loadExams, page]);
+
+  const openCreate = () => {
+    setEditingExam(null);
+    setForm({ title: '', examType: 'MOCK_EXAM', durationMinutes: 90, gradingType: 'AUTO', requiredTier: 'BASIC', thresholdSuperior: 72, thresholdAboveAverage: 60, thresholdHighAverage: 50, thresholdAverage: 40 });
+    setShowThresholds(false);
+    setFormError(null);
+    setIsModalOpen(true);
+  };
+
+  const openEdit = (exam: ExamItem) => {
+    setEditingExam(exam);
+    setForm({
+      title: exam.title,
+      examType: exam.examType,
+      durationMinutes: exam.durationMinutes ?? 90,
+      gradingType: exam.gradingType,
+      requiredTier: exam.requiredTier,
+      thresholdSuperior: exam.thresholdSuperior,
+      thresholdAboveAverage: exam.thresholdAboveAverage,
+      thresholdHighAverage: exam.thresholdHighAverage,
+      thresholdAverage: exam.thresholdAverage,
+    });
+    const isCustom = exam.thresholdSuperior !== 72 || exam.thresholdAboveAverage !== 60 || exam.thresholdHighAverage !== 50 || exam.thresholdAverage !== 40;
+    setShowThresholds(isCustom);
+    setFormError(null);
+    setIsModalOpen(true);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.title.trim()) { setFormError('Title is required'); return; }
+    if (form.durationMinutes < 1 || form.durationMinutes > 600) { setFormError('Duration must be between 1 and 600 minutes'); return; }
+    if (form.thresholdSuperior <= form.thresholdAboveAverage || form.thresholdAboveAverage <= form.thresholdHighAverage || form.thresholdHighAverage <= form.thresholdAverage) {
+      setFormError('Ranking thresholds must be in descending order: Superior > Above Average > High Average > Average');
+      return;
+    }
+    setIsSubmitting(true);
+    setFormError(null);
+    try {
+      if (editingExam) {
+        const res = await examService.update(editingExam.id, form);
+        if (res.success) {
+          setIsModalOpen(false);
+          loadExams(page);
+        } else {
+          setFormError(res.message);
+        }
+      } else {
+        const res = await examService.create(form);
+        if (res.success) {
+          setIsModalOpen(false);
+          loadExams(page);
+        } else {
+          setFormError(res.message);
+        }
+      }
+    } catch (err) {
+      setFormError(isAxiosError(err) ? err.response?.data?.message || 'Failed to save exam' : 'Failed to save exam');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const onConfirmDelete = async () => {
+    if (!deleteTargetId) return;
+    const id = deleteTargetId;
+    setDeletingId(id);
+    try {
+      const res = await examService.remove(id);
+      if (res.success) {
+        loadExams(page);
+      }
+    } catch {
+      /* error toast handled globally by the API client */
+    } finally {
+      setDeleteTargetId(null);
+      setDeletingId(null);
+    }
+  };
+
+  const handlePublishClick = async (exam: ExamItem) => {
+    if (exam.status === 'PUBLISHED') return;
+
+    setPublishingId(exam.id);
+    try {
+      // Exams are created via the UI with duration + grading type already set,
+      // so publishing no longer needs a confirmation modal — publish directly.
+      // The backend validates questions and reuses the exam's stored settings.
+      // Errors are surfaced by the global toast, so no inline banner is set here.
+      const res = await examService.publish(exam.id, { status: 'PUBLISHED' });
+      if (res.success) {
+        setExams((prev) => prev.map((e) => (e.id === exam.id ? res.data : e)));
+      }
+    } catch {
+      /* error toast handled globally by the API client */
+    } finally {
+      setPublishingId(null);
+    }
+  };
+
+  const basicCount = exams.filter((e) => e.requiredTier === 'BASIC').length;
+  const standardCount = exams.filter((e) => e.requiredTier === 'STANDARD').length;
+  const premiumCount = exams.filter((e) => e.requiredTier === 'PREMIUM').length;
+
+  const navigateToExamDetail = useCallback((examId: string) => {
+    router.push(`/dashboard/exams/${examId}`);
+  }, [router]);
+
+  const handleRowClick = useCallback((event: React.MouseEvent<HTMLTableRowElement>, examId: string) => {
+    const target = event.target as HTMLElement;
+    if (target.closest('button, a, input, select, textarea')) {
+      return;
+    }
+
+    navigateToExamDetail(examId);
+  }, [navigateToExamDetail]);
+
+  const handleRowKeyDown = useCallback((event: React.KeyboardEvent<HTMLTableRowElement>, examId: string) => {
+    const target = event.target as HTMLElement;
+    if (target.closest('button, a, input, select, textarea')) {
+      return;
+    }
+
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      navigateToExamDetail(examId);
+    }
+  }, [navigateToExamDetail]);
+
+  return (
+    <div className="w-full space-y-6">
+      {/* Header */}
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-slate-100">Exam Management</h1>
+          <p className="text-sm sm:text-base font-medium text-slate-500 dark:text-slate-400">Create and manage mock exams and assignments</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={openCreate}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#0A9AE2] px-4 py-2.5 text-sm font-bold text-white shadow-sm shadow-blue-100 transition-all hover:bg-[#0864B6] dark:shadow-none"
+          >
+            <Plus size={16} /> New Exam
+          </button>
+        </div>
+      </header>
+
+      {/* Stat cards */}
+      {!isLoading && meta && (
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3.5 dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#FF6900]/10">
+                <FileText size={15} className="text-[#FF6900]" />
+              </div>
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Total Exams</p>
+            </div>
+            <p className="mt-2 text-2xl font-black text-slate-900 dark:text-slate-100">{meta.total}</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3.5 dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 dark:bg-slate-800">
+                <BookOpen size={15} className="text-slate-500 dark:text-slate-300" />
+              </div>
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Basic</p>
+            </div>
+            <p className="mt-2 text-2xl font-black text-slate-900 dark:text-slate-100">{basicCount}</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3.5 dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-900/20">
+                <BarChart3 size={15} className="text-blue-600 dark:text-blue-400" />
+              </div>
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Standard</p>
+            </div>
+            <p className="mt-2 text-2xl font-black text-slate-900 dark:text-slate-100">{standardCount}</p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3.5 dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-violet-50 dark:bg-violet-900/20">
+                <Zap size={15} className="text-violet-600 dark:text-violet-400" />
+              </div>
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-400">Premium</p>
+            </div>
+            <p className="mt-2 text-2xl font-black text-slate-900 dark:text-slate-100">{premiumCount}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Table */}
+      {isLoading ? (
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 animate-pulse">
+          <div className="border-b border-slate-100 bg-slate-50 px-5 py-3 dark:border-slate-800 dark:bg-slate-800/60">
+            <div className="flex gap-8">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="h-3 w-16 rounded bg-slate-200/70 dark:bg-slate-700" />
+              ))}
+            </div>
+          </div>
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-4 border-b border-slate-50 px-5 py-4 dark:border-slate-800/50">
+              <div className="h-4 w-40 rounded bg-slate-200/70 dark:bg-slate-700" />
+              <div className="h-5 w-16 rounded-full bg-slate-100 dark:bg-slate-800" />
+              <div className="hidden h-4 w-20 rounded bg-slate-100 dark:bg-slate-800 sm:block" />
+            </div>
+          ))}
+        </div>
+      ) : exams.length === 0 ? (
+        <div className="flex flex-col items-center justify-center rounded-[2rem] border border-dashed border-slate-300 bg-white py-20 dark:border-slate-700 dark:bg-slate-900">
+          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-slate-100 dark:bg-slate-800">
+            <FileText size={26} className="text-slate-400 dark:text-slate-500" />
+          </div>
+          <p className="mt-4 text-base font-bold text-slate-700 dark:text-slate-300">No exams yet</p>
+          <p className="mt-1 text-sm text-slate-400 dark:text-slate-500">Create your first exam to get started.</p>
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-100 bg-slate-50 dark:border-slate-800 dark:bg-slate-800/60">
+                <th className="px-5 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400">Title</th>
+                <th className="hidden px-5 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400 sm:table-cell">Status</th>
+                <th className="hidden px-5 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400 md:table-cell">Type</th>
+                <th className="hidden px-5 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400 lg:table-cell">Duration</th>
+                <th className="hidden px-5 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400 lg:table-cell">Grading</th>
+                <th className="hidden px-5 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400 md:table-cell">Tier</th>
+                <th className="hidden px-5 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400 xl:table-cell">Questions</th>
+                <th className="hidden px-5 py-3 text-left text-xs font-bold uppercase tracking-wide text-slate-400 xl:table-cell">Created By</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {exams.map((exam) => (
+                <tr
+                  key={exam.id}
+                  tabIndex={0}
+                  onClick={(event) => handleRowClick(event, exam.id)}
+                  onKeyDown={(event) => handleRowKeyDown(event, exam.id)}
+                  className="group cursor-pointer transition-colors hover:bg-slate-50/80 focus-visible:bg-slate-50/80 focus-visible:outline-none dark:hover:bg-slate-800/40 dark:focus-visible:bg-slate-800/40"
+                >
+                  <td className="px-5 py-4">
+                    <span className="text-left font-semibold text-slate-900 transition-colors group-hover:text-[#FF6900] group-focus-visible:text-[#FF6900] dark:text-slate-100 dark:group-hover:text-orange-400 dark:group-focus-visible:text-orange-400">
+                      {exam.title}
+                    </span>
+                    {exam.requiredTier !== 'BASIC' && (
+                      <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-violet-700 dark:bg-violet-900/30 dark:text-violet-300 md:hidden">
+                        {exam.requiredTier}
+                      </span>
+                    )}
+                    <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-slate-400 sm:hidden">
+                      <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-bold ${exam.status === 'PUBLISHED' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}`}>
+                        {exam.status === 'PUBLISHED' ? 'Published' : 'Draft'}
+                      </span>
+                      <span>·</span>
+                      <span>{EXAM_TYPE_LABELS[exam.examType]}</span>
+                      <span>·</span>
+                      <span>{formatDuration(exam.durationMinutes)}</span>
+                    </div>
+                  </td>
+                  <td className="hidden px-5 py-4 sm:table-cell">
+                    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-bold ${exam.status === 'PUBLISHED' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'}`}>
+                      {exam.status === 'PUBLISHED' ? <Globe size={11} /> : <EyeOff size={11} />}
+                      {exam.status === 'PUBLISHED' ? 'Published' : 'Draft'}
+                    </span>
+                  </td>
+                  <td className="hidden px-5 py-4 md:table-cell">
+                    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold ${exam.examType === 'MOCK_EXAM' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'}`}>
+                      {EXAM_TYPE_LABELS[exam.examType]}
+                    </span>
+                  </td>
+                  <td className="hidden px-5 py-4 text-slate-600 dark:text-slate-300 lg:table-cell">
+                    <span className="inline-flex items-center gap-1.5 font-medium">
+                      <Clock size={13} className="text-slate-400" />{formatDuration(exam.durationMinutes)}
+                    </span>
+                  </td>
+                  <td className="hidden px-5 py-4 lg:table-cell">
+                    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-bold ${exam.gradingType === 'AUTO' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-400'}`}>
+                      {GRADING_TYPE_LABELS[exam.gradingType]}
+                    </span>
+                  </td>
+                  <td className="hidden px-5 py-4 md:table-cell">
+                    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-bold ${TIER_BADGE_CLASS[exam.requiredTier]}`}>
+                      {exam.requiredTier !== 'BASIC' && <Lock size={10} />}
+                      {TIER_LABELS[exam.requiredTier]}
+                    </span>
+                  </td>
+                  <td className="hidden px-5 py-4 xl:table-cell">
+                    <span className={`text-sm font-bold ${exam.questionCount === 0 ? 'text-red-500 dark:text-red-400' : 'text-slate-700 dark:text-slate-300'}`}>
+                      {exam.questionCount}
+                      {exam.questionCount === 0 && <span className="ml-1.5 text-xs font-medium text-red-400">— no questions</span>}
+                    </span>
+                  </td>
+                  <td className="hidden px-5 py-4 xl:table-cell">
+                    <span className="text-sm font-medium text-slate-500 dark:text-slate-400">{exam.creatorName}</span>
+                  </td>
+                  <td className="px-5 py-4">
+                    <div className="flex items-center justify-end gap-1.5">
+                      <button
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          navigateToExamDetail(exam.id);
+                        }}
+                        className="hidden items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold text-[#FF6900] hover:bg-orange-50 dark:hover:bg-orange-900/20 sm:flex transition-colors"
+                      >
+                        Details <ArrowRight size={12} />
+                      </button>
+                      <div className="h-4 w-px bg-slate-200 dark:bg-slate-700 hidden sm:block" />
+                      <button
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void handlePublishClick(exam);
+                        }}
+                        disabled={publishingId === exam.id || exam.status === 'PUBLISHED'}
+                        className={`rounded-lg p-1.5 transition-colors disabled:opacity-50 ${exam.status === 'PUBLISHED' ? 'cursor-not-allowed text-green-600 dark:text-green-400' : 'text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-700 dark:hover:text-slate-200'}`}
+                        title={exam.status === 'PUBLISHED' ? 'Exam already published' : 'Publish exam'}
+                      >
+                        {publishingId === exam.id ? <Loader2 size={15} className="animate-spin" /> : <Globe size={15} />}
+                      </button>
+                      {!exam.hasSessions && (
+                        <button
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            openEdit(exam);
+                          }}
+                          className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-700 dark:hover:text-slate-200"
+                          title="Edit exam"
+                        >
+                          <Edit2 size={15} />
+                        </button>
+                      )}
+                      {!exam.hasSessions && (
+                        <button
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setDeleteTargetId(exam.id);
+                          }}
+                          disabled={deletingId === exam.id}
+                          className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400 disabled:opacity-50"
+                          title="Delete exam"
+                        >
+                          {deletingId === exam.id ? <Loader2 size={15} className="animate-spin" /> : <Trash2 size={15} />}
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {/* Table footer */}
+          <div className="flex items-center justify-between border-t border-slate-100 px-5 py-3 dark:border-slate-800">
+            <p className="text-xs font-medium text-slate-400">
+              {meta ? `${meta.total} exam${meta.total !== 1 ? 's' : ''} total` : `${exams.length} exam${exams.length !== 1 ? 's' : ''}`}
+            </p>
+            {meta && meta.totalPages > 1 && (
+              <div className="flex items-center gap-3">
+                <p className="text-xs text-slate-400">
+                  {(page - 1) * PAGE_LIMIT + 1}–{Math.min(page * PAGE_LIMIT, meta.total)} of {meta.total}
+                </p>
+                <div className="flex gap-1.5">
+                  <button onClick={() => setPage((p) => p - 1)} disabled={page === 1} className="rounded-lg border border-slate-200 p-1.5 disabled:opacity-40 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                    <ChevronLeft size={14} />
+                  </button>
+                  <button onClick={() => setPage((p) => p + 1)} disabled={page >= meta.totalPages} className="rounded-lg border border-slate-200 p-1.5 disabled:opacity-40 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors">
+                    <ChevronRight size={14} />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Create/Edit Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-[2rem] border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-800 dark:bg-slate-900">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-black text-slate-900 dark:text-slate-100">
+                  {editingExam ? 'Edit Exam' : 'Create New Exam'}
+                </h2>
+                <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">
+                  Required exam setup only. Questions can be added after the exam is created.
+                </p>
+              </div>
+              <button onClick={() => setIsModalOpen(false)} className="rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Title <span className="text-red-500">*</span></label>
+                <input
+                  type="text"
+                  value={form.title}
+                  onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+                  placeholder="e.g. National Mock Test #1"
+                  required
+                  maxLength={300}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-900 placeholder-slate-400 focus:border-[#FF6900] focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Exam Type <span className="text-red-500">*</span></label>
+                  <select
+                    value={form.examType}
+                    onChange={(e) => setForm((f) => ({ ...f, examType: e.target.value as 'MOCK_EXAM' | 'ASSIGNMENT' }))}
+                    required
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-900 focus:border-[#FF6900] focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                  >
+                    <option value="MOCK_EXAM">Mock Exam</option>
+                    <option value="ASSIGNMENT">Assignment</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Grading Type <span className="text-red-500">*</span></label>
+                  <select
+                    value={form.gradingType}
+                    onChange={(e) => setForm((f) => ({ ...f, gradingType: e.target.value as GradingType }))}
+                    required
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-900 focus:border-[#FF6900] focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                  >
+                    <option value="AUTO">Auto</option>
+                    <option value="MANUAL">Manual</option>
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Duration (minutes) <span className="text-red-500">*</span></label>
+                <input
+                  type="number"
+                  min={1}
+                  max={600}
+                  value={form.durationMinutes}
+                  onChange={(e) => setForm((f) => ({ ...f, durationMinutes: parseInt(e.target.value, 10) || 0 }))}
+                  required
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-900 focus:border-[#FF6900] focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
+                />
+                <p className="mt-1 text-xs font-medium text-slate-400 dark:text-slate-500">
+                  Allowed range: 1-600 minutes.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5">Required Tier</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {(['BASIC', 'STANDARD', 'PREMIUM'] as const).map((tier) => {
+                    const active = form.requiredTier === tier;
+                    return (
+                      <button
+                        key={tier}
+                        type="button"
+                        onClick={() => setForm((f) => ({ ...f, requiredTier: tier }))}
+                        className={[
+                          'rounded-xl border px-3 py-2.5 text-sm font-bold transition-colors',
+                          active
+                            ? 'border-[#FF6900] bg-orange-50 text-[#FF6900] dark:border-[#FF6900] dark:bg-orange-900/20'
+                            : 'border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700',
+                        ].join(' ')}
+                      >
+                        {tier.charAt(0) + tier.slice(1).toLowerCase()}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="mt-1 text-xs font-medium text-slate-400 dark:text-slate-500">
+                  Minimum membership a student needs to take this exam. Default Basic.
+                </p>
+              </div>
+
+              {/* Ranking Thresholds */}
+              <div>
+                <button
+                  type="button"
+                  onClick={() => setShowThresholds((v) => !v)}
+                  className="flex items-center gap-1.5 text-xs font-bold text-[#0A9AE2] hover:text-[#0659AA] transition-colors"
+                >
+                  <ChevronDown size={14} className={`transition-transform ${showThresholds ? 'rotate-180' : ''}`} />
+                  Ranking Thresholds
+                </button>
+                {showThresholds && (
+                  <div className="mt-3 space-y-2.5 rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-700 dark:bg-slate-800/50">
+                    <p className="text-[10px] font-medium leading-tight text-slate-400">
+                      Minimum score (%) for each ranking level. Scores below the lowest threshold are ranked as Low Average.
+                    </p>
+                    {([
+                      { key: 'thresholdSuperior', label: 'Superior' },
+                      { key: 'thresholdAboveAverage', label: 'Above Average' },
+                      { key: 'thresholdHighAverage', label: 'High Average' },
+                      { key: 'thresholdAverage', label: 'Average' },
+                    ] as const).map(({ key, label }) => (
+                      <div key={key} className="flex items-center justify-between gap-3">
+                        <label className="text-xs font-bold text-slate-600 dark:text-slate-300 min-w-[100px]">{label}</label>
+                        <div className="relative w-24">
+                          <input
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={form[key]}
+                            onChange={(e) => setForm((f) => ({ ...f, [key]: parseInt(e.target.value, 10) || 0 }))}
+                            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-900 text-right focus:border-[#FF6900] focus:outline-none dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                          />
+                          <span className="absolute right-8 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">%</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {formError && (
+                <p className="text-sm font-medium text-red-600 dark:text-red-400">{formError}</p>
+              )}
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 rounded-xl border border-slate-200 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800">
+                  Cancel
+                </button>
+                <button type="submit" disabled={isSubmitting} className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl bg-[#FF6900] py-2.5 text-sm font-bold text-white disabled:opacity-60">
+                  {isSubmitting && <Loader2 size={15} className="animate-spin" />}
+                  {editingExam ? 'Save Changes' : 'Create Exam'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      <DeleteConfirmModal
+        isOpen={!!deleteTargetId}
+        onClose={() => setDeleteTargetId(null)}
+        onConfirm={onConfirmDelete}
+        title="Delete Exam"
+        message="Are you sure you want to delete this exam? This action cannot be undone."
+        isLoading={deletingId === deleteTargetId}
+      />
+    </div>
+  );
+}
+
+// ── Student view ──────────────────────────────────────────────────────────────
+
+function StudentExamView() {
+  const router = useRouter();
+  const userTier = useAuthStore((s) => s.user?.tier) ?? 'BASIC';
+  const [exams, setExams] = useState<ExamItem[]>([]);
+  const [sessions, setSessions] = useState<SessionSummary[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [retakeExamId, setRetakeExamId] = useState<string | null>(null);
+  const [attemptSummary, setAttemptSummary] = useState<ExamAttemptSummary | null>(null);
+  const [isLoadingSummary, setIsLoadingSummary] = useState(false);
+  const [isStartingRetake, setIsStartingRetake] = useState(false);
+  const [activeTab, setActiveTab] = useState<StudentExamTab>('all');
+  // The exam whose locked paywall is currently shown (clicked Start on a tier-gated exam).
+  const [paywallExam, setPaywallExam] = useState<ExamItem | null>(null);
+
+  // Tier ordering for the lock check — BASIC < STANDARD < PREMIUM.
+  const TIER_ORDER: Array<'BASIC' | 'STANDARD' | 'PREMIUM'> = ['BASIC', 'STANDARD', 'PREMIUM'];
+  const isExamLocked = (exam: ExamItem) =>
+    TIER_ORDER.indexOf(userTier) < TIER_ORDER.indexOf(exam.requiredTier);
+
+  useEffect(() => {
+    const loadData = async () => {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const [examRes, sessionRes] = await Promise.all([
+          examService.list({ limit: 50 }),
+          examService.listSessions({ limit: 50 }),
+        ]);
+        if (examRes.success) setExams(examRes.data);
+        if (sessionRes.success) setSessions(sessionRes.data);
+      } catch (err) {
+        setError(isAxiosError(err) ? err.response?.data?.message || 'Failed to load exams' : 'Failed to load exams');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadData();
+  }, []);
+
+  // Group all sessions by examId — keep best, latest, in-progress, etc.
+  const examSessionsMap = sessions.reduce((map, session) => {
+    const list = map.get(session.examId) ?? [];
+    list.push(session);
+    map.set(session.examId, list);
+    return map;
+  }, new Map<string, SessionSummary[]>());
+
+  const getExamStatus = (examId: string) => {
+    const list = examSessionsMap.get(examId);
+    if (!list || list.length === 0) return 'not_started';
+    const inProgress = list.find((s) => s.status === 'IN_PROGRESS');
+    if (inProgress) return 'in_progress';
+    const submitted = list.find((s) => s.status === 'SUBMITTED');
+    if (submitted) return 'awaiting_review';
+    return 'completed';
+  };
+
+  const getLatestSession = (examId: string) => {
+    const list = examSessionsMap.get(examId);
+    if (!list || list.length === 0) return null;
+    // In-progress first, then latest by start time
+    const inProgress = list.find((s) => s.status === 'IN_PROGRESS');
+    if (inProgress) return inProgress;
+    return list.reduce((latest, s) => (new Date(s.startTime) > new Date(latest.startTime) ? s : latest));
+  };
+
+  const getBestSession = (examId: string) => {
+    const list = examSessionsMap.get(examId);
+    if (!list) return null;
+    const graded = list.filter((s) => s.finalScore !== null);
+    if (graded.length === 0) return null;
+    return graded.reduce((best, s) => (s.finalScore! > best.finalScore! ? s : best));
+  };
+
+  const getAttemptCount = (examId: string) => {
+    const list = examSessionsMap.get(examId);
+    if (!list) return 0;
+    return list.filter((s) => s.status !== 'IN_PROGRESS').length;
+  };
+
+  const handleOpenRetake = async (examId: string) => {
+    setRetakeExamId(examId);
+    setAttemptSummary(null);
+    setIsLoadingSummary(true);
+    try {
+      const res = await examService.getAttemptSummary(examId);
+      if (res.success) setAttemptSummary(res.data);
+    } catch (err) {
+      console.error('Failed to load attempt summary', err);
+    } finally {
+      setIsLoadingSummary(false);
+    }
+  };
+
+  const handleStartRetake = async (examId: string, mode: 'FULL' | 'INCORRECT_ONLY' | 'SUBJECT_ONLY', opts?: { sourceSessionId?: string; subjectId?: string }) => {
+    setIsStartingRetake(true);
+    try {
+      const res = await examService.startRetake(examId, { mode, ...opts });
+      if (res.success) {
+        setRetakeExamId(null);
+        router.push(`/dashboard/exams/${examId}/session`);
+      }
+    } catch (err) {
+      // Surface the backend reason (e.g. tier / retake-limit 403). The global
+      // client suppresses 403 toasts, so show it explicitly here.
+      const message = isAxiosError(err)
+        ? err.response?.data?.message || 'Failed to start retake.'
+        : 'Failed to start retake.';
+      void showClientErrorAlert(message, 'Cannot start retake');
+    } finally {
+      setIsStartingRetake(false);
+    }
+  };
+
+  // Only exams with questions are takeable; everything below derives from these.
+  const availableExams = exams.filter((e) => e.questionCount > 0);
+  const statusCounts = availableExams.reduce(
+    (acc, exam) => {
+      const st = getExamStatus(exam.id);
+      if (st === 'not_started') acc.not_started += 1;
+      else if (st === 'in_progress') acc.in_progress += 1;
+      else if (st === 'completed') acc.completed += 1;
+      return acc;
+    },
+    { not_started: 0, in_progress: 0, completed: 0 }
+  );
+  const filteredExams =
+    activeTab === 'all'
+      ? availableExams
+      : availableExams.filter((exam) => getExamStatus(exam.id) === activeTab);
+
+  if (isLoading) {
+    return (
+      <div className="w-full max-w-5xl space-y-6 animate-pulse">
+        {/* Header */}
+        <div className="space-y-2">
+          <div className="h-8 w-40 rounded-lg bg-slate-200/70 dark:bg-slate-800" />
+          <div className="h-4 w-64 max-w-[70vw] rounded bg-slate-100 dark:bg-slate-800/60" />
+        </div>
+        {/* Tabs */}
+        <div className="flex w-full gap-1 rounded-2xl border border-slate-200/60 bg-white p-1.5 dark:border-slate-800 dark:bg-slate-900 sm:w-fit">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-8 flex-1 rounded-xl bg-slate-100 dark:bg-slate-800/60 sm:w-24 sm:flex-none" />
+          ))}
+        </div>
+        {/* Card grid */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="flex flex-col rounded-[2rem] border border-slate-200/60 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+              <div className="flex items-start justify-between">
+                <div className="h-5 w-20 rounded-full bg-slate-200/70 dark:bg-slate-800" />
+                <div className="h-5 w-14 rounded-full bg-slate-100 dark:bg-slate-800/60" />
+              </div>
+              <div className="mt-3 h-5 w-3/4 rounded-lg bg-slate-200/70 dark:bg-slate-800" />
+              <div className="mt-2 flex gap-3">
+                <div className="h-4 w-14 rounded bg-slate-100 dark:bg-slate-800/60" />
+                <div className="h-4 w-20 rounded bg-slate-100 dark:bg-slate-800/60" />
+              </div>
+              <div className="mt-3 h-16 rounded-xl bg-slate-50 dark:bg-slate-800/30" />
+              <div className="mt-4 h-10 rounded-xl bg-slate-200/70 dark:bg-slate-800" />
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 dark:border-red-800/50 dark:bg-red-900/20 dark:text-red-400">
+        <AlertCircle size={16} /> {error}
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full max-w-5xl space-y-6">
+      {/* Page header */}
+      <header>
+        <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 dark:text-slate-100">My Exams</h1>
+        <p className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400">
+          {availableExams.length} exam{availableExams.length !== 1 ? 's' : ''} available · {statusCounts.completed} completed · {statusCounts.in_progress} in progress
+        </p>
+      </header>
+
+      {/* Status filter tabs — equal-width row that fills the bar on mobile, compact on desktop */}
+      <div className="flex w-full gap-1 rounded-2xl border border-slate-200 bg-white p-1.5 dark:border-slate-800 dark:bg-slate-900 sm:w-fit">
+        {STUDENT_EXAM_TABS.map((tab) => {
+          const count = tab.key === 'all' ? availableExams.length : statusCounts[tab.key];
+          const isActive = activeTab === tab.key;
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setActiveTab(tab.key)}
+              className={`inline-flex flex-1 items-center justify-center gap-1 whitespace-nowrap rounded-xl px-3 py-1.5 text-xs font-bold transition-colors sm:flex-none sm:text-sm ${
+                isActive
+                  ? 'bg-[#FF6900] text-white'
+                  : 'text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
+              }`}
+            >
+              {tab.label}
+              {tab.key !== 'all' && count > 0 && (
+                <span className={`inline-flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-black ${
+                  isActive ? 'bg-white/25 text-white' : TAB_BADGE_CLASS[tab.key]
+                }`}>
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {availableExams.length === 0 ? (
+        <div className="rounded-[2rem] border border-slate-200 bg-white p-12 text-center dark:border-slate-800 dark:bg-slate-900">
+          <FileText size={40} className="mx-auto text-slate-300 dark:text-slate-600" />
+          <p className="mt-4 text-sm font-medium text-slate-500 dark:text-slate-400">No exams available yet. Check back later.</p>
+        </div>
+      ) : filteredExams.length === 0 ? (
+        <div className="rounded-[2rem] border border-dashed border-slate-300 bg-white p-12 text-center dark:border-slate-700 dark:bg-slate-900">
+          <FileText size={40} className="mx-auto text-slate-300 dark:text-slate-600" />
+          <p className="mt-4 text-sm font-medium text-slate-500 dark:text-slate-400">No exams in this category.</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {filteredExams.map((exam) => {
+            const status = getExamStatus(exam.id);
+            const latestSession = getLatestSession(exam.id);
+            const bestSession = getBestSession(exam.id);
+            const attemptCount = getAttemptCount(exam.id);
+            const locked = isExamLocked(exam);
+            const borderClass =
+              status === 'in_progress'
+                ? 'border-[#FF6900] dark:border-[#FF6900]/70'
+                : status === 'completed'
+                  ? 'border-emerald-200 dark:border-emerald-500/40'
+                  : status === 'awaiting_review'
+                    ? 'border-amber-200 dark:border-amber-500/40'
+                    : 'border-slate-200 dark:border-slate-700';
+            return (
+              <div
+                key={exam.id}
+                className={`flex flex-col rounded-[2rem] border ${borderClass} bg-white p-5 shadow-sm transition-shadow hover:shadow-md dark:bg-slate-900`}
+              >
+                {/* Type + status badges */}
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${exam.examType === 'MOCK_EXAM' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'}`}>
+                      {EXAM_TYPE_LABELS[exam.examType]}
+                    </span>
+                    {locked && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-bold text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
+                        <Lock size={11} /> {exam.requiredTier}
+                      </span>
+                    )}
+                  </div>
+                  {status === 'in_progress' && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-orange-100 px-2.5 py-0.5 text-xs font-semibold text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
+                      <Clock size={11} /> In Progress
+                    </span>
+                  )}
+                  {status === 'awaiting_review' && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                      <Clock size={11} /> Awaiting Review
+                    </span>
+                  )}
+                  {status === 'completed' && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                      <Check size={12} strokeWidth={3} /> Done{attemptCount > 1 ? ` · ${attemptCount} attempts` : ''}
+                    </span>
+                  )}
+                </div>
+
+                <h2 className="mt-3 text-base font-black text-slate-900 dark:text-slate-100 leading-snug">{exam.title}</h2>
+
+                <div className="mt-2 flex flex-wrap gap-3 text-xs font-medium text-slate-500 dark:text-slate-400">
+                  <span className="flex items-center gap-1"><Clock size={12} />{formatDuration(exam.durationMinutes)}</span>
+                  <span className="flex items-center gap-1"><FileText size={12} />{exam.questionCount} questions</span>
+                </div>
+
+                {/* Status info section — consistent height keeps the grid aligned */}
+                <div className="mt-3 flex-1">
+                  {status === 'not_started' && (
+                    <div className="flex min-h-[60px] items-center justify-center rounded-xl border border-dashed border-slate-200 px-3 py-2 text-center dark:border-slate-700">
+                      <p className="text-xs font-medium text-slate-400 dark:text-slate-500">Not attempted yet</p>
+                    </div>
+                  )}
+                  {status === 'in_progress' && (
+                    <div className="flex min-h-[60px] items-center rounded-xl bg-orange-50 px-3 py-2 dark:bg-orange-900/10">
+                      <p className="text-xs font-semibold text-orange-700 dark:text-orange-400">Started · Pick up where you left off</p>
+                    </div>
+                  )}
+                  {status === 'awaiting_review' && (
+                    <div className="min-h-[60px] rounded-xl bg-amber-50 px-3 py-2.5 dark:bg-amber-900/10">
+                      <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">Submitted · Your tutor is reviewing your answers</p>
+                      <p className="mt-0.5 text-[11px] font-medium text-amber-600/80 dark:text-amber-500/80">Usually takes 1–2 business days</p>
+                    </div>
+                  )}
+                  {status === 'completed' && bestSession && bestSession.finalScore !== null && (
+                    <div className="min-h-[60px] rounded-xl bg-slate-50 px-3 py-2.5 dark:bg-slate-800">
+                      <p className="text-xs font-bold text-slate-500 dark:text-slate-400">{attemptCount > 1 ? 'Best score' : 'Your score'}</p>
+                      <div className="flex items-baseline justify-between gap-2">
+                        <p className="text-2xl font-black text-slate-900 dark:text-slate-100">{bestSession.finalScore.toFixed(1)}<span className="text-sm text-slate-400">/100</span></p>
+                        {bestSession.rankingLevel && (
+                          <span className="text-sm font-bold text-[#FF6900]">{RANKING_LABELS[bestSession.rankingLevel]}</span>
+                        )}
+                      </div>
+                      <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                        <div className="h-full rounded-full bg-[#FF6900]" style={{ width: `${Math.min(100, bestSession.finalScore)}%` }} />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Per-attempt list for exams done more than once */}
+                  {status === 'completed' && attemptCount > 1 && (() => {
+                    const examSessions = (examSessionsMap.get(exam.id) ?? [])
+                      .filter((s) => s.status !== 'IN_PROGRESS')
+                      .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+                    return (
+                      <div className="mt-2 max-h-28 space-y-1 overflow-y-auto pr-0.5">
+                        {examSessions.map((s, idx) => {
+                          const attemptNum = examSessions.length - idx;
+                          const isBest = bestSession?.sessionId === s.sessionId;
+                          return (
+                            <button
+                              key={s.sessionId}
+                              onClick={() => router.push(`/dashboard/exams/sessions/${s.sessionId}/result`)}
+                              className="flex w-full items-center justify-between gap-2 rounded-lg border border-slate-100 px-2.5 py-1.5 text-left transition-colors hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-800"
+                            >
+                              <div className="flex min-w-0 items-center gap-2">
+                                <span className="text-xs font-bold text-slate-400">#{attemptNum}</span>
+                                <span className="text-sm font-bold text-slate-800 dark:text-slate-200">
+                                  {s.finalScore !== null ? `${s.finalScore.toFixed(1)}/100` : s.status === 'SUBMITTED' ? 'Grading...' : '—'}
+                                </span>
+                                {isBest && (
+                                  <span className="inline-flex items-center gap-0.5 rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-bold text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                                    <Star size={9} className="fill-current" /> Best
+                                  </span>
+                                )}
+                                {s.retakeMode && s.retakeMode !== 'FULL' && (
+                                  <span className="inline-flex shrink-0 rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-bold text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                                    {s.retakeMode === 'INCORRECT_ONLY' ? 'Incorrect only' : 'Subject'}
+                                  </span>
+                                )}
+                              </div>
+                              <ChevronRight size={13} className="shrink-0 text-slate-300 dark:text-slate-600" />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* CTA buttons */}
+                <div className="mt-4 space-y-2">
+                  {status === 'not_started' && (
+                    locked ? (
+                      <button
+                        onClick={() => setPaywallExam(exam)}
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-4 py-2.5 text-sm font-bold text-violet-700 transition-colors hover:bg-violet-100 dark:border-violet-900/40 dark:bg-violet-900/20 dark:text-violet-300 dark:hover:bg-violet-900/30"
+                      >
+                        <Lock size={14} /> {exam.requiredTier} REQUIRED
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => router.push(`/dashboard/exams/${exam.id}`)}
+                        className="w-full rounded-xl bg-[#FF6900] px-4 py-2.5 text-sm font-bold text-white transition-transform hover:scale-[1.02] active:scale-[0.98]"
+                      >
+                        Start Exam
+                      </button>
+                    )
+                  )}
+                  {status === 'in_progress' && (
+                    <button
+                      onClick={() => router.push(`/dashboard/exams/${exam.id}/session`)}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[#FF6900] px-4 py-2.5 text-sm font-bold text-[#FF6900] transition-transform hover:scale-[1.02] active:scale-[0.98]"
+                    >
+                      <PlayCircle size={15} /> Resume Exam
+                    </button>
+                  )}
+                  {status === 'awaiting_review' && latestSession && (
+                    <button
+                      onClick={() => router.push(`/dashboard/exams/sessions/${latestSession.sessionId}/result`)}
+                      className="w-full rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm font-bold text-amber-700 transition-colors hover:bg-amber-100 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-300 dark:hover:bg-amber-900/30"
+                    >
+                      View Submission
+                    </button>
+                  )}
+                  {status === 'completed' && (
+                    <>
+                      {attemptCount <= 1 && (bestSession ?? latestSession) && (
+                        <button
+                          onClick={() => router.push(`/dashboard/exams/sessions/${(bestSession ?? latestSession)!.sessionId}/result`)}
+                          className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                        >
+                          View Results
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleOpenRetake(exam.id)}
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[#FF6900]/30 bg-[#FF6900]/5 px-4 py-2.5 text-sm font-bold text-[#FF6900] transition-colors hover:bg-[#FF6900]/10"
+                      >
+                        <RotateCcw size={14} /> Retake
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* ── Retake Modal ─────────────────────────────────────────────────── */}
+      {retakeExamId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4" onClick={() => setRetakeExamId(null)}>
+          <div className="w-full max-w-lg rounded-[2rem] border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-lg font-black text-slate-900 dark:text-slate-100">Retake Exam</h2>
+              <button onClick={() => setRetakeExamId(null)} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800">
+                <X size={18} />
+              </button>
+            </div>
+
+            {isLoadingSummary ? (
+              <div className="space-y-4 py-4 animate-pulse">
+                <div className="grid grid-cols-3 gap-3">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="rounded-xl bg-slate-50 p-3 dark:bg-slate-800">
+                      <div className="h-3 w-14 rounded bg-slate-200/70 dark:bg-slate-700" />
+                      <div className="mt-2 h-6 w-10 rounded bg-slate-200/70 dark:bg-slate-700" />
+                    </div>
+                  ))}
+                </div>
+                <div className="space-y-2">
+                  {Array.from({ length: 2 }).map((_, i) => (
+                    <div key={i} className="h-14 rounded-xl bg-slate-50 dark:bg-slate-800" />
+                  ))}
+                </div>
+              </div>
+            ) : attemptSummary ? (
+              <div className="space-y-5">
+                {/* Attempt Stats */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-800">
+                    <p className="text-xs font-bold uppercase text-slate-400">Attempts</p>
+                    <p className="mt-1 text-xl font-black text-slate-900 dark:text-slate-100">{attemptSummary.totalAttempts}</p>
+                  </div>
+                  <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-800">
+                    <p className="text-xs font-bold uppercase text-slate-400">Best</p>
+                    <p className="mt-1 text-xl font-black text-green-600 dark:text-green-400">
+                      {attemptSummary.bestScore?.finalScore !== null && attemptSummary.bestScore?.finalScore !== undefined
+                        ? <>{attemptSummary.bestScore.finalScore.toFixed(1)}<span className="text-sm text-slate-400">/100</span></>
+                        : '—'}
+                    </p>
+                  </div>
+                  <div className="rounded-xl bg-slate-50 p-3 dark:bg-slate-800">
+                    <p className="text-xs font-bold uppercase text-slate-400">Latest</p>
+                    <p className="mt-1 text-xl font-black text-slate-900 dark:text-slate-100">
+                      {attemptSummary.latestAttempt?.finalScore !== null && attemptSummary.latestAttempt?.finalScore !== undefined
+                        ? <>{attemptSummary.latestAttempt.finalScore.toFixed(1)}<span className="text-sm text-slate-400">/100</span></>
+                        : '—'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Incorrect count */}
+                {attemptSummary.incorrectQuestions.length > 0 && (
+                  <div className="rounded-xl border border-red-100 bg-red-50/50 px-3 py-2.5 dark:border-red-900/30 dark:bg-red-900/10">
+                    <p className="text-xs font-bold text-red-600 dark:text-red-400">
+                      {attemptSummary.incorrectQuestions.length} incorrect question{attemptSummary.incorrectQuestions.length !== 1 ? 's' : ''} from latest attempt
+                    </p>
+                  </div>
+                )}
+
+                {/* Retake Options */}
+                <div className="space-y-2">
+                  <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Choose retake mode</p>
+
+                  <button
+                    onClick={() => handleStartRetake(retakeExamId, 'FULL')}
+                    disabled={isStartingRetake}
+                    className="w-full flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 text-left transition-colors hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:hover:bg-slate-800"
+                  >
+                    <div className="rounded-lg bg-[#FF6900]/10 p-2 text-[#FF6900]"><RefreshCw size={18} /></div>
+                    <div>
+                      <p className="text-sm font-bold text-slate-900 dark:text-slate-100">Full Retake</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Redo the entire exam with all questions</p>
+                    </div>
+                  </button>
+
+                  {attemptSummary.incorrectQuestions.length > 0 && attemptSummary.latestAttempt && (
+                    <button
+                      onClick={() => handleStartRetake(retakeExamId, 'INCORRECT_ONLY', { sourceSessionId: attemptSummary.latestAttempt!.sessionId })}
+                      disabled={isStartingRetake}
+                      className="w-full flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 text-left transition-colors hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:hover:bg-slate-800"
+                    >
+                      <div className="rounded-lg bg-red-100 p-2 text-red-600 dark:bg-red-900/30 dark:text-red-400"><RotateCcw size={18} /></div>
+                      <div>
+                        <p className="text-sm font-bold text-slate-900 dark:text-slate-100">Incorrect Only</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Redo only the {attemptSummary.incorrectQuestions.length} question{attemptSummary.incorrectQuestions.length !== 1 ? 's' : ''} you got wrong</p>
+                      </div>
+                    </button>
+                  )}
+
+                  {attemptSummary.subjects.length > 1 && attemptSummary.subjects.map((subj) => (
+                    <button
+                      key={subj.subjectId}
+                      onClick={() => handleStartRetake(retakeExamId, 'SUBJECT_ONLY', { subjectId: subj.subjectId })}
+                      disabled={isStartingRetake}
+                      className="w-full flex items-center gap-3 rounded-xl border border-slate-200 px-4 py-3 text-left transition-colors hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:hover:bg-slate-800"
+                    >
+                      <div className="rounded-lg bg-blue-100 p-2 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"><BookOpen size={18} /></div>
+                      <div className="flex-1">
+                        <p className="text-sm font-bold text-slate-900 dark:text-slate-100">{subj.subjectName}</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">{subj.correctCount}/{subj.totalQuestions} correct · {subj.totalQuestions} questions</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+
+                {isStartingRetake && (
+                  <div className="flex items-center justify-center gap-2 py-2 text-sm font-medium text-slate-500">
+                    <Loader2 size={16} className="animate-spin" /> Starting retake...
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="py-8 text-center text-sm text-slate-500">Failed to load attempt summary.</p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Tier paywall — shown when a student taps Start on a tier-locked exam */}
+      {paywallExam && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
+          <div className="relative w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-xl dark:border-slate-800 dark:bg-slate-900">
+            <button
+              onClick={() => setPaywallExam(null)}
+              className="absolute right-4 top-4 rounded-xl p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
+            >
+              <X size={18} />
+            </button>
+            <FeaturePaywall
+              title="Exam Locked"
+              description={
+                paywallExam.requiredTier === 'PREMIUM'
+                  ? `"${paywallExam.title}" is available on Premium. Ask your parent to upgrade your plan.`
+                  : `"${paywallExam.title}" is available on Standard and above. Ask your parent to upgrade your plan.`
+              }
+              requiredTier={paywallExam.requiredTier === 'PREMIUM' ? 'PREMIUM' : 'STANDARD'}
+              compact
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Main page ─────────────────────────────────────────────────────────────────
+
+export default function ExamsPage() {
+  const user = useAuthStore((s) => s.user);
+
+  if (!user) return null;
+
+  if (user.role === 'ADMIN' || user.role === 'TUTOR') {
+    return <AdminExamView />;
+  }
+
+  return <StudentExamView />;
+}

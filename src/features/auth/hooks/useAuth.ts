@@ -37,6 +37,8 @@ export const useAuth = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const setAuth = useAuthStore((state) => state.setAuth);
+  const setAccessTokenExpiry = useAuthStore((state) => state.setAccessTokenExpiry);
+  const setSessionExpiry = useAuthStore((state) => state.setSessionExpiry);
   const clearAuth = useAuthStore((state) => state.clearAuth);
 
   const login = async (credentials: LoginCredentials) => {
@@ -46,6 +48,15 @@ export const useAuth = () => {
       const response = await authService.login(credentials);
       if (response.success) {
         setAuth(response.data.user);
+        if (response.data.accessTokenExpiresAt) {
+          setAccessTokenExpiry(response.data.accessTokenExpiresAt);
+        }
+        if (response.data.sessionExpiresAt) {
+          setSessionExpiry(response.data.sessionExpiresAt);
+        }
+        try {
+          localStorage.removeItem('aspire.pwa.installDismissed');
+        } catch (_) {}
         return response.data;
       } else {
         setError(response.message || 'Login failed');
@@ -85,16 +96,10 @@ export const useAuth = () => {
   };
 
   const logout = async () => {
-    setIsLoading(true);
-    try {
-      await authService.logout();
-      clearAuth();
-    } catch (err) {
-      console.error('Logout error:', err);
-      // Still clear auth locally
-      clearAuth();
-    } finally {
-      setIsLoading(false);
+    try { localStorage.removeItem('aspire.pwa.installDismissed'); } catch (_) {}
+
+    if (typeof window !== 'undefined') {
+      window.location.replace('/api/auth/logout');
     }
   };
 
