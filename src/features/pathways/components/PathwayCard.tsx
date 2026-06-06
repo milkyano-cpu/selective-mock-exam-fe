@@ -67,6 +67,7 @@ export function PathwayCard({
   onRemoveNode,
 }: PathwayCardProps) {
   const [removing, setRemoving] = useState(false);
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
   const [confirmingNodeId, setConfirmingNodeId] = useState<string | null>(null);
   const [removingNodeId, setRemovingNodeId] = useState<string | null>(null);
   const completedCount = pathway.nodes.filter((node) => node.progress?.completedAt).length;
@@ -296,7 +297,7 @@ export function PathwayCard({
           )}
           <button
             type="button"
-            onClick={handleRemove}
+            onClick={() => setConfirmingRemove(true)}
             disabled={removing}
             className="rounded-xl px-2.5 py-1.5 text-xs font-bold text-slate-400 transition-colors hover:bg-red-50 hover:text-red-500 disabled:opacity-60 dark:hover:bg-red-500/10"
           >
@@ -304,6 +305,36 @@ export function PathwayCard({
           </button>
         </div>
       </div>
+
+      {/* Inline confirm for removing the whole subject (cascade deletes its
+          topics + the student's progress), matching the per-node confirm. */}
+      {confirmingRemove && (
+        <div className="border-t border-red-200/70 px-5 py-3 dark:border-red-500/20">
+          <p className="flex items-start gap-2 text-xs font-semibold text-red-700 dark:text-red-300">
+            <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+            Removing this subject will delete all its topics and the student&apos;s progress for them. This cannot be undone.
+          </p>
+          <div className="mt-3 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setConfirmingRemove(false)}
+              disabled={removing}
+              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleRemove}
+              disabled={removing}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-red-700 disabled:opacity-60"
+            >
+              {removing ? <Loader2 size={12} className="animate-spin" /> : null}
+              Yes, remove subject
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Node rows — four states matching the sample design */}
       <div className="px-5 pb-3">
