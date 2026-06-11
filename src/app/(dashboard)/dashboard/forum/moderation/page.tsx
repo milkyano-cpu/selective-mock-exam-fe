@@ -4,9 +4,11 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { isAxiosError } from 'axios';
 import { forumService } from '@/features/forum/services/forum.service';
-import { showClientErrorAlert } from '@/lib/errorAlert';
-import type { ForumFlag, ForumWarning, ForumBannedWord } from '@/features/forum/types/forum.types';
+import { useAuthStore } from '@/features/auth/store/auth.store';
+import { showClientErrorAlert, showClientSuccessToast } from '@/lib/errorAlert';
+import type { ForumFlag, ForumWarning, ForumBannedWord, ModeratedPost } from '@/features/forum/types/forum.types';
 import { DeleteConfirmModal } from '@/features/subjects/components/DeleteConfirmModal';
+import { WarnModal, warnActionFeedback } from '@/features/forum/components/WarnModal';
 import {
   ArrowLeft,
   Flag,
@@ -14,14 +16,16 @@ import {
   XCircle,
   AlertTriangle,
   ShieldOff,
-  Loader2,
   AlertCircle,
   Trash2,
   Plus,
   BookOpen,
+  EyeOff,
+  RotateCcw,
+  ExternalLink,
 } from 'lucide-react';
 
-type Tab = 'flags' | 'warnings' | 'bannedWords';
+type Tab = 'flags' | 'moderated' | 'warnings' | 'bannedWords';
 
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -34,75 +38,10 @@ function timeAgo(dateStr: string) {
   return 'Just now';
 }
 
-function WarnModal({
-  userId,
-  userName,
-  onClose,
-  onWarn,
-}: {
-  userId: string;
-  userName: string;
-  onClose: () => void;
-  onWarn: () => void;
-}) {
-  const [level, setLevel] = useState<'WARNING' | 'SUSPEND'>('WARNING');
-  const [reason, setReason] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const handleSubmit = async () => {
-    if (!reason.trim()) return;
-    setIsSubmitting(true);
-    try {
-      await forumService.adminWarnUser(userId, { level, reason: reason.trim() });
-      onWarn();
-    } catch (err) {
-      setError(isAxiosError(err) ? err.response?.data?.message ?? 'Failed' : 'Failed');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/50 p-4 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-md rounded-[2rem] border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900" onClick={(e) => e.stopPropagation()}>
-        <h2 className="text-lg font-black text-slate-900 dark:text-slate-100">Issue Action</h2>
-        <p className="mt-1 text-sm text-slate-500">Against: <strong>{userName}</strong></p>
-
-        <div className="mt-4 grid grid-cols-2 gap-3">
-          {(['WARNING', 'SUSPEND'] as const).map((l) => (
-            <label key={l} className={`flex cursor-pointer items-center gap-2 rounded-xl border-2 px-4 py-3 ${level === l ? 'border-red-500 bg-red-50 dark:bg-red-900/10' : 'border-slate-200 dark:border-slate-700'}`}>
-              <input type="radio" name="level" value={l} checked={level === l} onChange={() => setLevel(l)} className="accent-red-500" />
-              <div>
-                <p className="text-sm font-bold">{l === 'WARNING' ? '⚠️ Warning' : '🚫 Suspend'}</p>
-                <p className="text-xs text-slate-400">{l === 'WARNING' ? 'Formal warning' : 'Disable posting'}</p>
-              </div>
-            </label>
-          ))}
-        </div>
-
-        <textarea
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          placeholder="Reason for this action..."
-          rows={3}
-          className="mt-4 w-full rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm focus:border-red-400 focus:outline-none dark:border-slate-700 dark:bg-slate-800"
-        />
-
-        {error && <p className="mt-2 text-xs text-red-500">{error}</p>}
-
-        <div className="mt-5 grid grid-cols-2 gap-3">
-          <button onClick={onClose} className="rounded-xl bg-slate-100 px-4 py-2.5 text-sm font-bold text-slate-700 dark:bg-slate-800 dark:text-slate-300">Cancel</button>
-          <button onClick={handleSubmit} disabled={isSubmitting || !reason.trim()} className="flex items-center justify-center gap-2 rounded-xl bg-red-500 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-60">
-            {isSubmitting ? <Loader2 size={14} className="animate-spin" /> : <ShieldOff size={14} />} Confirm
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default function ForumModerationPage() {
+  // Word-filter (banned words) management is ADMIN-only; tutors moderate content
+  // but don't configure the filter.
+  const isAdmin = useAuthStore((s) => s.user?.role) === 'ADMIN';
   const [activeTab, setActiveTab] = useState<Tab>('flags');
 
   // Flags
@@ -113,6 +52,8 @@ export default function ForumModerationPage() {
   // Warnings
   const [warnings, setWarnings] = useState<ForumWarning[]>([]);
   const [warningsLoading, setWarningsLoading] = useState(false);
+  const [deleteWarningId, setDeleteWarningId] = useState<string | null>(null);
+  const [isDeletingWarning, setIsDeletingWarning] = useState(false);
 
   // Banned words
   const [bannedWords, setBannedWords] = useState<ForumBannedWord[]>([]);
@@ -121,6 +62,12 @@ export default function ForumModerationPage() {
   const [bwError, setBwError] = useState<string | null>(null);
   const [deleteWordId, setDeleteWordId] = useState<string | null>(null);
   const [isDeletingWord, setIsDeletingWord] = useState(false);
+
+  // Moderated (hidden/removed) posts
+  const [moderatedPosts, setModeratedPosts] = useState<ModeratedPost[]>([]);
+  const [mpLoading, setMpLoading] = useState(false);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
+  const [liftingBanId, setLiftingBanId] = useState<string | null>(null);
 
   // Warn modal
   const [warnTarget, setWarnTarget] = useState<{ id: string; name: string } | null>(null);
@@ -154,19 +101,78 @@ export default function ForumModerationPage() {
     } finally { setBwLoading(false); }
   }, []);
 
-  useEffect(() => { loadFlags(); }, [loadFlags]);
-  useEffect(() => { if (activeTab === 'warnings') loadWarnings(); }, [activeTab, loadWarnings]);
-  useEffect(() => { if (activeTab === 'bannedWords') loadBannedWords(); }, [activeTab, loadBannedWords]);
+  const loadModeratedPosts = useCallback(async () => {
+    setMpLoading(true);
+    try {
+      const res = await forumService.listModeratedPosts();
+      setModeratedPosts(res.data ?? []);
+    } finally { setMpLoading(false); }
+  }, []);
 
-  const handleReviewFlag = async (flagId: string, postId: string, action: 'APPROVE' | 'REJECT') => {
+  useEffect(() => { loadFlags(); }, [loadFlags]);
+  useEffect(() => { if (activeTab === 'moderated') loadModeratedPosts(); }, [activeTab, loadModeratedPosts]);
+  useEffect(() => { if (activeTab === 'warnings') loadWarnings(); }, [activeTab, loadWarnings]);
+  useEffect(() => { if (isAdmin && activeTab === 'bannedWords') loadBannedWords(); }, [isAdmin, activeTab, loadBannedWords]);
+
+  const handleReviewFlag = async (flagId: string, postId: string, action: 'APPROVE' | 'REJECT' | 'HIDE' | 'REMOVE') => {
     try {
       await forumService.adminReviewFlag(flagId, { action });
-      showSuccess(action === 'APPROVE' ? 'Post removed' : 'Flag dismissed');
+      const feedback =
+        action === 'REJECT'
+          ? {
+              title: 'Report dismissed',
+              description: 'The post stays visible and the report is closed.',
+            }
+          : action === 'HIDE'
+            ? {
+                title: 'Post hidden',
+                description: 'Students and parents can no longer see it. It can be restored from Moderated Posts.',
+              }
+            : action === 'REMOVE'
+              ? {
+                  title: 'Post removed',
+                  description: 'The post was removed from the forum. Only admins can restore removed posts.',
+                }
+              : {
+                  title: 'Post moderated',
+                  description: 'The reported post has been reviewed.',
+                };
+      void showClientSuccessToast(feedback.description, feedback.title);
       loadFlags();
     } catch (err) {
       if (!isAxiosError(err)) {
         void showClientErrorAlert('Failed to update the reported post.');
       }
+    }
+  };
+
+  const handleRestore = async (postId: string) => {
+    setRestoringId(postId);
+    try {
+      await forumService.restorePost(postId);
+      showSuccess('Post restored');
+      loadModeratedPosts();
+    } catch (err) {
+      if (!isAxiosError(err)) {
+        void showClientErrorAlert('Failed to restore the post.');
+      }
+    } finally {
+      setRestoringId(null);
+    }
+  };
+
+  const handleLiftBan = async (userId: string) => {
+    setLiftingBanId(userId);
+    try {
+      await forumService.liftForumBan(userId);
+      showSuccess('Forum ban lifted');
+      loadWarnings();
+    } catch (err) {
+      if (!isAxiosError(err)) {
+        void showClientErrorAlert('Failed to lift the ban.');
+      }
+    } finally {
+      setLiftingBanId(null);
     }
   };
 
@@ -200,10 +206,29 @@ export default function ForumModerationPage() {
     }
   };
 
+  const onConfirmDeleteWarning = async () => {
+    if (!deleteWarningId) return;
+    setIsDeletingWarning(true);
+    try {
+      await forumService.deleteWarning(deleteWarningId);
+      setDeleteWarningId(null);
+      showSuccess('Warning deleted');
+      loadWarnings();
+    } catch (err) {
+      if (!isAxiosError(err)) {
+        void showClientErrorAlert('Failed to delete the warning.');
+      }
+    } finally {
+      setIsDeletingWarning(false);
+    }
+  };
+
   const TABS: { id: Tab; label: string; icon: React.ReactNode; badge?: number }[] = [
     { id: 'flags', label: 'Flagged Posts', icon: <Flag size={15} />, badge: flags.length },
+    { id: 'moderated', label: 'Moderated Posts', icon: <EyeOff size={15} /> },
     { id: 'warnings', label: 'User Actions', icon: <AlertTriangle size={15} /> },
-    { id: 'bannedWords', label: 'Word Filter', icon: <BookOpen size={15} /> },
+    // Word filter is ADMIN-only — hidden from tutors.
+    ...(isAdmin ? [{ id: 'bannedWords' as Tab, label: 'Word Filter', icon: <BookOpen size={15} /> }] : []),
   ];
 
   return (
@@ -219,10 +244,12 @@ export default function ForumModerationPage() {
         <WarnModal
           userId={warnTarget.id}
           userName={warnTarget.name}
+          allowBan={isAdmin}
           onClose={() => setWarnTarget(null)}
-          onWarn={() => {
+          onWarn={(level) => {
+            const feedback = warnActionFeedback(level, warnTarget.name);
             setWarnTarget(null);
-            showSuccess('Action issued');
+            void showClientSuccessToast(feedback.description, feedback.title);
             if (activeTab === 'warnings') loadWarnings();
           }}
         />
@@ -245,7 +272,7 @@ export default function ForumModerationPage() {
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`relative flex flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2.5 text-sm font-bold transition-all ${
+            className={`relative flex flex-1 items-center justify-center gap-1 rounded-xl px-1.5 py-2 text-[10px] font-bold leading-tight transition-all sm:gap-1.5 sm:px-2 sm:py-2.5 sm:text-xs lg:gap-2 lg:px-3 lg:text-sm ${
               activeTab === tab.id
                 ? 'bg-white text-slate-900 shadow-sm dark:bg-slate-800 dark:text-slate-100'
                 : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
@@ -286,6 +313,11 @@ export default function ForumModerationPage() {
                       {flag.reason.replace('_', ' ')}
                     </span>
                     <span className="text-xs text-slate-400">Reported by {flag.reporter.name} · {timeAgo(flag.createdAt)}</span>
+                    {flag.author && (
+                      <span className="text-xs font-semibold text-slate-500 dark:text-slate-400">
+                        · Author: {flag.author.name}{flag.isAnonymous ? ' (posted anonymously)' : ''}
+                      </span>
+                    )}
                   </div>
                   <p className="mt-2 line-clamp-3 text-sm font-medium text-slate-700 dark:text-slate-300">
                     "{flag.postContent}"
@@ -295,6 +327,14 @@ export default function ForumModerationPage() {
                   )}
                 </div>
                 <div className="flex shrink-0 gap-2">
+                  {flag.author && (
+                    <button
+                      onClick={() => setWarnTarget({ id: flag.author!.id, name: flag.author!.name ?? 'this user' })}
+                      className="inline-flex items-center gap-1.5 rounded-xl border border-amber-200 px-3 py-2 text-xs font-bold text-amber-700 hover:bg-amber-50 dark:border-amber-800/50 dark:text-amber-400 dark:hover:bg-amber-900/20"
+                    >
+                      <ShieldOff size={13} /> Warn Author
+                    </button>
+                  )}
                   <button
                     onClick={() => handleReviewFlag(flag.id, flag.postId, 'REJECT')}
                     className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300"
@@ -302,10 +342,60 @@ export default function ForumModerationPage() {
                     <XCircle size={13} /> Dismiss
                   </button>
                   <button
-                    onClick={() => handleReviewFlag(flag.id, flag.postId, 'APPROVE')}
+                    onClick={() => handleReviewFlag(flag.id, flag.postId, 'HIDE')}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500 px-3 py-2 text-xs font-bold text-white hover:bg-amber-600"
+                  >
+                    <EyeOff size={13} /> Hide
+                  </button>
+                  <button
+                    onClick={() => handleReviewFlag(flag.id, flag.postId, 'REMOVE')}
                     className="inline-flex items-center gap-1.5 rounded-xl bg-red-500 px-3 py-2 text-xs font-bold text-white hover:bg-red-600"
                   >
-                    <Trash2 size={13} /> Remove Post
+                    <Trash2 size={13} /> Remove
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Moderated posts tab (hidden/removed) */}
+      {activeTab === 'moderated' && (
+        <div className="space-y-3">
+          {mpLoading ? (
+            <div className="space-y-3 animate-pulse">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="h-24 rounded-[1.75rem] border border-slate-200/60 bg-white dark:border-slate-800 dark:bg-slate-900" />
+              ))}
+            </div>
+          ) : moderatedPosts.length === 0 ? (
+            <div className="flex min-h-[20vh] flex-col items-center justify-center gap-3 rounded-[2rem] border border-slate-200 bg-white p-10 dark:border-slate-800 dark:bg-slate-900">
+              <CheckCircle size={36} className="text-emerald-400" />
+              <p className="font-bold text-slate-600 dark:text-slate-400">No hidden or removed posts.</p>
+            </div>
+          ) : moderatedPosts.map((post) => (
+            <div key={post.id} className="rounded-[1.75rem] border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={`rounded-full px-2.5 py-1 text-xs font-black ${post.status === 'HIDDEN' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>
+                      {post.status}
+                    </span>
+                    <span className="text-xs text-slate-400">By {post.author?.name ?? 'Unknown'} · {timeAgo(post.createdAt)}</span>
+                  </div>
+                  <p className="mt-2 line-clamp-3 text-sm font-medium text-slate-700 dark:text-slate-300">&ldquo;{post.content}&rdquo;</p>
+                  <Link href={`/dashboard/forum/${post.threadId}`} className="mt-1 inline-flex items-center gap-1 text-xs font-bold text-[#0A9AE2] hover:underline">
+                    <ExternalLink size={11} /> {post.threadTitle}
+                  </Link>
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  <button
+                    onClick={() => handleRestore(post.id)}
+                    disabled={restoringId === post.id}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-600 disabled:opacity-60"
+                  >
+                    <RotateCcw size={13} /> Restore
                   </button>
                 </div>
               </div>
@@ -328,31 +418,69 @@ export default function ForumModerationPage() {
               <CheckCircle size={36} className="text-emerald-400" />
               <p className="font-bold text-slate-600">No user actions issued yet.</p>
             </div>
-          ) : warnings.map((w) => (
-            <div key={w.id} className="flex items-center gap-4 rounded-[1.75rem] border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-              <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${w.level === 'SUSPEND' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600'}`}>
-                {w.level === 'SUSPEND' ? <ShieldOff size={18} /> : <AlertTriangle size={18} />}
+          ) : warnings.map((w) => {
+            const levelTone =
+              w.level === 'BAN' ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+                : w.level === 'MAJOR' ? 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400'
+                  : 'bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400';
+            const levelText =
+              w.level === 'BAN' ? 'text-red-500' : w.level === 'MAJOR' ? 'text-orange-500' : 'text-amber-500';
+            return (
+              <div key={w.id} className="flex items-center gap-4 rounded-[1.75rem] border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ${levelTone}`}>
+                  {w.level === 'BAN' ? <ShieldOff size={18} /> : <AlertTriangle size={18} />}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="flex flex-wrap items-center gap-2 text-sm font-bold text-slate-800 dark:text-slate-200">
+                    <span>{w.user.name} — <span className={levelText}>{w.level}</span></span>
+                    {w.isForumBanned && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-black uppercase tracking-wide text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                        <ShieldOff size={10} /> Forum Banned
+                      </span>
+                    )}
+                  </p>
+                  <div className="mt-1 flex flex-wrap gap-1.5">
+                    <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-black text-amber-700 dark:bg-amber-900/20 dark:text-amber-300">
+                      {w.minorCount} MINOR
+                    </span>
+                    <span className="rounded-full bg-orange-50 px-2 py-0.5 text-[11px] font-black text-orange-700 dark:bg-orange-900/20 dark:text-orange-300">
+                      {w.majorCount} MAJOR
+                    </span>
+                  </div>
+                  <p className="text-sm text-slate-500">{w.reason}</p>
+                  <p className="mt-1 text-xs text-slate-400">By {w.admin.name} · {timeAgo(w.createdAt)}</p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  {w.isForumBanned && isAdmin && (
+                    <button
+                      onClick={() => handleLiftBan(w.user.id)}
+                      disabled={liftingBanId === w.user.id}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-500 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-600 disabled:opacity-60"
+                    >
+                      <RotateCcw size={13} /> Lift Ban
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setWarnTarget({ id: w.user.id, name: w.user.name ?? '' })}
+                    className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 dark:border-slate-700"
+                  >
+                    + Action
+                  </button>
+                  <button
+                    onClick={() => setDeleteWarningId(w.id)}
+                    className="inline-flex items-center gap-1.5 rounded-xl border border-red-200 px-3 py-2 text-xs font-bold text-red-600 hover:bg-red-50 dark:border-red-800/50 dark:text-red-400 dark:hover:bg-red-900/20"
+                  >
+                    <Trash2 size={13} /> Delete
+                  </button>
+                </div>
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-bold text-slate-800 dark:text-slate-200">
-                  {w.user.name} — <span className={w.level === 'SUSPEND' ? 'text-red-500' : 'text-amber-500'}>{w.level}</span>
-                </p>
-                <p className="text-sm text-slate-500">{w.reason}</p>
-                <p className="mt-1 text-xs text-slate-400">By {w.admin.name} · {timeAgo(w.createdAt)}</p>
-              </div>
-              <button
-                onClick={() => setWarnTarget({ id: w.user.id, name: w.user.name ?? '' })}
-                className="shrink-0 rounded-xl border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600 hover:bg-slate-50 dark:border-slate-700"
-              >
-                + Action
-              </button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
-      {/* Banned words tab */}
-      {activeTab === 'bannedWords' && (
+      {/* Banned words tab (ADMIN-only) */}
+      {isAdmin && activeTab === 'bannedWords' && (
         <div className="space-y-5">
           <div className="rounded-[2rem] border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
             <h3 className="font-black text-slate-900 dark:text-slate-100">Add Word to Filter</h3>
@@ -410,6 +538,15 @@ export default function ForumModerationPage() {
         title="Remove Banned Word"
         message="Are you sure you want to remove this word from the filter list?"
         isLoading={isDeletingWord}
+      />
+
+      <DeleteConfirmModal
+        isOpen={!!deleteWarningId}
+        onClose={() => setDeleteWarningId(null)}
+        onConfirm={onConfirmDeleteWarning}
+        title="Delete Warning"
+        message="Are you sure you want to delete this warning? This removes the log entry and cannot be undone. The user's forum-ban status is not affected."
+        isLoading={isDeletingWarning}
       />
     </div>
   );

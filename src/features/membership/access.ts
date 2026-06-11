@@ -15,9 +15,18 @@ export function hasFullPracticeAccess(user: User | null | undefined) {
   return tier === 'STANDARD' || tier === 'PREMIUM';
 }
 
+// Forum is Premium-only for students. Parents (and admins/tutors) always have access.
+export function canAccessForum(user: User | null | undefined) {
+  if (!user) return false;
+  if (user.isForumBanned && user.role !== 'ADMIN' && user.role !== 'TUTOR') return false;
+  if (user.role === 'ADMIN' || user.role === 'TUTOR' || user.role === 'PARENT') return true;
+  return userTier(user) === 'PREMIUM';
+}
+
 export function canWriteForum(user: User | null | undefined) {
   if (!user) return false;
+  if (user.isForumBanned && user.role !== 'ADMIN' && user.role !== 'TUTOR') return false;
   if (user.role === 'PARENT') return true;
   if (user.role !== 'STUDENT') return false;
-  return userTier(user) !== 'BASIC';
+  return userTier(user) === 'PREMIUM';
 }

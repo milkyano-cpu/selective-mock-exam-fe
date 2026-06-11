@@ -6,6 +6,7 @@ export interface User {
   role: 'STUDENT' | 'PARENT' | 'TUTOR' | 'ADMIN';
   status?: 'ACTIVE' | 'SUSPENDED' | 'BANNED';
   tier?: 'BASIC' | 'STANDARD' | 'PREMIUM';
+  isForumBanned?: boolean;
   hasProfilePhoto?: boolean;
   profilePhotoUpdatedAt?: string | null;
 }

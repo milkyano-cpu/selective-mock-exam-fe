@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useAuthStore } from '@/features/auth/store/auth.store';
-import { canWriteForum } from '@/features/membership/access';
+import { canWriteForum, canAccessForum } from '@/features/membership/access';
+import { FeaturePaywall } from '@/components/billing/FeaturePaywall';
+import { forumAuthorLabel } from '@/features/forum/authorLabel';
 import { forumService } from '@/features/forum/services/forum.service';
 import type { ForumSegment, ForumThread } from '@/features/forum/types/forum.types';
 import {
@@ -15,7 +17,7 @@ import {
   Users,
   BookOpen,
   AlertCircle,
-  Loader2,
+  ShieldOff,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
@@ -39,6 +41,11 @@ function timeAgo(dateStr: string | null) {
 
 export default function ForumPage() {
   const user = useAuthStore((s) => s.user);
+  // Forum is Premium-only for students/parents; ADMIN/TUTOR always allowed.
+  const hasForumAccess = canAccessForum(user);
+  // Forum-banned students/parents are blocked even with Premium (moderators exempt).
+  const isForumBanned =
+    Boolean(user?.isForumBanned) && user?.role !== 'ADMIN' && user?.role !== 'TUTOR';
   const userSegment: ForumSegment =
     user?.role === 'PARENT' ? 'PARENT' : 'STUDENT';
 
@@ -68,12 +75,14 @@ export default function ForumPage() {
   }, []);
 
   useEffect(() => {
+    // Skip the fetch when gated (paywall/ban) — the API would just 403.
+    if (!hasForumAccess || isForumBanned) return;
     const timer = window.setTimeout(() => {
       void load(activeSegment, page);
     }, 0);
 
     return () => window.clearTimeout(timer);
-  }, [activeSegment, page, load]);
+  }, [activeSegment, page, load, hasForumAccess, isForumBanned]);
 
   const handleSegmentChange = (seg: ForumSegment) => {
     setActiveSegment(seg);
@@ -81,8 +90,38 @@ export default function ForumPage() {
   };
 
   const canPost = canWriteForum(user);
-  const isAdmin = user?.role === 'ADMIN';
-  const isReadOnlyStudent = user?.role === 'STUDENT' && !canPost;
+  // ADMIN and TUTOR both moderate: they get the moderation panel link and the
+  // cross-segment (Student/Parent) switcher.
+  const isModerator = user?.role === 'ADMIN' || user?.role === 'TUTOR';
+
+  // Forum-banned users get a clear suspension notice (not the Premium paywall).
+  if (isForumBanned) {
+    return (
+      <div className="mx-auto flex min-h-[55vh] w-full max-w-2xl flex-col items-center justify-center px-4 text-center">
+        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-red-100 text-red-600 dark:bg-red-500/10 dark:text-red-400">
+          <ShieldOff size={28} />
+        </div>
+        <h1 className="mt-5 text-2xl font-black tracking-tight text-slate-900 dark:text-white">
+          Forum access suspended
+        </h1>
+        <p className="mt-3 max-w-md text-sm font-medium leading-6 text-slate-500 dark:text-slate-400">
+          Your access to the forum has been suspended due to repeated violations.
+          Please contact an administrator if you believe this is a mistake.
+        </p>
+      </div>
+    );
+  }
+
+  // Premium-only feature: students/parents below Premium see a paywall instead.
+  if (!hasForumAccess) {
+    return (
+      <FeaturePaywall
+        title="Forum Access"
+        description="Available on Premium. Ask your parent to upgrade your plan."
+        requiredTier="PREMIUM"
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -90,14 +129,16 @@ export default function ForumPage() {
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-slate-100 sm:text-3xl">
-            Discussion Forum
+            Forum
           </h1>
           <p className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400">
-            Ask questions, share tips, and discuss with your learning community.
+            {isModerator
+              ? 'Review discussions, support the community, and manage forum activity.'
+              : 'Ask questions, share tips, and discuss with your learning community.'}
           </p>
         </div>
         <div className="flex items-center gap-3">
-          {isAdmin && (
+          {isModerator && (
             <Link
               href="/dashboard/forum/moderation"
               className="inline-flex items-center gap-2 rounded-xl border border-orange-200 bg-orange-50 px-4 py-2.5 text-sm font-bold text-orange-600 transition-colors hover:bg-orange-100 dark:border-orange-800/50 dark:bg-orange-900/20 dark:text-orange-400"
@@ -113,16 +154,11 @@ export default function ForumPage() {
               <Plus size={16} /> New Thread
             </Link>
           )}
-          {isReadOnlyStudent && (
-            <span className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-bold text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
-              Read-only on Basic
-            </span>
-          )}
         </div>
       </div>
 
-      {/* Segment tabs — only show switcher for ADMIN */}
-      {isAdmin && (
+      {/* Segment tabs — only moderators (ADMIN/TUTOR) can switch segments */}
+      {isModerator && (
         <div className="flex gap-1 rounded-2xl border border-slate-200 bg-slate-100 p-1 dark:border-slate-800 dark:bg-slate-900">
           {(['STUDENT', 'PARENT'] as ForumSegment[]).map((seg) => (
             <button
@@ -141,8 +177,8 @@ export default function ForumPage() {
         </div>
       )}
 
-      {/* Non-admin segment header */}
-      {!isAdmin && (
+      {/* Single-segment header for non-moderators */}
+      {!isModerator && (
         <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-5 py-3 dark:border-slate-800 dark:bg-slate-900/60">
           {userSegment === 'STUDENT' ? (
             <BookOpen size={18} className="text-[#0A9AE2]" />
@@ -235,7 +271,7 @@ export default function ForumPage() {
                   <span>
                     By{' '}
                     <span className="text-slate-600 dark:text-slate-300">
-                      {thread.author?.name ?? 'Anonymous'}
+                      {forumAuthorLabel(thread.author)}
                     </span>
                   </span>
                   <span className="flex items-center gap-1">
