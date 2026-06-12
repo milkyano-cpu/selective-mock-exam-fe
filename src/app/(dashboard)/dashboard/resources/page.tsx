@@ -2,42 +2,30 @@
 
 import { FormEvent, useEffect, useMemo, useState } from 'react';
 import { useAuthStore } from '@/features/auth/store/auth.store';
+import { FeaturePaywall } from '@/components/billing/FeaturePaywall';
+import { SearchableSelect, type SearchableSelectOption } from '@/components/ui/SearchableSelect';
 import { PdfPreview } from '@/features/resources/components/pdf-preview';
 import { resourceService } from '@/features/resources/services/resources.service';
-import type { Resource, ResourceType, Tier } from '@/features/resources/types/resources.types';
+import type { Resource, ResourceType } from '@/features/resources/types/resources.types';
 import { AlertTriangle, ExternalLink, FileText, FolderOpen, Loader2, Pencil, Plus, Search, Trash2, Upload, Video, X } from 'lucide-react';
 import { DeleteConfirmModal } from '@/features/subjects/components/DeleteConfirmModal';
+import { subjectsService } from '@/features/subjects/services/subjects.service';
+import type { Subject } from '@/features/subjects/types/subjects.types';
 import { showApiSuccessToast, showClientErrorAlert } from '@/lib/errorAlert';
 
 type FilterType = 'ALL' | ResourceType;
 type VideoInputMode = 'UPLOAD' | 'URL';
-const TIER_OPTIONS: { value: Tier; label: string }[] = [
-  { value: 'BASIC', label: 'Basic' },
-  { value: 'STANDARD', label: 'Standard' },
-  { value: 'PREMIUM', label: 'Premium' },
-];
-const TIER_ORDER = TIER_OPTIONS.map((tier) => tier.value);
 
-function getAllowedTiersFromMinimumTier(minimumTier: Tier): Tier[] {
-  const minimumTierIndex = TIER_ORDER.indexOf(minimumTier);
-  return TIER_ORDER.slice(minimumTierIndex >= 0 ? minimumTierIndex : 0);
-}
-
-function getMinimumTierFromAllowedTiers(allowedTiers: Tier[]): Tier {
-  const minimumTier = TIER_ORDER.find((tier) => allowedTiers.includes(tier));
-  return minimumTier ?? 'BASIC';
-}
-
-function getTierLabel(tier: Tier) {
-  return TIER_OPTIONS.find((option) => option.value === tier)?.label ?? tier;
-}
+// Resources are a Premium-only feature, so every resource is created and kept
+// at the PREMIUM tier. There is no per-resource tier choice in the UI.
+const RESOURCE_TIERS = ['PREMIUM'] as const;
 
 const initialForm = {
   title: '',
   description: '',
   type: 'FILE' as ResourceType,
   videoUrl: '',
-  minimumTier: 'BASIC' as Tier,
+  subjectId: '',
 };
 
 function getResourceUrl(resource: Resource) {
@@ -96,14 +84,16 @@ function toEmbedVideoUrl(url: string | null) {
 export default function ResourcesPage() {
   const user = useAuthStore((state) => state.user);
   const [resources, setResources] = useState<Resource[]>([]);
+  const [subjects, setSubjects] = useState<Subject[]>([]);
   const [filter, setFilter] = useState<FilterType>('ALL');
+  const [subjectFilter, setSubjectFilter] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingResource, setEditingResource] = useState<Resource | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editForm, setEditForm] = useState({ title: '', description: '', minimumTier: initialForm.minimumTier });
+  const [editForm, setEditForm] = useState({ title: '', description: '', subjectId: '' });
   const [isEditSubmitting, setIsEditSubmitting] = useState(false);
   const [editError, setEditError] = useState('');
   const [viewingResource, setViewingResource] = useState<Resource | null>(null);
@@ -117,7 +107,8 @@ export default function ResourcesPage() {
   const [deletingResourceId, setDeletingResourceId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const isAuthorized = user?.role === 'ADMIN' || user?.role === 'TUTOR' || user?.role === 'STUDENT';
+  const isPremiumStudent = user?.role === 'STUDENT' && user?.tier === 'PREMIUM';
+  const isAuthorized = user?.role === 'ADMIN' || user?.role === 'TUTOR' || isPremiumStudent;
   const canManage = user?.role === 'ADMIN' || user?.role === 'TUTOR';
 
   const loadResources = async () => {
@@ -126,6 +117,7 @@ export default function ResourcesPage() {
       const response = await resourceService.list({
         type: filter === 'ALL' ? undefined : filter,
         search: searchQuery || undefined,
+        subjectId: subjectFilter || undefined,
         limit: 50,
       });
       setResources(response.data);
@@ -140,7 +132,16 @@ export default function ResourcesPage() {
       void loadResources();
     }, 250);
     return () => window.clearTimeout(timeout);
-  }, [filter, searchQuery, isAuthorized]);
+  }, [filter, subjectFilter, searchQuery, isAuthorized]);
+
+  // Load subjects once for the filter dropdown and the upload/edit forms.
+  useEffect(() => {
+    if (!isAuthorized) return;
+    subjectsService
+      .listSubjects({ limit: 100, sortBy: 'name', order: 'asc' })
+      .then((response) => setSubjects(response.data ?? []))
+      .catch(() => setSubjects([]));
+  }, [isAuthorized]);
 
   useEffect(() => {
     if (viewingResource) {
@@ -187,8 +188,10 @@ export default function ResourcesPage() {
       return () => { abortController.abort(); };
     }
 
-    // For PDF and other files, fetch blob via proxy (avoids IDM interception)
-    fetch(`/api/resources/${viewingResource.id}/preview`, {
+    // For PDF and other files, fetch blob via proxy. `raw=1` makes the backend
+    // drop Content-Disposition and serve PDFs as text/plain so download managers
+    // (e.g. IDM) don't intercept the request — pdf.js still reads the raw bytes.
+    fetch(`/api/resources/${viewingResource.id}/preview?raw=1`, {
       credentials: 'include',
       signal: abortController.signal,
     })
@@ -218,6 +221,10 @@ export default function ResourcesPage() {
   }, [viewingResource]);
 
   const filteredResources = useMemo(() => resources, [resources]);
+  const subjectOptions = useMemo<SearchableSelectOption[]>(
+    () => subjects.map((subject) => ({ value: subject.id, label: subject.name, searchText: subject.description ?? '' })),
+    [subjects]
+  );
 
   const resetModal = () => {
     setForm(initialForm);
@@ -257,7 +264,8 @@ export default function ResourcesPage() {
         description: form.description,
         type: form.type,
         videoUrl: form.type === 'VIDEO' && videoInputMode === 'URL' ? form.videoUrl : null,
-        allowedTiers: getAllowedTiersFromMinimumTier(form.minimumTier),
+        allowedTiers: [...RESOURCE_TIERS],
+        subjectId: form.subjectId || null,
       });
 
       if ((form.type === 'FILE' || (form.type === 'VIDEO' && videoInputMode === 'UPLOAD')) && file) {
@@ -291,7 +299,7 @@ export default function ResourcesPage() {
     setEditForm({
       title: resource.title,
       description: resource.description || '',
-      minimumTier: getMinimumTierFromAllowedTiers(resource.allowedTiers),
+      subjectId: resource.subjectId ?? '',
     });
     setEditError('');
     setIsEditModalOpen(true);
@@ -306,7 +314,8 @@ export default function ResourcesPage() {
       await resourceService.update(editingResource.id, {
         title: editForm.title,
         description: editForm.description,
-        allowedTiers: getAllowedTiersFromMinimumTier(editForm.minimumTier),
+        allowedTiers: [...RESOURCE_TIERS],
+        subjectId: editForm.subjectId || null,
       });
       setIsEditModalOpen(false);
       setEditingResource(null);
@@ -320,9 +329,11 @@ export default function ResourcesPage() {
 
   if (!isAuthorized) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <p className="text-lg font-semibold text-slate-500">You do not have access to this page.</p>
-      </div>
+      <FeaturePaywall
+        title="Study Resources"
+        description="Available on Premium. Ask your parent to upgrade your plan."
+        requiredTier="PREMIUM"
+      />
     );
   }
 
@@ -357,6 +368,17 @@ export default function ResourcesPage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-4 text-sm outline-none transition-colors focus:border-[#0A9AE2] dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+          />
+        </div>
+        <div className="sm:w-56">
+          <SearchableSelect
+            value={subjectFilter}
+            onChange={setSubjectFilter}
+            placeholder="All Subjects"
+            searchPlaceholder="Search subject…"
+            emptyText="No subjects found."
+            triggerClassName="py-2.5"
+            options={[{ value: '', label: 'All Subjects' }, ...subjectOptions]}
           />
         </div>
         <div className="flex gap-2">
@@ -419,14 +441,14 @@ export default function ResourcesPage() {
                       {resource.title}
                     </button>
                     <p className="truncate text-xs text-slate-500 dark:text-slate-400">{resource.description || 'No description'}</p>
+                    {resource.subject && (
+                      <span className="mt-1 inline-block rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                        {resource.subject.name}
+                      </span>
+                    )}
                     <p className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-slate-400">
                       {resource.type}{canManage && resource.fileSize ? ` · ${formatFileSize(resource.fileSize)}` : ''} · {new Date(resource.createdAt).toLocaleDateString()}
                     </p>
-                    {canManage && (
-                      <p className="mt-1 text-[10px] font-bold text-[#0A9AE2]">
-                        Min. {getTierLabel(getMinimumTierFromAllowedTiers(resource.allowedTiers))}
-                      </p>
-                    )}
                   </div>
                   {canManage && (
                     <div className="flex shrink-0 gap-1">
@@ -459,7 +481,7 @@ export default function ResourcesPage() {
                   <th className="px-6 py-3.5 text-left text-xs font-black uppercase tracking-wider text-slate-500">Resource</th>
                   <th className="px-6 py-3.5 text-left text-xs font-black uppercase tracking-wider text-slate-500">Description</th>
                   <th className="px-6 py-3.5 text-left text-xs font-black uppercase tracking-wider text-slate-500">Type</th>
-                  {canManage && <th className="px-6 py-3.5 text-left text-xs font-black uppercase tracking-wider text-slate-500">Minimum Tier</th>}
+                  <th className="px-6 py-3.5 text-left text-xs font-black uppercase tracking-wider text-slate-500">Subject</th>
                   {canManage && <th className="px-6 py-3.5 text-left text-xs font-black uppercase tracking-wider text-slate-500">Size</th>}
                   <th className="px-6 py-3.5 text-left text-xs font-black uppercase tracking-wider text-slate-500">Created</th>
                   {canManage && <th className="px-6 py-3.5 text-right text-xs font-black uppercase tracking-wider text-slate-500">Actions</th>}
@@ -477,7 +499,7 @@ export default function ResourcesPage() {
                           <button
                             type="button"
                             onClick={() => setViewingResource(resource)}
-                            className="font-bold text-slate-900 hover:text-[#0A9AE2] hover:underline dark:text-slate-100 dark:hover:text-[#0A9AE2]"
+                            className="min-w-0 truncate font-bold text-slate-900 hover:text-[#0A9AE2] hover:underline dark:text-slate-100 dark:hover:text-[#0A9AE2]"
                           >
                             {resource.title}
                           </button>
@@ -491,13 +513,15 @@ export default function ResourcesPage() {
                           {resource.type}
                         </span>
                       </td>
-                      {canManage && (
-                        <td className="px-6 py-4">
-                          <span className="rounded-full bg-[#0A9AE2]/10 px-2.5 py-1 text-[10px] font-black text-[#0A9AE2]">
-                            {getTierLabel(getMinimumTierFromAllowedTiers(resource.allowedTiers))}
+                      <td className="px-6 py-4">
+                        {resource.subject ? (
+                          <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                            {resource.subject.name}
                           </span>
-                        </td>
-                      )}
+                        ) : (
+                          <span className="text-xs text-slate-400">—</span>
+                        )}
+                      </td>
                       {canManage && (
                         <td className="px-6 py-4 text-xs text-slate-500 dark:text-slate-400">
                           {resource.fileSize ? formatFileSize(resource.fileSize) : '—'}
@@ -594,30 +618,16 @@ export default function ResourcesPage() {
               </div>
 
               <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Minimum Tier</label>
-                <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">Students at this tier or higher can view this resource.</p>
-                <div className="mt-2 grid grid-cols-3 gap-2">
-                  {TIER_OPTIONS.map((tier) => {
-                    const isSelected = form.minimumTier === tier.value;
-                    return (
-                      <button
-                        key={tier.value}
-                        type="button"
-                        onClick={() => {
-                          setForm((prev) => ({ ...prev, minimumTier: tier.value }));
-                          setErrorMessage('');
-                        }}
-                        className={[
-                          'rounded-2xl border px-3 py-2.5 text-xs font-black transition-colors',
-                          isSelected
-                            ? 'border-[#0A9AE2] bg-[#0A9AE2]/10 text-[#0A9AE2]'
-                            : 'border-slate-200 text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800',
-                        ].join(' ')}
-                      >
-                        {tier.label}
-                      </button>
-                    );
-                  })}
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Subject (optional)</label>
+                <div className="mt-2">
+                  <SearchableSelect
+                    value={form.subjectId}
+                    onChange={(value) => setForm((prev) => ({ ...prev, subjectId: value }))}
+                    placeholder="No subject"
+                    searchPlaceholder="Search subject…"
+                    emptyText="No subjects found."
+                    options={[{ value: '', label: 'No subject' }, ...subjectOptions]}
+                  />
                 </div>
               </div>
 
@@ -860,30 +870,16 @@ export default function ResourcesPage() {
               </div>
 
               <div>
-                <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Minimum Tier</label>
-                <p className="mt-1 text-xs font-medium text-slate-500 dark:text-slate-400">Students at this tier or higher can view this resource.</p>
-                <div className="mt-2 grid grid-cols-3 gap-2">
-                  {TIER_OPTIONS.map((tier) => {
-                    const isSelected = editForm.minimumTier === tier.value;
-                    return (
-                      <button
-                        key={tier.value}
-                        type="button"
-                        onClick={() => {
-                          setEditForm((prev) => ({ ...prev, minimumTier: tier.value }));
-                          setEditError('');
-                        }}
-                        className={[
-                          'rounded-2xl border px-3 py-2.5 text-xs font-black transition-colors',
-                          isSelected
-                            ? 'border-[#0A9AE2] bg-[#0A9AE2]/10 text-[#0A9AE2]'
-                            : 'border-slate-200 text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800',
-                        ].join(' ')}
-                      >
-                        {tier.label}
-                      </button>
-                    );
-                  })}
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Subject (optional)</label>
+                <div className="mt-2">
+                  <SearchableSelect
+                    value={editForm.subjectId}
+                    onChange={(value) => setEditForm((prev) => ({ ...prev, subjectId: value }))}
+                    placeholder="No subject"
+                    searchPlaceholder="Search subject…"
+                    emptyText="No subjects found."
+                    options={[{ value: '', label: 'No subject' }, ...subjectOptions]}
+                  />
                 </div>
               </div>
 

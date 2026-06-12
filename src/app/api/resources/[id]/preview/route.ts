@@ -15,7 +15,9 @@ export async function GET(
       fetchOptions.headers = { Range: rangeHeader };
     }
 
-    const backendRes = await fetchFromBackend(req, `/resources/${id}/preview`, fetchOptions);
+    // Preserve query params (e.g. ?raw=1) so the backend can pick the right headers
+    const search = new URL(req.url).search;
+    const backendRes = await fetchFromBackend(req, `/resources/${id}/preview${search}`, fetchOptions);
 
     if (!backendRes.ok || !backendRes.body) {
       const message = await backendRes.text().catch(() => 'Failed to fetch resource file');
