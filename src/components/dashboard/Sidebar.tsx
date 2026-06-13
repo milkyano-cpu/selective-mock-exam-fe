@@ -7,6 +7,7 @@ import {
   X,
 } from 'lucide-react';
 import { useAuthStore } from '@/features/auth/store/auth.store';
+import { useFlashcardsDueCount } from '@/features/flashcards/hooks/useFlashcardsDueCount';
 import { motion } from 'framer-motion';
 import { useTheme } from 'next-themes';
 import { studentMenuItems, parentMenuItems, adminMenuItems, adminMenuGroups, tutorMenuItems, tutorMenuGroups } from '@/constants/navigation';
@@ -18,6 +19,7 @@ interface SidebarProps {
 export const Sidebar = ({ onClose }: SidebarProps) => {
   const pathname = usePathname();
   const user = useAuthStore((state) => state.user);
+  const flashcardsDueCount = useFlashcardsDueCount();
   const { resolvedTheme } = useTheme();
   const isStudent = user?.role === 'STUDENT';
   const isAdmin = user?.role === 'ADMIN';
@@ -161,10 +163,15 @@ export const Sidebar = ({ onClose }: SidebarProps) => {
                   <item.icon size={isStudent ? 18 : 20} />
                 </span>
                 <span className="truncate">{item.label}</span>
+                {item.href === '/dashboard/flashcards' && flashcardsDueCount > 0 && (
+                  <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-black text-white">
+                    {flashcardsDueCount}
+                  </span>
+                )}
                 {isActive && (
-                  <motion.div 
+                  <motion.div
                     layoutId="active-pill"
-                    className={`ml-auto h-2 w-2 rounded-full ${isStudent ? 'bg-white' : 'bg-[#0A9AE2]'}`}
+                    className={`${item.href === '/dashboard/flashcards' && flashcardsDueCount > 0 ? 'ml-2' : 'ml-auto'} h-2 w-2 rounded-full ${isStudent ? 'bg-white' : 'bg-[#0A9AE2]'}`}
                   />
                 )}
               </Link>

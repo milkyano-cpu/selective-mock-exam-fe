@@ -255,6 +255,8 @@ function isQuietBackgroundRequest(url: string | undefined): boolean {
     url?.includes('/heartbeat') ||
     url?.includes('/answers') ||
     url?.includes('/student-calendar/reminders/bulk') ||
+    // Nav badge poll — a failed badge fetch must never toast.
+    url?.includes('/flashcards/stats') ||
     (url?.includes('/resources/') && url?.includes('/stream-url'))
   );
 }

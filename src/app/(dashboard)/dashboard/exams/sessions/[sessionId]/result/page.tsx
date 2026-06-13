@@ -9,6 +9,7 @@ import { useAuthStore } from '@/features/auth/store/auth.store';
 import { showClientErrorAlert } from '@/lib/errorAlert';
 import { QuestionLatexRenderer } from '@/components/ui/QuestionLatexRenderer';
 import { FeaturePaywall } from '@/components/billing/FeaturePaywall';
+import { AddToDrillButton } from '@/components/flashcards/AddToDrillButton';
 import type { SessionResult, SessionResultAnswer, SessionInsightsResponse } from '@/features/exams/types/exams.types';
 import type { ExamAttemptSummary } from '@/features/exams/types/exams.types';
 import {
@@ -55,7 +56,7 @@ function isPendingReview(answer: SessionResultAnswer) {
   return answer.reviewStatus === 'PENDING_REVIEW';
 }
 
-function AnswerCard({ answer, index, sessionId, userTier }: { answer: SessionResultAnswer; index: number; sessionId: string; userTier: 'BASIC' | 'STANDARD' | 'PREMIUM' }) {
+function AnswerCard({ answer, index, sessionId, userTier, canAddToDrill }: { answer: SessionResultAnswer; index: number; sessionId: string; userTier: 'BASIC' | 'STANDARD' | 'PREMIUM'; canAddToDrill: boolean }) {
   const [expanded, setExpanded] = useState(false);
   const isPendingAnswer = isPendingReview(answer);
   const isEssayAnswer = answer.type === 'ESSAY';
@@ -238,6 +239,10 @@ function AnswerCard({ answer, index, sessionId, userTier }: { answer: SessionRes
               <p className="text-xs font-bold uppercase text-blue-500">Tutor Feedback</p>
               <p className="mt-1 text-sm font-medium text-blue-700 dark:text-blue-300">{answer.tutorFeedback}</p>
             </div>
+          )}
+
+          {canAddToDrill && !isEssayAnswer && !isPendingAnswer && (
+            <AddToDrillButton questionId={answer.questionId} />
           )}
         </div>
       )}
@@ -729,7 +734,7 @@ export default function ExamResultPage() {
           <h2 className="text-base font-black text-slate-900 dark:text-slate-100">Answer Review</h2>
           {result.answers.map((answer, i) => {
             if (!answer.studentAnswer || answer.studentAnswer.trim() === '') return null;
-            return <AnswerCard key={answer.questionId} answer={answer} index={i} sessionId={sessionId} userTier={result.ownerTier} />;
+            return <AnswerCard key={answer.questionId} answer={answer} index={i} sessionId={sessionId} userTier={result.ownerTier} canAddToDrill={!isParent} />;
           })}
         </div>
       )}

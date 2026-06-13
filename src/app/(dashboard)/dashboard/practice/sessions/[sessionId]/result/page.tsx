@@ -23,6 +23,7 @@ import { pathwaysService } from '@/features/pathways/services/pathways.service';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { QuestionLatexRenderer } from '@/components/ui/QuestionLatexRenderer';
 import { FeaturePaywall } from '@/components/billing/FeaturePaywall';
+import { AddToDrillButton } from '@/components/flashcards/AddToDrillButton';
 import { PlanCompletionWatcher } from '@/features/pathway-plans/components/PlanCompletionWatcher';
 import type { PracticeSessionDetail, PracticeResultAnswer } from '@/features/practice/types/practice.types';
 
@@ -242,6 +243,8 @@ function AnswerCard({ answer, index, userTier }: { answer: PracticeResultAnswer;
               <QuestionLatexRenderer text={answer.explanation} latexEnabled={answer.latexEnabled} fallbackClassName="whitespace-pre-wrap" />
             </div>
           )}
+
+          {!isEssay && <AddToDrillButton questionId={answer.questionId} />}
         </div>
       </div>
     </div>
