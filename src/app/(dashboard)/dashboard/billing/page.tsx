@@ -200,9 +200,10 @@ export default function BillingPage() {
     setError(null);
     try {
       const res = await billingService.createCheckout(tier);
-      window.location.assign(res.data.url);
+      window.open(res.data.url, '_blank', 'noopener,noreferrer');
     } catch (err) {
       setError(isAxiosError(err) ? err.response?.data?.message ?? 'Failed to start checkout' : 'Failed to start checkout');
+    } finally {
       setBusyTier(null);
     }
   };
@@ -212,9 +213,10 @@ export default function BillingPage() {
     setError(null);
     try {
       const res = await billingService.createPortal();
-      window.location.assign(res.data.url);
+      window.open(res.data.url, '_blank', 'noopener,noreferrer');
     } catch (err) {
       setError(isAxiosError(err) ? err.response?.data?.message ?? 'Failed to open billing portal' : 'Failed to open billing portal');
+    } finally {
       setBusyTier(null);
     }
   };
@@ -224,9 +226,10 @@ export default function BillingPage() {
     setError(null);
     try {
       const res = await billingService.parentCheckout(studentId, tier);
-      window.location.assign(res.data.url);
+      window.open(res.data.url, '_blank', 'noopener,noreferrer');
     } catch (err) {
       setError(isAxiosError(err) ? err.response?.data?.message ?? 'Failed to start checkout' : 'Failed to start checkout');
+    } finally {
       setBusyChild(null);
     }
   };
@@ -236,9 +239,10 @@ export default function BillingPage() {
     setError(null);
     try {
       const res = await billingService.parentPortal(studentId);
-      window.location.assign(res.data.url);
+      window.open(res.data.url, '_blank', 'noopener,noreferrer');
     } catch (err) {
       setError(isAxiosError(err) ? err.response?.data?.message ?? 'Failed to open billing portal' : 'Failed to open billing portal');
+    } finally {
       setBusyChild(null);
     }
   };
@@ -542,7 +546,7 @@ export default function BillingPage() {
                             type="button"
                             onClick={() => setTierPickerStudentId(null)}
                             disabled={isAnyBusy}
-                            className="inline-flex h-10 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 hover:bg-slate-100 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+                            className="inline-flex h-10 w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-600 hover:bg-slate-100 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
                           >
                             Cancel
                           </button>
