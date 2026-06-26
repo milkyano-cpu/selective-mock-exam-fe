@@ -18,7 +18,7 @@ export default function LoginPage() {
       <div className="relative z-20 mx-auto grid min-h-[100dvh] w-full max-w-[1440px] gap-8 px-6 lg:grid-cols-2 lg:gap-16 lg:px-12">
         
         {/* Left Visual Area (Desktop Only) */}
-        <div className="hidden min-h-[100dvh] flex-col justify-between pt-56 pb-32 lg:flex animate-in slide-in-from-left-8 duration-700 fade-in 2xl:-ml-20">
+        <div className="hidden min-h-[100dvh] flex-col justify-between pt-40 pb-32 lg:flex animate-in slide-in-from-left-8 duration-700 fade-in 2xl:-ml-20">
           <LoginHeroCopy />
           <LoginHeroStats />
         </div>
