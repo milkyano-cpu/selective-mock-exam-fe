@@ -121,10 +121,15 @@ function RelationSection({ label, emptyText, people }: { label: string; emptyTex
 
 /** Shared user-detail body, rendered inside the mobile sheet and desktop modal. */
 function UserDetailContent({
-  u, onClose,
+  u, isAdmin, currentUserId, onClose, onEdit, onStatus, onDelete,
 }: {
   u: UserItem;
+  isAdmin: boolean;
+  currentUserId?: string;
   onClose: () => void;
+  onEdit: (u: UserItem) => void;
+  onStatus: (u: UserItem) => void;
+  onDelete: (u: UserItem) => void;
 }) {
   const isStudent = u.role === 'STUDENT';
   const isParent = u.role === 'PARENT';
@@ -189,6 +194,38 @@ function UserDetailContent({
 
         {isStudent && <RelationSection label="Parents" emptyText="No linked parent" people={u.parents ?? []} />}
         {isParent && <RelationSection label="Students" emptyText="No linked student" people={u.children ?? []} />}
+
+        {/* Actions are only needed on mobile — the desktop table row already
+            exposes them; here they'd be redundant, so hide at sm and up. */}
+        {isAdmin && u.id !== currentUserId && (
+          <div className="space-y-2 pt-1 sm:hidden">
+            {(u.role === 'TUTOR' || u.role === 'ADMIN') && (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => onEdit(u)}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-[#0A9AE2]/30 py-2.5 text-sm font-bold text-[#0A9AE2] hover:bg-[#0A9AE2]/10"
+                >
+                  <Pencil size={14} />
+                  Edit
+                </button>
+                <button
+                  onClick={() => onStatus(u)}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-amber-200 py-2.5 text-sm font-bold text-amber-600 hover:bg-amber-50 dark:border-amber-500/30 dark:text-amber-400 dark:hover:bg-amber-500/10"
+                >
+                  <ShieldAlert size={14} />
+                  Status
+                </button>
+              </div>
+            )}
+            <button
+              onClick={() => onDelete(u)}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 py-2.5 text-sm font-bold text-red-600 hover:bg-red-50 dark:border-red-500/30 dark:text-red-400 dark:hover:bg-red-500/10"
+            >
+              <Trash2 size={14} />
+              Delete
+            </button>
+          </div>
+        )}
       </div>
     </>
   );
@@ -833,7 +870,12 @@ export default function ManageUsersPage() {
 
               <UserDetailContent
                 u={selectedUser}
+                isAdmin={isAdmin}
+                currentUserId={user?.id}
                 onClose={() => setSelectedUser(null)}
+                onEdit={openEditModal}
+                onStatus={openStatusModal}
+                onDelete={(u) => { setUserToDelete(u); setDeleteErrorMsg(null); setIsDeleteUserOpen(true); }}
               />
             </motion.div>
 
@@ -851,7 +893,12 @@ export default function ManageUsersPage() {
               >
                 <UserDetailContent
                   u={selectedUser}
+                  isAdmin={isAdmin}
+                  currentUserId={user?.id}
                   onClose={() => setSelectedUser(null)}
+                  onEdit={openEditModal}
+                  onStatus={openStatusModal}
+                  onDelete={(u) => { setUserToDelete(u); setDeleteErrorMsg(null); setIsDeleteUserOpen(true); }}
                 />
               </motion.div>
             </motion.div>
