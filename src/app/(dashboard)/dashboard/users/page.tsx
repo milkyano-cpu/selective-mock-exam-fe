@@ -7,11 +7,13 @@ import {
   type CreateStaffPayload,
   type UpdateUserPayload,
   type UserItem,
+  type RelatedUser,
 } from '@/features/admin/services/admin.service';
 import {
   UserPlus, Mail, Lock, Loader2, User,
   Search, ChevronLeft, ChevronRight, X, RefreshCw, Crown, Phone, Calendar, Clock,
   Trash2, Pencil, ShieldAlert, ShieldCheck, ShieldX, AlertTriangle, ChevronsLeft, ChevronsRight,
+  Eye, MapPin, School, GraduationCap, Users,
 } from 'lucide-react';
 
 type StaffStatus = 'ACTIVE' | 'SUSPENDED' | 'BANNED';
@@ -50,6 +52,147 @@ const TIER_STYLES = {
 };
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
+
+function formatGender(gender?: string | null) {
+  if (!gender) return null;
+  return gender.charAt(0).toUpperCase() + gender.slice(1).toLowerCase();
+}
+
+const ROLE_BADGE_STYLES: Record<string, string> = {
+  STUDENT: 'bg-[#0A9AE2]/10 text-[#0A9AE2] dark:bg-[#0A9AE2]/20',
+  PARENT:  'bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300',
+  TUTOR:   'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300',
+  ADMIN:   'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300',
+};
+
+function InfoCard({ icon: Icon, label, value, className }: {
+  icon: typeof User; label: string; value: React.ReactNode; className?: string;
+}) {
+  const empty = value === null || value === undefined || value === '';
+  return (
+    <div className={`rounded-xl border border-slate-100 bg-slate-50/60 p-3.5 dark:border-slate-800 dark:bg-slate-800/40 ${className ?? ''}`}>
+      <div className="flex items-center gap-2.5">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#0A9AE2]/10 text-[#0A9AE2]">
+          <Icon size={15} />
+        </span>
+        <div className="min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</p>
+          <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
+            {empty ? <span className="font-medium italic text-slate-400">Not provided</span> : value}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RelationSection({ label, emptyText, people }: { label: string; emptyText: string; people: RelatedUser[] }) {
+  return (
+    <div className="rounded-xl border border-slate-100 bg-slate-50/60 p-3.5 dark:border-slate-800 dark:bg-slate-800/40">
+      <div className="mb-2.5 flex items-center gap-2.5">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#0A9AE2]/10 text-[#0A9AE2]">
+          <Users size={15} />
+        </span>
+        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+          {label}
+          {people.length > 0 && <span className="ml-1 text-slate-300 dark:text-slate-600">({people.length})</span>}
+        </p>
+      </div>
+      {people.length === 0 ? (
+        <p className="text-sm font-medium italic text-slate-400">{emptyText}</p>
+      ) : (
+        <ul className="space-y-2">
+          {people.map((p) => (
+            <li key={p.id} className="flex items-center gap-3 rounded-lg border border-slate-100 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900/50">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#0A9AE2]/10 text-xs font-black text-[#0A9AE2]">
+                {p.fullName.charAt(0).toUpperCase()}
+              </span>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">{p.fullName}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{p.email}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/** Shared user-detail body, rendered inside the mobile sheet and desktop modal. */
+function UserDetailContent({
+  u, onClose,
+}: {
+  u: UserItem;
+  onClose: () => void;
+}) {
+  const isStudent = u.role === 'STUDENT';
+  const isParent = u.role === 'PARENT';
+  const fmtDate = (d: string) =>
+    new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+  return (
+    <>
+      {/* Header banner */}
+      <div className="relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-[#0A9AE2]/15 via-[#0A9AE2]/5 to-transparent dark:from-[#0A9AE2]/25 dark:via-[#0A9AE2]/5" />
+        <div className="relative flex items-start justify-between gap-3 p-5">
+          <div className="flex min-w-0 items-center gap-4">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-white text-2xl font-black text-[#0A9AE2] shadow-sm ring-2 ring-[#0A9AE2]/20 dark:bg-slate-800">
+              {u.photoUrl
+                ? <img src={u.photoUrl} alt={u.fullName} className="h-full w-full object-cover" />
+                : u.fullName.charAt(0).toUpperCase()}
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-lg font-black text-slate-900 dark:text-slate-100">{u.fullName}</p>
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-wide ${ROLE_BADGE_STYLES[u.role] ?? 'bg-slate-100 text-slate-500'}`}>
+                  {u.role}
+                </span>
+                <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-bold ${STATUS_STYLES[u.status] ?? 'bg-slate-100 text-slate-500'}`}>
+                  {u.status}
+                </span>
+                {isStudent && (
+                  <span className={`inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-[10px] font-bold ${TIER_STYLES[u.tier]}`}>
+                    {u.tier !== 'BASIC' && <Crown size={9} />}
+                    {u.tier}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="shrink-0 rounded-xl p-2 text-slate-500 transition-colors hover:bg-white/70 dark:hover:bg-slate-800/70"
+          >
+            <X size={18} />
+          </button>
+        </div>
+      </div>
+
+      {/* Details */}
+      <div className="space-y-3 p-5 pt-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <InfoCard icon={Mail} label="Email" value={u.email} className="sm:col-span-2" />
+          {/* Only Parents capture a phone number; hide the card when there's none. */}
+          {u.phoneNumber && <InfoCard icon={Phone} label="Phone" value={u.phoneNumber} className="sm:col-span-2" />}
+          {isStudent && (
+            <>
+              <InfoCard icon={User} label="Gender" value={formatGender(u.gender)} />
+              <InfoCard icon={GraduationCap} label="Year Level" value={u.yearLevel} />
+              <InfoCard icon={School} label="School" value={u.schoolName} className="sm:col-span-2" />
+            </>
+          )}
+          {isParent && <InfoCard icon={MapPin} label="Address" value={u.address} className="sm:col-span-2" />}
+          <InfoCard icon={Calendar} label="Joined" value={fmtDate(u.createdAt)} />
+          <InfoCard icon={Clock} label="Last Updated" value={fmtDate(u.updatedAt)} />
+        </div>
+
+        {isStudent && <RelationSection label="Parents" emptyText="No linked parent" people={u.parents ?? []} />}
+        {isParent && <RelationSection label="Students" emptyText="No linked student" people={u.children ?? []} />}
+      </div>
+    </>
+  );
+}
 
 export default function ManageUsersPage() {
   const user = useAuthStore((state) => state.user);
@@ -557,35 +700,44 @@ export default function ManageUsersPage() {
                       {new Date(u.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                     </td>
                     <td className="px-6 py-4 text-right">
-                      {isAdmin && u.id !== user?.id && (
                         <div className="inline-flex items-center gap-1">
-                          {(u.role === 'TUTOR' || u.role === 'ADMIN') && (
+                          <button
+                            onClick={() => setSelectedUser(u)}
+                            className="rounded-lg p-2 text-slate-400 hover:bg-[#0A9AE2]/10 hover:text-[#0A9AE2]"
+                            title="View details"
+                          >
+                            <Eye size={15} />
+                          </button>
+                          {isAdmin && u.id !== user?.id && (
                             <>
+                              {(u.role === 'TUTOR' || u.role === 'ADMIN') && (
+                                <>
+                                  <button
+                                    onClick={() => openEditModal(u)}
+                                    className="rounded-lg p-2 text-slate-400 hover:bg-[#0A9AE2]/10 hover:text-[#0A9AE2]"
+                                    title="Edit user"
+                                  >
+                                    <Pencil size={15} />
+                                  </button>
+                                  <button
+                                    onClick={() => openStatusModal(u)}
+                                    className="rounded-lg p-2 text-slate-400 hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-500/10"
+                                    title="Change status"
+                                  >
+                                    <ShieldAlert size={15} />
+                                  </button>
+                                </>
+                              )}
                               <button
-                                onClick={() => openEditModal(u)}
-                                className="rounded-lg p-2 text-slate-400 hover:bg-[#0A9AE2]/10 hover:text-[#0A9AE2]"
-                                title="Edit user"
+                                onClick={() => { setUserToDelete(u); setDeleteErrorMsg(null); setIsDeleteUserOpen(true); }}
+                                className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
+                                title="Delete user"
                               >
-                                <Pencil size={15} />
-                              </button>
-                              <button
-                                onClick={() => openStatusModal(u)}
-                                className="rounded-lg p-2 text-slate-400 hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-500/10"
-                                title="Change status"
-                              >
-                                <ShieldAlert size={15} />
+                                <Trash2 size={15} />
                               </button>
                             </>
                           )}
-                          <button
-                            onClick={() => { setUserToDelete(u); setDeleteErrorMsg(null); setIsDeleteUserOpen(true); }}
-                            className="rounded-lg p-2 text-slate-400 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-500/10"
-                            title="Delete user"
-                          >
-                            <Trash2 size={15} />
-                          </button>
                         </div>
-                      )}
                     </td>
                   </tr>
                 ));
@@ -657,10 +809,11 @@ export default function ManageUsersPage() {
         )}
       </div>
 
-      {/* User Detail Bottom Sheet (Mobile) */}
+      {/* User Detail view — bottom sheet on mobile, centered modal on desktop */}
       <AnimatePresence>
         {selectedUser && (
           <>
+            {/* Mobile bottom sheet */}
             <motion.div
               key="sheet-backdrop"
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -671,126 +824,36 @@ export default function ManageUsersPage() {
               key="sheet"
               initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
               transition={{ type: 'spring', bounce: 0, duration: 0.35 }}
-              className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl bg-white dark:bg-slate-900 shadow-2xl sm:hidden overflow-hidden"
+              className="fixed bottom-0 left-0 right-0 z-50 max-h-[88vh] overflow-y-auto scrollbar-hide rounded-t-3xl bg-white dark:bg-slate-900 shadow-2xl sm:hidden"
             >
               {/* Handle */}
               <div className="flex justify-center pt-3 pb-1">
                 <div className="w-10 h-1 rounded-full bg-slate-200 dark:bg-slate-700" />
               </div>
 
-              {/* Header */}
-              <div className="flex items-center justify-between px-5 pt-2 pb-4 border-b border-slate-100 dark:border-slate-800">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#0A9AE2]/10 font-black text-[#0A9AE2] text-lg overflow-hidden">
-                    {selectedUser.photoUrl
-                      ? <img src={selectedUser.photoUrl} alt={selectedUser.fullName} className="w-full h-full object-cover" />
-                      : selectedUser.fullName.charAt(0).toUpperCase()
-                    }
-                  </div>
-                  <div>
-                    <p className="font-black text-slate-900 dark:text-slate-100">{selectedUser.fullName}</p>
-                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400">{selectedUser.role}</p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setSelectedUser(null)}
-                  className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                >
-                  <X size={18} className="text-slate-500" />
-                </button>
-              </div>
+              <UserDetailContent
+                u={selectedUser}
+                onClose={() => setSelectedUser(null)}
+              />
+            </motion.div>
 
-              {/* Details */}
-              <div className="px-5 py-4 space-y-3 pb-8">
-                <div className="flex items-center gap-3 py-2.5 border-b border-slate-50 dark:border-slate-800">
-                  <Mail size={16} className="text-slate-400 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Email</p>
-                    <p className="text-sm font-medium text-slate-900 dark:text-slate-100 truncate">{selectedUser.email}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 py-2.5 border-b border-slate-50 dark:border-slate-800">
-                  <Phone size={16} className="text-slate-400 shrink-0" />
-                  <div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Phone</p>
-                    <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                      {selectedUser.phoneNumber ?? <span className="text-slate-400 italic">Not provided</span>}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 py-2.5 border-b border-slate-50 dark:border-slate-800">
-                  <User size={16} className="text-slate-400 shrink-0" />
-                  <div className="flex items-center gap-3">
-                    <div>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Status</p>
-                      <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-bold mt-0.5 ${STATUS_STYLES[selectedUser.status] ?? 'bg-slate-100 text-slate-500'}`}>
-                        {selectedUser.status}
-                      </span>
-                    </div>
-                    {selectedUser.role === 'STUDENT' && (
-                      <div className="ml-4">
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Tier</p>
-                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold mt-0.5 ${TIER_STYLES[selectedUser.tier]}`}>
-                          {selectedUser.tier !== 'BASIC' && <Crown size={11} />}
-                          {selectedUser.tier}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 py-2.5 border-b border-slate-50 dark:border-slate-800">
-                  <Calendar size={16} className="text-slate-400 shrink-0" />
-                  <div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Joined</p>
-                    <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                      {new Date(selectedUser.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3 py-2.5 border-b border-slate-50 dark:border-slate-800">
-                  <Clock size={16} className="text-slate-400 shrink-0" />
-                  <div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Last Updated</p>
-                    <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
-                      {new Date(selectedUser.updatedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}
-                    </p>
-                  </div>
-                </div>
-
-                {isAdmin && selectedUser.id !== user?.id && (
-                  <div className="mt-2 space-y-2">
-                    {(selectedUser.role === 'TUTOR' || selectedUser.role === 'ADMIN') && (
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => openEditModal(selectedUser)}
-                          className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-[#0A9AE2]/30 py-2.5 text-sm font-bold text-[#0A9AE2] hover:bg-[#0A9AE2]/10"
-                        >
-                          <Pencil size={14} />
-                          Edit
-                        </button>
-                        <button
-                          onClick={() => openStatusModal(selectedUser)}
-                          className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-amber-200 py-2.5 text-sm font-bold text-amber-600 hover:bg-amber-50 dark:border-amber-500/30 dark:text-amber-400 dark:hover:bg-amber-500/10"
-                        >
-                          <ShieldAlert size={14} />
-                          Status
-                        </button>
-                      </div>
-                    )}
-                    <button
-                      onClick={() => { setUserToDelete(selectedUser); setDeleteErrorMsg(null); setIsDeleteUserOpen(true); }}
-                      className="w-full flex items-center justify-center gap-2 rounded-xl border border-red-200 py-2.5 text-sm font-bold text-red-600 hover:bg-red-50 dark:border-red-500/30 dark:text-red-400 dark:hover:bg-red-500/10"
-                    >
-                      <Trash2 size={14} />
-                      Delete
-                    </button>
-                  </div>
-                )}
-              </div>
+            {/* Desktop centered modal */}
+            <motion.div
+              key="detail-desktop"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm sm:flex"
+              onClick={() => setSelectedUser(null)}
+            >
+              <motion.div
+                initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full max-w-lg max-h-[85vh] overflow-y-auto scrollbar-hide rounded-2xl border border-slate-200 bg-white shadow-2xl dark:border-slate-700 dark:bg-slate-900"
+              >
+                <UserDetailContent
+                  u={selectedUser}
+                  onClose={() => setSelectedUser(null)}
+                />
+              </motion.div>
             </motion.div>
           </>
         )}
