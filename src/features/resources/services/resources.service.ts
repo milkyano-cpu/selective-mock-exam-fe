@@ -13,6 +13,7 @@ export interface ListResourcesParams {
   limit?: number;
   type?: ResourceType;
   search?: string;
+  subjectId?: string;
 }
 
 export const resourceService = {

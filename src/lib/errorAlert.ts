@@ -327,6 +327,13 @@ export async function showApiWarningToast(): Promise<void> {
   await fireFeedbackToast(feedback, 'warning:partial');
 }
 
+export async function showClientSuccessToast(
+  description: string,
+  title = 'Success'
+): Promise<void> {
+  await fireFeedbackToast({ icon: 'success', title, description }, `client-success:${title}:${description}`);
+}
+
 export async function showClientErrorAlert(
   description: string,
   title = 'Something went wrong'

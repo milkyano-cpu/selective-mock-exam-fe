@@ -255,6 +255,8 @@ function isQuietBackgroundRequest(url: string | undefined): boolean {
     url?.includes('/heartbeat') ||
     url?.includes('/answers') ||
     url?.includes('/student-calendar/reminders/bulk') ||
+    // Nav badge poll — a failed badge fetch must never toast.
+    url?.includes('/flashcards/stats') ||
     (url?.includes('/resources/') && url?.includes('/stream-url'))
   );
 }
@@ -366,6 +368,27 @@ function hasInteractiveSuccess(url: string | undefined, method: string | undefin
   if (
     (normalizedMethod === 'POST' || normalizedMethod === 'PATCH' || normalizedMethod === 'DELETE') &&
     Boolean(url?.includes('/flashcards'))
+  ) {
+    return false;
+  }
+  // These forum actions fire their own specific success toast from the UI
+  // ("Thread posted", "Reply posted", "Post reported", incl. the under-review and
+  // already-reported variants), so skip the generic "Saved successfully" toast
+  // here to avoid a duplicate / vague message.
+  if (
+    normalizedMethod === 'POST' &&
+    (url === '/forum/threads' ||
+      Boolean(url?.match(/\/forum\/threads\/[^/]+\/posts$/)) ||
+      Boolean(url?.match(/\/forum\/posts\/[^/]+\/flag$/)) ||
+      Boolean(url?.match(/\/forum\/admin\/users\/[^/]+\/warn$/)))
+  ) {
+    return false;
+  }
+  // Forum moderation decisions need action-specific copy ("Post hidden",
+  // "Post removed", etc.), so the moderation page owns the success toast.
+  if (
+    normalizedMethod === 'PATCH' &&
+    Boolean(url?.match(/\/forum\/admin\/flags\/[^/]+$/))
   ) {
     return false;
   }

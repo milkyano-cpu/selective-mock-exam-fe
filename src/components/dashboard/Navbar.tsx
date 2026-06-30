@@ -13,6 +13,7 @@ import { GlobalSearch } from './GlobalSearch';
 import { useProfilePhoto } from '@/features/users/hooks/useProfilePhoto';
 import { useNotificationStore } from '@/features/notifications/store/notification.store';
 import { notificationService } from '@/features/notifications/services/notification.service';
+import { useFlashcardsDueCount } from '@/features/flashcards/hooks/useFlashcardsDueCount';
 import { studentMenuItems, parentMenuItems } from '@/constants/navigation';
 
 function timeAgo(dateStr: string): string {
@@ -454,6 +455,7 @@ export const Navbar = ({ onMenuClick }: NavbarProps) => {
 function StudentDesktopNav({ menuItems, pathname }: { menuItems: typeof studentMenuItems | typeof parentMenuItems; pathname: string }) {
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
+  const flashcardsDueCount = useFlashcardsDueCount();
 
   const showMore = menuItems.length > 5;
   const primaryItems = showMore ? menuItems.slice(0, 4) : menuItems;
@@ -565,6 +567,11 @@ function StudentDesktopNav({ menuItems, pathname }: { menuItems: typeof studentM
                   >
                     <item.icon size={18} strokeWidth={active ? 2.2 : 1.8} className={active ? 'text-[#0A9AE2]' : 'text-slate-400 dark:text-slate-500'} />
                     {item.label}
+                    {item.href === '/dashboard/flashcards' && flashcardsDueCount > 0 && (
+                      <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-black text-white">
+                        {flashcardsDueCount}
+                      </span>
+                    )}
                   </Link>
                 );
               })}

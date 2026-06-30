@@ -5,10 +5,16 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { isAxiosError } from 'axios';
 import { forumService } from '@/features/forum/services/forum.service';
+import { showClientSuccessToast } from '@/lib/errorAlert';
 import type { ForumSegment } from '@/features/forum/types/forum.types';
 import { useAuthStore } from '@/features/auth/store/auth.store';
 import { canWriteForum } from '@/features/membership/access';
-import { ArrowLeft, EyeOff, Send, Loader2, AlertCircle, Info, LockKeyhole } from 'lucide-react';
+import { ArrowLeft, EyeOff, Send, Loader2, AlertCircle, Info, LockKeyhole, ShieldOff } from 'lucide-react';
+
+// Mirror the backend validation (createThreadBodySchema) so users get clear,
+// immediate feedback instead of a redacted 400.
+const TITLE_MIN = 5;
+const CONTENT_MIN = 10;
 
 export default function NewThreadPage() {
   const router = useRouter();
@@ -22,9 +28,12 @@ export default function NewThreadPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const titleOk = title.trim().length >= TITLE_MIN;
+  const contentOk = content.trim().length >= CONTENT_MIN;
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !content.trim()) return;
+    if (!titleOk || !contentOk) return;
     setIsSubmitting(true);
     setError(null);
     try {
@@ -34,6 +43,12 @@ export default function NewThreadPage() {
         isAnonymous,
       });
       if (res.success && res.data) {
+        void showClientSuccessToast(
+          res.data.underReview
+            ? 'It will be visible once a moderator approves it.'
+            : 'Your thread is now live in the forum.',
+          res.data.underReview ? 'Thread submitted for review' : 'Thread posted',
+        );
         router.push(`/dashboard/forum/${res.data.id}`);
       }
     } catch (err) {
@@ -47,15 +62,22 @@ export default function NewThreadPage() {
     }
   };
 
-  if (user?.role === 'STUDENT' && !canWriteForum(user)) {
+  const canForumWrite = canWriteForum(user);
+  const isForumBanned = Boolean(user?.isForumBanned) && user?.role !== 'ADMIN' && user?.role !== 'TUTOR';
+
+  if ((user?.role === 'STUDENT' || user?.role === 'PARENT') && !canForumWrite) {
     return (
       <div className="mx-auto flex min-h-[55vh] max-w-xl flex-col items-center justify-center px-4 text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100 text-slate-500 dark:bg-slate-900 dark:text-slate-300">
-          <LockKeyhole size={28} />
+        <div className={`flex h-16 w-16 items-center justify-center rounded-2xl ${isForumBanned ? 'bg-red-100 text-red-600 dark:bg-red-500/10 dark:text-red-400' : 'bg-slate-100 text-slate-500 dark:bg-slate-900 dark:text-slate-300'}`}>
+          {isForumBanned ? <ShieldOff size={28} /> : <LockKeyhole size={28} />}
         </div>
-        <h1 className="mt-5 text-2xl font-black text-slate-950 dark:text-white">Forum is read-only on Basic</h1>
+        <h1 className="mt-5 text-2xl font-black text-slate-950 dark:text-white">
+          {isForumBanned ? 'Forum access suspended' : 'Forum is read-only'}
+        </h1>
         <p className="mt-3 text-sm font-medium leading-6 text-slate-500 dark:text-slate-400">
-          You can still read discussions. Ask your parent to upgrade your plan to start threads and comment.
+          {isForumBanned
+            ? 'Your access to the forum has been suspended due to repeated violations.'
+            : 'You can still read discussions. Ask your parent to upgrade your plan to start threads and comment.'}
         </p>
         <div className="mt-6 flex gap-3">
           <Link href="/dashboard/forum" className="rounded-2xl border border-slate-200 px-5 py-3 text-sm font-black text-slate-600 dark:border-slate-700 dark:text-slate-300">
@@ -100,7 +122,12 @@ export default function NewThreadPage() {
             required
             className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-900 placeholder-slate-400 focus:border-[#0A9AE2] focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           />
-          <p className="mt-1 text-right text-xs text-slate-400">{title.length}/200</p>
+          <div className="mt-1 flex items-center justify-between text-xs">
+            <span className="font-medium text-red-500">
+              {title.trim().length > 0 && !titleOk ? `Title must be at least ${TITLE_MIN} characters` : ''}
+            </span>
+            <span className="text-slate-400">{title.length}/200</span>
+          </div>
         </div>
 
         <div>
@@ -116,7 +143,12 @@ export default function NewThreadPage() {
             required
             className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-900 placeholder-slate-400 focus:border-[#0A9AE2] focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
           />
-          <p className="mt-1 text-right text-xs text-slate-400">{content.length}/5000</p>
+          <div className="mt-1 flex items-center justify-between text-xs">
+            <span className="font-medium text-red-500">
+              {content.trim().length > 0 && !contentOk ? `Content must be at least ${CONTENT_MIN} characters` : ''}
+            </span>
+            <span className="text-slate-400">{content.length}/5000</span>
+          </div>
         </div>
 
         <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 dark:border-slate-700">
@@ -149,7 +181,7 @@ export default function NewThreadPage() {
           </Link>
           <button
             type="submit"
-            disabled={isSubmitting || !title.trim() || !content.trim()}
+            disabled={isSubmitting || !titleOk || !contentOk}
             className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#FF6900] px-4 py-3 text-sm font-bold text-white shadow-lg shadow-orange-200 disabled:opacity-50 dark:shadow-none"
           >
             {isSubmitting ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}

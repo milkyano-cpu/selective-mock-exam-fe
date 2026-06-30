@@ -1,12 +1,14 @@
 export type ForumSegment = 'STUDENT' | 'PARENT';
-export type ForumStatus = 'ACTIVE' | 'FLAGGED' | 'UNDER_REVIEW' | 'REJECTED';
+export type ForumStatus = 'ACTIVE' | 'FLAGGED' | 'UNDER_REVIEW' | 'REJECTED' | 'HIDDEN' | 'REMOVED';
 export type FlagReason = 'INAPPROPRIATE' | 'SPAM' | 'OFF_TOPIC' | 'MISINFORMATION' | 'OTHER';
 export type FlagStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
-export type WarningLevel = 'WARNING' | 'SUSPEND';
+export type WarningLevel = 'MINOR' | 'MAJOR' | 'BAN';
 
 export interface ForumAuthor {
   id: string;
   name: string | null;
+  /** Real name behind an anonymous post — only present for ADMIN/TUTOR viewers. */
+  realName?: string;
 }
 
 export interface ForumThread {
@@ -21,6 +23,9 @@ export interface ForumThread {
   lastPostAt: string | null;
   status: ForumStatus;
   createdAt: string;
+  // Present only on the create-thread response: true when the post was auto-sent
+  // to moderation (banned word) and isn't publicly visible yet.
+  underReview?: boolean;
 }
 
 export interface ForumPost {
@@ -37,6 +42,8 @@ export interface ForumPost {
 
 export interface ForumThreadDetail extends ForumThread {
   posts: ForumPost[];
+  /** True when the opening post is hidden/removed from the current viewer. */
+  openingPostRemoved?: boolean;
   meta: PaginationMeta;
 }
 
@@ -44,6 +51,9 @@ export interface ForumFlag {
   id: string;
   postId: string;
   postContent: string;
+  /** Flagged post's real author (revealed to ADMIN/TUTOR), null if unavailable. */
+  author: ForumAuthor | null;
+  isAnonymous: boolean;
   reporter: ForumAuthor;
   reason: FlagReason;
   note: string | null;
@@ -57,6 +67,22 @@ export interface ForumWarning {
   admin: ForumAuthor;
   level: WarningLevel;
   reason: string;
+  /** Total MINOR warnings currently recorded for this user. */
+  minorCount: number;
+  /** Total MAJOR warnings currently recorded for this user. */
+  majorCount: number;
+  /** Current forum-ban state of the warned user. */
+  isForumBanned: boolean;
+  createdAt: string;
+}
+
+export interface ModeratedPost {
+  id: string;
+  content: string;
+  author: ForumAuthor | null;
+  status: 'HIDDEN' | 'REMOVED';
+  threadId: string;
+  threadTitle: string;
   createdAt: string;
 }
 
@@ -92,7 +118,7 @@ export interface FlagPostPayload {
 }
 
 export interface AdminReviewFlagPayload {
-  action: 'APPROVE' | 'REJECT';
+  action: 'APPROVE' | 'REJECT' | 'HIDE' | 'REMOVE';
 }
 
 export interface AdminWarnUserPayload {

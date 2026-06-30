@@ -10,7 +10,7 @@ import {
 import { useNotificationStore } from '@/features/notifications/store/notification.store';
 import {
   Bell, CheckCheck, ChevronLeft, ChevronRight, FileQuestion,
-  Filter, MessageSquare, Map, ClipboardList,
+  Filter, MessageSquare, Map, ClipboardList, ShieldOff,
 } from 'lucide-react';
 import { AccessDeniedScreen } from '@/components/feedback/AccessDeniedScreen';
 
@@ -184,7 +184,7 @@ export default function NotificationsPage() {
                     ? 'bg-amber-100 text-amber-600 dark:bg-amber-500/10 dark:text-amber-400'
                     : n.type === 'FORUM_REPLY'
                       ? 'bg-violet-100 text-violet-600 dark:bg-violet-500/10 dark:text-violet-400'
-                      : n.type === 'PATHWAY_OVERDUE'
+                      : n.type === 'PATHWAY_OVERDUE' || n.type === 'FORUM_WARNING'
                         ? 'bg-red-100 text-red-600 dark:bg-red-500/10 dark:text-red-400'
                         : n.type.startsWith('PATHWAY_')
                           ? 'bg-[#0A9AE2]/10 text-[#0A9AE2]'
@@ -193,6 +193,7 @@ export default function NotificationsPage() {
                           : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
                 }`}>
                   {n.type === 'QUESTION_PENDING_APPROVAL' ? <FileQuestion size={20} />
+                    : n.type === 'FORUM_WARNING' ? <ShieldOff size={20} />
                     : n.type === 'FORUM_REPLY' ? <MessageSquare size={20} />
                     : n.type.startsWith('PATHWAY_') ? <Map size={20} />
                     : n.type === 'PRACTICE_ASSIGNED' ? <ClipboardList size={20} />

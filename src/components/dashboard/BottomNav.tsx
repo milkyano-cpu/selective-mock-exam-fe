@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuthStore } from '@/features/auth/store/auth.store';
+import { useFlashcardsDueCount } from '@/features/flashcards/hooks/useFlashcardsDueCount';
 import { studentMenuItems, parentMenuItems, adminMenuItems, tutorMenuItems } from '@/constants/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, MoreHorizontal, X } from 'lucide-react';
@@ -11,6 +12,7 @@ import { ChevronLeft, MoreHorizontal, X } from 'lucide-react';
 export const BottomNav = () => {
   const pathname = usePathname();
   const user = useAuthStore((state) => state.user);
+  const flashcardsDueCount = useFlashcardsDueCount();
   const [isMoreOpen, setIsMoreOpen] = useState(false);
 
   let menuItems = studentMenuItems;
@@ -94,6 +96,11 @@ export const BottomNav = () => {
                     >
                       <item.icon size={18} strokeWidth={active ? 2.2 : 1.8} className={active ? 'text-[#0A9AE2]' : 'text-slate-400 dark:text-slate-500'} />
                       {item.label}
+                      {item.href === '/dashboard/flashcards' && flashcardsDueCount > 0 && (
+                        <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-black text-white">
+                          {flashcardsDueCount}
+                        </span>
+                      )}
                     </Link>
                   );
                 })}

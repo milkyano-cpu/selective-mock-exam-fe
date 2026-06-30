@@ -9,7 +9,6 @@ import {
   Users,
   TrendingUp,
   CreditCard,
-  DollarSign,
   LibraryBig,
   Bell,
   Megaphone,
@@ -87,12 +86,6 @@ export const adminMenuGroups = [
       { icon: Bell, label: 'Notifications', href: '/dashboard/notifications' },
     ],
   },
-  {
-    group: 'Finance',
-    items: [
-      { icon: DollarSign, label: 'Revenue', href: '/dashboard/billing' },
-    ],
-  },
 ];
 
 export const adminMenuItems = adminMenuGroups.flatMap((g) => g.items);
@@ -123,6 +116,12 @@ export const tutorMenuGroups = [
       { icon: Map, label: 'Pathways', href: '/dashboard/pathways' },
       { icon: ClipboardList, label: 'Practice', href: '/dashboard/practice/assignments' },
       { icon: TrendingUp, label: 'Analytics', href: '/dashboard/performance' },
+    ],
+  },
+  {
+    group: 'Community',
+    items: [
+      { icon: MessageSquare, label: 'Forum', href: '/dashboard/forum' },
     ],
   },
 ];

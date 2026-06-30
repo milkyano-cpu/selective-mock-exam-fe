@@ -6,6 +6,7 @@ import type {
   ForumFlag,
   ForumWarning,
   ForumBannedWord,
+  ModeratedPost,
   PaginationMeta,
   CreateThreadPayload,
   CreatePostPayload,
@@ -48,17 +49,25 @@ export const forumService = {
   },
 
   createPost(threadId: string, payload: CreatePostPayload) {
-    return mdwClient.post<ApiResponse<unknown>>(`/forum/threads/${threadId}/posts`, payload)
+    return mdwClient.post<ApiResponse<{ id: string; underReview?: boolean }>>(`/forum/threads/${threadId}/posts`, payload)
       .then((r) => r.data);
+  },
+
+  editPost(postId: string, content: string) {
+    return mdwClient.patch(`/forum/posts/${postId}`, { content }).then((r) => r.data);
   },
 
   deletePost(postId: string) {
-    return mdwClient.delete(`/forum/posts/${postId}`).then((r) => r.data);
+    return mdwClient.delete<{ success: boolean; threadDeleted?: boolean }>(`/forum/posts/${postId}`)
+      .then((r) => r.data);
   },
 
   flagPost(postId: string, payload: FlagPostPayload) {
-    return mdwClient.post<ApiResponse<unknown>>(`/forum/posts/${postId}/flag`, payload)
-      .then((r) => r.data);
+    // Flagging is idempotent on the backend: a duplicate report returns 200 with
+    // alreadyReported=true (not a 409), so the modal can show a clear message.
+    return mdwClient.post<{ success: boolean; message?: string; alreadyReported?: boolean }>(
+      `/forum/posts/${postId}/flag`, payload,
+    ).then((r) => r.data);
   },
 
   // ── Admin ─────────────────────────────────────────────────────────────────
@@ -79,6 +88,26 @@ export const forumService = {
       .then((r) => r.data);
   },
 
+  adminHidePost(postId: string, isHidden: boolean) {
+    return mdwClient.patch<ApiResponse<unknown>>(`/forum/admin/posts/${postId}/hide`, { isHidden })
+      .then((r) => r.data);
+  },
+
+  adminRemovePost(postId: string) {
+    return mdwClient.patch<ApiResponse<unknown>>(`/forum/admin/posts/${postId}/remove`)
+      .then((r) => r.data);
+  },
+
+  listModeratedPosts() {
+    return mdwClient.get<ApiResponse<ModeratedPost[]>>('/forum/admin/posts/moderated')
+      .then((r) => r.data);
+  },
+
+  restorePost(postId: string) {
+    return mdwClient.patch<ApiResponse<unknown>>(`/forum/admin/posts/${postId}/restore`)
+      .then((r) => r.data);
+  },
+
   adminWarnUser(userId: string, payload: AdminWarnUserPayload) {
     return mdwClient.post<ApiResponse<unknown>>(`/forum/admin/users/${userId}/warn`, payload)
       .then((r) => r.data);
@@ -88,6 +117,14 @@ export const forumService = {
     return mdwClient.get<ApiListResponse<ForumWarning>>('/forum/admin/warnings', {
       params: { userId, page, limit },
     }).then((r) => r.data);
+  },
+
+  liftForumBan(userId: string) {
+    return mdwClient.delete(`/forum/admin/users/${userId}/ban`).then((r) => r.data);
+  },
+
+  deleteWarning(warningId: string) {
+    return mdwClient.delete(`/forum/admin/warnings/${warningId}`).then((r) => r.data);
   },
 
   adminPinThread(threadId: string, isPinned: boolean) {

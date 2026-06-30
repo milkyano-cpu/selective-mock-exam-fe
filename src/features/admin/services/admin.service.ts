@@ -13,6 +13,13 @@ export interface UpdateUserPayload {
   phoneNumber?: string | null;
 }
 
+/** A linked account (parent or student) shown in a user's relations list. */
+export interface RelatedUser {
+  id: string;
+  fullName: string;
+  email: string;
+}
+
 export interface UserItem {
   id: string;
   email: string;
@@ -22,6 +29,15 @@ export interface UserItem {
   tier: 'BASIC' | 'STANDARD' | 'PREMIUM';
   phoneNumber: string | null;
   photoUrl: string | null;
+  // Student profile fields (present on the STUDENT tab).
+  gender?: 'MALE' | 'FEMALE' | null;
+  yearLevel?: string | null;
+  schoolName?: string | null;
+  // Parent profile field (present on the PARENT tab).
+  address?: string | null;
+  // Linked accounts: students carry `parents`, parents carry `children`.
+  parents?: RelatedUser[];
+  children?: RelatedUser[];
   createdAt: string;
   updatedAt: string;
 }
