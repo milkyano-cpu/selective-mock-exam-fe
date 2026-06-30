@@ -180,20 +180,20 @@ function UserDetailContent({
           <InfoCard icon={Mail} label="Email" value={u.email} className="sm:col-span-2" />
           {/* Only Parents capture a phone number; hide the card when there's none. */}
           {u.phoneNumber && <InfoCard icon={Phone} label="Phone" value={u.phoneNumber} className="sm:col-span-2" />}
-          {isStudent && (
+          {isStudent && isAdmin && (
             <>
               <InfoCard icon={User} label="Gender" value={formatGender(u.gender)} />
               <InfoCard icon={GraduationCap} label="Year Level" value={u.yearLevel} />
               <InfoCard icon={School} label="School" value={u.schoolName} className="sm:col-span-2" />
             </>
           )}
-          {isParent && <InfoCard icon={MapPin} label="Address" value={u.address} className="sm:col-span-2" />}
+          {isParent && isAdmin && <InfoCard icon={MapPin} label="Address" value={u.address} className="sm:col-span-2" />}
           <InfoCard icon={Calendar} label="Joined" value={fmtDate(u.createdAt)} />
           <InfoCard icon={Clock} label="Last Updated" value={fmtDate(u.updatedAt)} />
         </div>
 
-        {isStudent && <RelationSection label="Parents" emptyText="No linked parent" people={u.parents ?? []} />}
-        {isParent && <RelationSection label="Students" emptyText="No linked student" people={u.children ?? []} />}
+        {isStudent && isAdmin && <RelationSection label="Parents" emptyText="No linked parent" people={u.parents ?? []} />}
+        {isParent && isAdmin && <RelationSection label="Students" emptyText="No linked student" people={u.children ?? []} />}
 
         {/* Actions are only needed on mobile — the desktop table row already
             exposes them; here they'd be redundant, so hide at sm and up. */}
@@ -638,8 +638,9 @@ export default function ManageUsersPage() {
             users.map((u) => (
               <button
                 key={u.id}
-                onClick={() => setSelectedUser(u)}
-                className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40 active:bg-slate-100 dark:active:bg-slate-800 transition-colors"
+                onClick={isAdmin ? () => setSelectedUser(u) : undefined}
+                disabled={!isAdmin}
+                className={`w-full flex items-center gap-3 px-4 py-3.5 text-left transition-colors ${isAdmin ? 'hover:bg-slate-50 dark:hover:bg-slate-800/40 active:bg-slate-100 dark:active:bg-slate-800' : 'cursor-default'}`}
               >
                 <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#0A9AE2]/10 font-black text-[#0A9AE2] text-sm overflow-hidden">
                   {u.photoUrl
@@ -682,12 +683,15 @@ export default function ManageUsersPage() {
                 )}
                 <th className="px-6 py-3.5 text-left text-xs font-black text-slate-500 uppercase tracking-wider">Status</th>
                 <th className="px-6 py-3.5 text-left text-xs font-black text-slate-500 uppercase tracking-wider">Joined</th>
-                <th className="px-6 py-3.5 text-right text-xs font-black text-slate-500 uppercase tracking-wider">Actions</th>
+                {isAdmin && (
+                  <th className="px-6 py-3.5 text-right text-xs font-black text-slate-500 uppercase tracking-wider">Actions</th>
+                )}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {(() => {
-                const colCount = activeTab === 'STUDENT' ? 6 : 5;
+                // Name + Email (+ Tier for students) + Status + Joined (+ Actions for admins).
+                const colCount = 4 + (activeTab === 'STUDENT' ? 1 : 0) + (isAdmin ? 1 : 0);
                 if (isLoading) return Array.from({ length: 5 }).map((_, i) => (
                   <tr key={i}>
                     {Array.from({ length: colCount }).map((__, j) => (
@@ -736,7 +740,8 @@ export default function ManageUsersPage() {
                     <td className="px-6 py-4 text-slate-500 dark:text-slate-400 text-xs">
                       {new Date(u.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                     </td>
-                    <td className="px-6 py-4 text-right">
+                    {isAdmin && (
+                      <td className="px-6 py-4 text-right">
                         <div className="inline-flex items-center gap-1">
                           <button
                             onClick={() => setSelectedUser(u)}
@@ -745,7 +750,7 @@ export default function ManageUsersPage() {
                           >
                             <Eye size={15} />
                           </button>
-                          {isAdmin && u.id !== user?.id && (
+                          {u.id !== user?.id && (
                             <>
                               {(u.role === 'TUTOR' || u.role === 'ADMIN') && (
                                 <>
@@ -775,7 +780,8 @@ export default function ManageUsersPage() {
                             </>
                           )}
                         </div>
-                    </td>
+                      </td>
+                    )}
                   </tr>
                 ));
               })()}
